@@ -52,12 +52,31 @@ body::before {
 .bg-bubbles span:nth-child(7) { left: 87%; width: 10px; height: 10px; animation-duration: 9s;  animation-delay: 4s; }
 .bg-bubbles span:nth-child(8) { left: 95%; width: 16px; height: 16px; animation-duration: 16s; animation-delay: 9s; }
 
+/* ===================== Hintergrund-Logo-Icons (Alternative zu Bubbles) ===================== */
+.bg-bubbles.bg-style-logo span {
+  border-radius: 0;
+  background: none;
+  background-image: var(--bg-icon-image);
+  background-size: contain;
+  background-repeat: no-repeat;
+  opacity: 0;
+}
+
 @keyframes bubbleRise {
   0%   { transform: translateY(0) scale(0.8); opacity: 0; }
   8%   { opacity: 0.45; }
   92%  { opacity: 0.35; }
   100% { transform: translateY(-105vh) scale(1.2); opacity: 0; }
 }
+
+@keyframes bubbleRiseLogo {
+  0%   { transform: translateY(0) rotate(0deg) scale(0.8); opacity: 0; }
+  8%   { opacity: 0.55; }
+  92%  { opacity: 0.4; }
+  100% { transform: translateY(-105vh) rotate(220deg) scale(1.2); opacity: 0; }
+}
+
+.bg-bubbles.bg-style-logo span { animation-name: bubbleRiseLogo; }
 
 @media (prefers-reduced-motion: reduce) {
   .bg-bubbles span { animation: none !important; opacity: 0.2 !important; }
@@ -83,6 +102,20 @@ body::before {
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.8);
   padding: 2.5rem;
   box-sizing: border-box;
+}
+
+.site-banner {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  border-radius: 1rem;
+  margin-bottom: 1.25rem;
+  object-fit: cover;
+}
+
+@media (max-width: 767.98px) {
+  .site-banner { display: none; }
 }
 
 .badge-pill {

@@ -9,6 +9,7 @@
         :root {
             --app-bg: {{ current_theme.gradient }}{% if current_theme.background_image %}, url("{{ url_for('static', filename='backgrounds/' + current_theme.background_image) }}") center/cover no-repeat fixed{% endif %};
             --bubble-color: {{ current_theme.accent }}2E;
+            --bg-icon-image: url("{{ url_for('static', filename='padel_ball.png') }}");
         }
         .badge-pill {
             background: {{ current_theme.accent }}14;
@@ -20,15 +21,16 @@
     </style>
 </head>
 <body>
-    <div class="bg-bubbles" aria-hidden="true">
+    <div class="bg-bubbles {% if current_bg_style == 'logo' %}bg-style-logo{% endif %}" aria-hidden="true">
         <span></span><span></span><span></span><span></span>
         <span></span><span></span><span></span><span></span>
     </div>
 
     <div class="page-shell">
         <div class="card-root">
+            <img src="{{ url_for('static', filename='Logo_II_Banner.png') }}" alt="Matchtreff Padel Banner" class="site-banner">
             <div style="display:flex; align-items:center; gap:0.75rem; margin-bottom:0.75rem; flex-wrap:wrap;">
-                <img src="{{ url_for('static', filename='Logo_I_Matchtreff.png') }}" alt="Matchtreff Padel Logo" style="height:48px; width:auto;">
+                <img src="{{ url_for('static', filename='Logo_I_Matchtreff.png') }}" alt="Matchtreff Padel Logo" style="height:64px; width:auto;">
                 <span class="badge-pill" style="margin-bottom:0;">Padel Matchtreff</span>
             </div>
             {% with messages = get_flashed_messages(with_categories=true) %}

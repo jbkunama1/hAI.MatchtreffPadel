@@ -185,6 +185,39 @@ export ADMIN_TELEGRAM_IDS="123456789,987654321"
 python telegram_bot.py
 ```
 
+## Banner oben und groesseres Logo
+
+Oben auf der Seite wird jetzt das Banner (`static/Logo_II_Banner.png`) angezeigt, allerdings nur auf Bildschirmen ab Tablet-Groesse (ab 768px Breite) - auf schmalen Handy-Bildschirmen wird es automatisch ausgeblendet, damit die Seite dort nicht ueberladen wirkt und die eigentlichen Anmelde-Inhalte im Vordergrund bleiben. Das kleine Logo (`Logo_I_Matchtreff.png`) neben dem Titel wurde zusaetzlich von 48px auf 64px Hoehe vergroessert.
+
+## Umbenennung: Slot A/B zu Zeitraum FRUEH/SPAET
+
+Die Slot-Bezeichnungen wurden von "Slot A" / "Slot B" auf "Zeitraum FRUEH" (18:00-20:00 Uhr) und "Zeitraum SPAET" (20:00-22:00 Uhr) umbenannt. Die internen Datenbank-Schluessel (`slot_a`, `slot_b`) bleiben unveraendert, sodass bestehende Anmeldungen und der Telegram-Bot (inkl. der Kurzbefehle `a`/`b`/`18`/`20`) weiterhin funktionieren - nur die sichtbaren Bezeichnungen in Web-App und Telegram-Bot wurden geaendert.
+
+## Dark Mode als Standard + Padel-Ball-Hintergrund-Effekt
+
+Die App startet jetzt standardmaessig im dunklen Design (Theme "Night"), statt im hellen Standard-Design. Zusaetzlich gibt es im Admin-Dashboard unter "Schwebe-Effekt im Hintergrund" einen Umschalter zwischen den bisherigen farbigen Blasen und Padel-Ball-Icons (`static/padel_ball.png`), die sich exakt gleich verhalten (gleiche Animation, Positionen, Geschwindigkeit), aber statt Kreisen dein Padel-Ball-Icon nach oben schweben und dabei leicht rotieren lassen. Beide Einstellungen (Design-Theme und Hintergrund-Effekt) werden in der Datenbank gespeichert und gelten fuer alle Besucher der Seite, bis ein Admin sie erneut aendert.
+
+## Troubleshooting: Umgebungsvariablen aus Portainer werden ignoriert
+
+Falls du im Portainer Stack-Editor z.B. `TELEGRAM_BOT_TOKEN` gesetzt hast, der Bot aber trotzdem mit `change-me` startet: Das liegt daran, dass in `docker-compose.yml` frueher feste Platzhalterwerte wie `TELEGRAM_BOT_TOKEN=change-me` standen, die deine echten Werte ueberschrieben haben. Das ist jetzt behoben - die Compose-Datei nutzt jetzt `${VARIABLE_NAME}`-Platzhalter, die automatisch durch die Environment-Variablen ersetzt werden, die du im Portainer Stack-Editor unter "Environment variables" einträgst.
+
+Wichtig beim Eintragen im Stack-Editor:
+
+- `TELEGRAM_BOT_TOKEN` = dein Bot-Token von @BotFather (Format `123456789:AAxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`)
+- `ADMIN_TELEGRAM_IDS` = deine numerische Telegram-User-ID (z.B. von @userinfobot), bei mehreren Admins kommagetrennt
+- Alle `ADMIN_PASSWORD_*`-Variablen und `SECRET_KEY` mit echten, sicheren Werten fuellen - niemals `change-me` stehen lassen
+
+Nach dem Setzen der Variablen den Stack in Portainer neu deployen, damit die Container mit den echten Werten neu starten.
+
+## Troubleshooting: Gunicorn WORKER TIMEOUT
+
+Falls im Container-Log `[CRITICAL] WORKER TIMEOUT` auftaucht, war meist ein einzelner Sync-Worker mit SQLite blockiert (z. B. durch parallele Zugriffe von Web-App und Telegram-Bot auf dieselbe Datenbankdatei). Das Projekt ist bereits entsprechend konfiguriert:
+
+- SQLite laeuft im **WAL-Modus** (`PRAGMA journal_mode = WAL`) mit `busy_timeout`, damit parallele Lese-/Schreibzugriffe von Web-App und Bot sich nicht gegenseitig blockieren.
+- Gunicorn startet mit **mehreren Workern/Threads** (`--workers 2 --threads 4 --worker-class gthread`) und einem hoeheren Timeout (`--timeout 60`), damit ein einzelner haengenger Request nicht den ganzen Prozess lahmlegt.
+
+Falls das Problem weiterhin auftritt: pruefen, ob das `instance/`-Volume korrekt gemountet ist und ob Web-App und Bot wirklich dieselbe Datenbankdatei ueber das gemeinsame Docker-Volume `matchtreff_data` teilen.
+
 ## Deployment via Portainer (Git-basiert)
 
 Der komplette Stack (Web-App + Telegram-Bot) laesst sich in Portainer direkt aus diesem GitHub-Repository bereitstellen - ohne manuellen Datei-Upload, inklusive automatischer Updates bei neuen Commits.

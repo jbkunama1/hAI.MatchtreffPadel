@@ -29,8 +29,8 @@ SEED_ADMIN_USERS = {
 }
 
 SLOT_DEFINITIONS = [
-    {"key": "slot_a", "label": "Slot A: 18:00 - 20:00 Uhr"},
-    {"key": "slot_b", "label": "Slot B: 20:00 - 22:00 Uhr"},
+    {"key": "slot_a", "label": "Zeitraum FRUEH: 18:00 - 20:00 Uhr"},
+    {"key": "slot_b", "label": "Zeitraum SPAET: 20:00 - 22:00 Uhr"},
 ]
 SLOT_LABEL = {s["key"]: s["label"] for s in SLOT_DEFINITIONS}
 WAITLIST_LIMIT = 4
@@ -86,7 +86,12 @@ THEMES = {
         "accent2": "#4ade80",
     },
 }
-DEFAULT_THEME = "default"
+DEFAULT_THEME = "night"
+DEFAULT_BG_STYLE = "bubbles"
+BG_STYLES = {
+    "bubbles": "Farbige Blasen",
+    "logo": "Padel-Ball-Icons",
+}
 
 ORGA_TEAM = ["Daniel", "Cosme", "Sascha", "Patrick"]
 
@@ -116,9 +121,12 @@ def create_app(test_config=None):
             g.db = sqlite3.connect(
                 app.config["DATABASE"],
                 detect_types=sqlite3.PARSE_DECLTYPES,
+                timeout=10,
             )
             g.db.row_factory = sqlite3.Row
             g.db.execute("PRAGMA foreign_keys = ON")
+            g.db.execute("PRAGMA journal_mode = WAL")
+            g.db.execute("PRAGMA busy_timeout = 8000")
         return g.db
 
     @app.teardown_appcontext
@@ -249,13 +257,20 @@ def create_app(test_config=None):
 
     def get_current_theme_key():
         db = get_db()
-        row = db.execute("SELECT value FROM settings WHERE key = \'theme\'").fetchone()
+        row = db.execute("SELECT value FROM settings WHERE key = 'theme'").fetchone()
         key = row["value"] if row else DEFAULT_THEME
         return key if key in THEMES else DEFAULT_THEME
+
+    def get_current_bg_style():
+        db = get_db()
+        row = db.execute("SELECT value FROM settings WHERE key = 'bg_style'").fetchone()
+        key = row["value"] if row else DEFAULT_BG_STYLE
+        return key if key in BG_STYLES else DEFAULT_BG_STYLE
 
     @app.context_processor
     def inject_globals():
         theme_key = get_current_theme_key()
+        bg_style_key = get_current_bg_style()
         return {
             "is_admin": bool(session.get("is_admin")),
             "admin_username": session.get("admin_username"),
@@ -264,6 +279,8 @@ def create_app(test_config=None):
             "current_theme": THEMES[theme_key],
             "themes": THEMES,
             "orga_team_normalized": ORGA_TEAM_NORMALIZED,
+            "current_bg_style": bg_style_key,
+            "bg_styles": BG_STYLES,
         }
 
     @app.route("/")
@@ -567,6 +584,24 @@ def create_app(test_config=None):
         )
         db.commit()
         flash(f"Design auf '{THEMES[theme_key]['label']}' geaendert.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/bg-style/update", methods=["POST"])
+    @admin_required
+    def admin_update_bg_style():
+        bg_style_key = request.form.get("bg_style", DEFAULT_BG_STYLE)
+        if bg_style_key not in BG_STYLES:
+            flash("Unbekannter Hintergrund-Effekt.", "danger")
+            return redirect(url_for("admin_dashboard"))
+
+        db = get_db()
+        db.execute(
+            "INSERT INTO settings (key, value) VALUES ('bg_style', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (bg_style_key,),
+        )
+        db.commit()
+        flash(f"Hintergrund-Effekt auf '{BG_STYLES[bg_style_key]}' geaendert.", "success")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/signups/clear", methods=["POST"])

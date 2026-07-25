@@ -77,6 +77,20 @@
     <button class="btn-accent" type="submit">Design uebernehmen</button>
 </form>
 
+<div class="stack-label">Schwebe-Effekt im Hintergrund</div>
+<p>Waehle, ob im Hintergrund farbige Blasen oder Padel-Ball-Icons nach oben schweben.</p>
+<form action="{{ url_for('admin_update_bg_style') }}" method="post" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
+    <div class="form-group" style="margin-top:0;">
+        <label for="bg_style">Aktueller Effekt: {{ bg_styles[current_bg_style] }}</label>
+        <select class="form-control" id="bg_style" name="bg_style">
+            {% for key, label in bg_styles.items() %}
+                <option value="{{ key }}" {% if key == current_bg_style %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button class="btn-accent" type="submit">Effekt uebernehmen</button>
+</form>
+
 <div class="stack-label">Admins</div>
 <a class="btn-soft" href="{{ url_for('admin_users_list') }}">Admins verwalten</a>
 

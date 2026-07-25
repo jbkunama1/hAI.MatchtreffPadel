@@ -1,20 +1,24 @@
 # Portainer: als Git-basierter Stack aus diesem Repository deploybar.
 # Repository URL: https://github.com/jbkunama1/hAI.MatchtreffPadel
 # Compose path: docker-compose.yml
+#
+# WICHTIG: Die Werte rechts vom Gleichheitszeichen (z.B. ${SECRET_KEY}) werden
+# aus den Umgebungsvariablen uebernommen, die du im Portainer Stack-Editor unter
+# "Environment variables" setzt. Setze dort echte Werte, NICHT hier in dieser Datei.
 services:
   matchtreff_web:
     build: .
     container_name: matchtreff_padel_web
-    command: gunicorn -b 0.0.0.0:1905 app:app
+    command: gunicorn -b 0.0.0.0:1905 --workers 2 --threads 4 --worker-class gthread --timeout 60 --graceful-timeout 30 app:app
     ports:
       - "1905:1905"
     environment:
-      - SECRET_KEY=change-me
-      - ADMIN_PASSWORD_ADMIN=change-me
-      - ADMIN_PASSWORD_DANIEL=change-me
-      - ADMIN_PASSWORD_COSME=change-me
-      - ADMIN_PASSWORD_SASCHA=change-me
-      - ADMIN_PASSWORD_PATRICK=change-me
+      - SECRET_KEY=${SECRET_KEY}
+      - ADMIN_PASSWORD_ADMIN=${ADMIN_PASSWORD_ADMIN}
+      - ADMIN_PASSWORD_DANIEL=${ADMIN_PASSWORD_DANIEL}
+      - ADMIN_PASSWORD_COSME=${ADMIN_PASSWORD_COSME}
+      - ADMIN_PASSWORD_SASCHA=${ADMIN_PASSWORD_SASCHA}
+      - ADMIN_PASSWORD_PATRICK=${ADMIN_PASSWORD_PATRICK}
     volumes:
       - matchtreff_data:/app/instance
     restart: unless-stopped
@@ -24,8 +28,8 @@ services:
     container_name: matchtreff_padel_bot
     command: python telegram_bot.py
     environment:
-      - TELEGRAM_BOT_TOKEN=change-me
-      - ADMIN_TELEGRAM_IDS=123456789
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
     volumes:
       - matchtreff_data:/app/instance
     restart: unless-stopped

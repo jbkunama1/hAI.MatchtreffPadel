@@ -8,8 +8,8 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 DB_PATH = os.path.join(os.getcwd(), "instance", "matchtreff.sqlite3")
 
 SLOT_DEFINITIONS = [
-    {"key": "slot_a", "label": "Slot A: 18:00 - 20:00 Uhr"},
-    {"key": "slot_b", "label": "Slot B: 20:00 - 22:00 Uhr"},
+    {"key": "slot_a", "label": "Zeitraum FRUEH: 18:00 - 20:00 Uhr"},
+    {"key": "slot_b", "label": "Zeitraum SPAET: 20:00 - 22:00 Uhr"},
 ]
 SLOT_LABEL = {s["key"]: s["label"] for s in SLOT_DEFINITIONS}
 SLOT_ALIASES = {
