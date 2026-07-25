@@ -38,7 +38,13 @@
         </div>
         <ul class="player-list">
             {% for signup in signups_by_slot[slot.id].confirmed %}
-                <li>{{ signup.name }}</li>
+                <li>
+                    {% if signup.name_normalized in orga_team_normalized %}
+                        <strong>{{ signup.name }} &#9733;</strong>
+                    {% else %}
+                        {{ signup.name }}
+                    {% endif %}
+                </li>
             {% else %}
                 <li>Noch niemand angemeldet.</li>
             {% endfor %}
@@ -47,7 +53,13 @@
             <div class="stack-label" style="margin-top:0.75rem;">Warteliste</div>
             <ul class="player-list">
                 {% for signup in signups_by_slot[slot.id].waitlist %}
-                    <li>{{ signup.name }}</li>
+                    <li>
+                        {% if signup.name_normalized in orga_team_normalized %}
+                            <strong>{{ signup.name }} &#9733;</strong>
+                        {% else %}
+                            {{ signup.name }}
+                        {% endif %}
+                    </li>
                 {% endfor %}
             </ul>
         {% endif %}

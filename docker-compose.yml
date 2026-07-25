@@ -12,6 +12,9 @@ services:
       - SECRET_KEY=change-me
       - ADMIN_PASSWORD_ADMIN=change-me
       - ADMIN_PASSWORD_DANIEL=change-me
+      - ADMIN_PASSWORD_COSME=change-me
+      - ADMIN_PASSWORD_SASCHA=change-me
+      - ADMIN_PASSWORD_PATRICK=change-me
     volumes:
       - matchtreff_data:/app/instance
     restart: unless-stopped

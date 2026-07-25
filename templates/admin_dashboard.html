@@ -24,7 +24,13 @@
         <ul class="player-list">
             {% for signup in signups_by_slot[slot.id].confirmed %}
                 <li>
-                    {{ signup.name }}
+                    <span>
+                        {% if signup.name_normalized in orga_team_normalized %}
+                            <strong>{{ signup.name }} &#9733;</strong>
+                        {% else %}
+                            {{ signup.name }}
+                        {% endif %}
+                    </span>
                     <form action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}" method="post" style="margin:0;">
                         <button class="btn-danger" type="submit">Loeschen</button>
                     </form>
@@ -38,7 +44,13 @@
         <ul class="player-list">
             {% for signup in signups_by_slot[slot.id].waitlist %}
                 <li>
-                    {{ signup.name }}
+                    <span>
+                        {% if signup.name_normalized in orga_team_normalized %}
+                            <strong>{{ signup.name }} &#9733;</strong>
+                        {% else %}
+                            {{ signup.name }}
+                        {% endif %}
+                    </span>
                     <form action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}" method="post" style="margin:0;">
                         <button class="btn-danger" type="submit">Loeschen</button>
                     </form>

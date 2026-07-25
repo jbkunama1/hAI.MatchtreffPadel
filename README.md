@@ -53,6 +53,9 @@ Beim ersten Start werden ueber Umgebungsvariablen zwei initiale Admins in der Da
 |---|---|
 | `Admin` | `ADMIN_PASSWORD_ADMIN` |
 | `Daniel` | `ADMIN_PASSWORD_DANIEL` |
+| `Cosme` | `ADMIN_PASSWORD_COSME` |
+| `Sascha` | `ADMIN_PASSWORD_SASCHA` |
+| `Patrick` | `ADMIN_PASSWORD_PATRICK` |
 
 Der Login (`/admin/login`) erfolgt ueber ein normales Formular mit Benutzername + Passwort - keine feste Auswahlliste, da beliebig viele Admins existieren koennen.
 
@@ -66,6 +69,10 @@ Im selben Bereich lassen sich bestehende Admins wieder entfernen. Zwei Schutzmec
 
 - Der **letzte verbleibende Admin** kann nicht geloescht werden, damit die App nie ohne Admin-Zugang endet.
 - Ein Admin kann **sich nicht selbst loeschen** - das muss ein anderer Admin uebernehmen.
+
+### Orga-Team hervorgehoben in der Spielerliste
+
+Die vier Admins `Daniel`, `Cosme`, `Sascha` und `Patrick` bilden das Orga-Team und spielen selbst aktiv mit. Wenn sich einer von ihnen unter genau diesem Namen fuer einen Slot eintraegt, wird sein Name in der Spielerliste (Web-App, Admin-Dashboard und Telegram-Bot) automatisch **fett mit einem Stern (&#9733;)** hervorgehoben - so sieht jeder auf einen Blick, welcher Admin mitspielt und den Termin leitet. Die Erkennung erfolgt ueber den normalisierten Namen (Gross-/Kleinschreibung und Leerzeichen spielen keine Rolle), die Liste laesst sich im `ORGA_TEAM`-Array in `app.py` bzw. `telegram_bot.py` erweitern.
 
 ## UI-Details (wie bei VfBAHKaessle)
 

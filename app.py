@@ -12,8 +12,9 @@ from werkzeug.security import generate_password_hash, check_password_hash
 _REQUIRED_ENV = ["SECRET_KEY", "ADMIN_PASSWORD_ADMIN", "ADMIN_PASSWORD_DANIEL"]
 _missing = [v for v in _REQUIRED_ENV if not os.environ.get(v, "").strip()]
 if _missing:
+    missing_list = ", ".join(_missing)
     print(
-        f"[FEHLER] Fehlende Pflicht-Umgebungsvariablen: {\', \'.join(_missing)}\n"
+        f"[FEHLER] Fehlende Pflicht-Umgebungsvariablen: {missing_list}\n"
         "Bitte in der .env auf dem Host setzen. Anwendung wird beendet.",
         file=sys.stderr,
     )
@@ -22,6 +23,9 @@ if _missing:
 SEED_ADMIN_USERS = {
     "Admin": os.environ.get("ADMIN_PASSWORD_ADMIN"),
     "Daniel": os.environ.get("ADMIN_PASSWORD_DANIEL"),
+    "Cosme": os.environ.get("ADMIN_PASSWORD_COSME"),
+    "Sascha": os.environ.get("ADMIN_PASSWORD_SASCHA"),
+    "Patrick": os.environ.get("ADMIN_PASSWORD_PATRICK"),
 }
 
 SLOT_DEFINITIONS = [
@@ -84,11 +88,16 @@ THEMES = {
 }
 DEFAULT_THEME = "default"
 
+ORGA_TEAM = ["Daniel", "Cosme", "Sascha", "Patrick"]
+
 SIGNUP_COOKIE_PREFIX = "mtp_signed_"
 
 
 def normalize_name(name: str) -> str:
     return " ".join(name.strip().split()).lower()
+
+
+ORGA_TEAM_NORMALIZED = {normalize_name(n) for n in ORGA_TEAM}
 
 
 def create_app(test_config=None):
@@ -254,6 +263,7 @@ def create_app(test_config=None):
             "current_theme_key": theme_key,
             "current_theme": THEMES[theme_key],
             "themes": THEMES,
+            "orga_team_normalized": ORGA_TEAM_NORMALIZED,
         }
 
     @app.route("/")
@@ -370,7 +380,7 @@ def create_app(test_config=None):
             if row and check_password_hash(row["password_hash"], password):
                 session["is_admin"] = True
                 session["admin_username"] = row["username"]
-                flash(f"Admin-Login erfolgreich als {row[\'username\']}.", "success")
+                flash(f"Admin-Login erfolgreich als {row['username']}.", "success")
                 return redirect(url_for("admin_dashboard"))
             flash("Benutzername oder Passwort falsch.", "danger")
         return render_template("admin_login.html")
@@ -465,7 +475,7 @@ def create_app(test_config=None):
                     (next_waiting["id"],),
                 )
                 db.commit()
-                flash(f"Anmeldung geloescht. {next_waiting[\'name\']} ist von der Warteliste nachgerueckt.", "info")
+                flash(f"Anmeldung geloescht. {next_waiting['name']} ist von der Warteliste nachgerueckt.", "info")
                 return redirect(url_for("admin_dashboard"))
 
         flash("Anmeldung geloescht.", "info")
@@ -538,7 +548,7 @@ def create_app(test_config=None):
 
         db.execute("DELETE FROM admin_users WHERE id = ?", (user_id,))
         db.commit()
-        flash(f"Admin \'{row[\'username\']}\' wurde geloescht.", "info")
+        flash(f"Admin '{row['username']}' wurde geloescht.", "info")
         return redirect(url_for("admin_users_list"))
 
     @app.route("/admin/theme/update", methods=["POST"])
@@ -556,7 +566,7 @@ def create_app(test_config=None):
             (theme_key,),
         )
         db.commit()
-        flash(f"Design auf \'{THEMES[theme_key][\'label\']}\' geaendert.", "success")
+        flash(f"Design auf '{THEMES[theme_key]['label']}' geaendert.", "success")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/signups/clear", methods=["POST"])

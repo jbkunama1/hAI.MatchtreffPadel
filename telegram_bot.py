@@ -18,10 +18,20 @@ SLOT_ALIASES = {
     "beide": "beide", "both": "beide",
 }
 WAITLIST_LIMIT = 4
+ORGA_TEAM = ["Daniel", "Cosme", "Sascha", "Patrick"]
 
 
 def normalize_name(name: str) -> str:
     return " ".join(name.strip().split()).lower()
+
+
+ORGA_TEAM_NORMALIZED = {normalize_name(n) for n in ORGA_TEAM}
+
+
+def format_player_name(name: str) -> str:
+    if normalize_name(name) in ORGA_TEAM_NORMALIZED:
+        return f"*{name} \u2605*"
+    return name
 
 
 def init_db() -> None:
@@ -240,11 +250,11 @@ async def status_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None
         await update.message.reply_text(f"Keine Anmeldung fuer '{name}' gefunden.")
         return
 
-    lines = [f"Anmeldungen fuer {name}:"]
+    lines = [f"Anmeldungen fuer {format_player_name(name)}:"]
     for r in rows:
         tag = "Warteliste" if r["status"] == "waitlist" else "Bestaetigt"
         lines.append(f"- {r['slot_label']} [{tag}]")
-    await update.message.reply_text("\n".join(lines))
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
 # ---------------------------- Admin ----------------------------
@@ -268,15 +278,15 @@ async def admin_liste(update: Update, context: ContextTypes.DEFAULT_TYPE) -> Non
         ).fetchall()
         lines.append(f"{row['label']} ({len(confirmed)}/{row['max_players']}):")
         for su in confirmed:
-            lines.append(f"  #{su['id']} {su['name']}")
+            lines.append(f"  #{su['id']} {format_player_name(su['name'])}")
         if not confirmed:
             lines.append("  (noch niemand)")
         lines.append(f"  Warteliste ({len(waitlist)}/{WAITLIST_LIMIT}):")
         for su in waitlist:
-            lines.append(f"  #{su['id']} {su['name']} [Warteliste]")
+            lines.append(f"  #{su['id']} {format_player_name(su['name'])} [Warteliste]")
         lines.append("")
     conn.close()
-    await update.message.reply_text("\n".join(lines))
+    await update.message.reply_text("\n".join(lines), parse_mode="Markdown")
 
 
 async def admin_max(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
