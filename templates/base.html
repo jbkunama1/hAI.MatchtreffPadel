@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Matchtreff Padel{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="page-shell">
+        <div class="card-root">
+            <span class="badge-pill">Padel Matchtreff</span>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <ul class="flash-list">
+                        {% for category, message in messages %}
+                            <li class="flash-{{ category }}">{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endwith %}
+
+            {% block content %}{% endblock %}
+
+            <div class="stack-label">Navigation</div>
+            <div>
+                <a class="btn-soft" href="{{ url_for('index') }}">Startseite</a>
+                {% if is_admin %}
+                    <a class="btn-soft" href="{{ url_for('admin_dashboard') }}">Admin-Bereich</a>
+                    <a class="btn-soft" href="{{ url_for('admin_logout') }}">Admin-Logout</a>
+                {% else %}
+                    <a class="btn-soft" href="{{ url_for('admin_login') }}">Admin-Login</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</body>
+</html>

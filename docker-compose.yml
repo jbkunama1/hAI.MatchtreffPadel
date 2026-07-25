@@ -1,0 +1,15 @@
+services:
+  matchtreff_padel:
+    build: .
+    container_name: matchtreff_padel
+    ports:
+      - "1905:1905"
+    environment:
+      - SECRET_KEY=change-me
+      - ADMIN_PASSWORD=change-me
+    volumes:
+      - matchtreff_data:/app/instance
+    restart: unless-stopped
+
+volumes:
+  matchtreff_data:

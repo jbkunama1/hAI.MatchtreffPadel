@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Admin-Dashboard{% endblock %}
+{% block content %}
+<h1>Admin-Dashboard</h1>
+<p>Hier legst du die maximale Anzahl pro Slot fest und verwaltest die Anmeldungen.</p>
+
+{% for slot in slots %}
+    <div class="slot-card {% if slot.full %}full{% endif %}">
+        <div class="slot-title">{{ slot.label }}</div>
+        <div class="slot-meta">{{ slot.count }} von {{ slot.max_players }} Plätzen belegt{% if slot.full %} - Slot ist voll{% endif %}</div>
+
+        <form action="{{ url_for('admin_update_slot', slot_id=slot.id) }}" method="post" style="display:flex; gap:0.5rem; align-items:flex-end;">
+            <div class="form-group" style="margin-top:0.5rem;">
+                <label for="max_players_{{ slot.id }}">Max. Plätze</label>
+                <input class="form-control" type="number" min="1" id="max_players_{{ slot.id }}" name="max_players" value="{{ slot.max_players }}">
+            </div>
+            <button class="btn-soft" type="submit">Speichern</button>
+        </form>
+
+        <ul class="player-list">
+            {% for signup in signups_by_slot[slot.id] %}
+                <li>
+                    {{ signup.name }}
+                    <form action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}" method="post" style="margin:0;">
+                        <button class="btn-danger" type="submit">Löschen</button>
+                    </form>
+                </li>
+            {% else %}
+                <li>Noch niemand angemeldet.</li>
+            {% endfor %}
+        </ul>
+    </div>
+{% endfor %}
+
+<div class="stack-label">Gefahrenzone</div>
+<form action="{{ url_for('admin_clear_signups') }}" method="post" onsubmit="return confirm('Wirklich alle Anmeldungen löschen?');">
+    <button class="btn-danger" type="submit">Alle Anmeldungen zurücksetzen</button>
+</form>
+{% endblock %}

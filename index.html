@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>hAI.MatchtreffPadel - Padel Matchtreff Anmeldung</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root {
+  --bg: #f5f5fb;
+  --card-bg: #ffffff;
+  --border-subtle: rgba(15, 23, 42, 0.08);
+  --accent: #2563eb;
+  --accent-soft: rgba(37, 99, 235, 0.08);
+}
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: radial-gradient(circle at top left, #e0ecff 0, #f5f5fb 40%, #fdfdfd 100%);
+  color: #0f172a;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+.page-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.5rem;
+}
+.card-root {
+  max-width: 760px;
+  width: 100%;
+  border-radius: 1.5rem;
+  border: 1px solid var(--border-subtle);
+  background: var(--card-bg);
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.8);
+  padding: 2.5rem;
+}
+.badge-pill {
+  display: inline-block;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-size: 0.75rem;
+  padding: 0.35rem 0.8rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+.stack-label {
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #64748b;
+  margin-top: 2rem;
+}
+a { text-decoration: none; }
+.btn-soft {
+  display: inline-block;
+  border-radius: 999px;
+  border: 1px solid var(--border-subtle);
+  background: #ffffff;
+  color: #0f172a;
+  padding: 0.6rem 1.4rem;
+  margin-right: 0.6rem;
+  margin-top: 0.5rem;
+}
+.btn-soft:hover { background: #f8fafc; border-color: rgba(15, 23, 42, 0.12); }
+.btn-accent {
+  display: inline-block;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(135deg, #2563eb, #0ea5e9);
+  color: #ffffff;
+  font-weight: 600;
+  padding: 0.6rem 1.4rem;
+  margin-top: 0.5rem;
+}
+.btn-accent:hover { filter: brightness(1.03); }
+.code-inline {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  font-size: 0.8rem;
+  background: #0f172a0d;
+  border-radius: 999px;
+  padding: 0.15rem 0.55rem;
+}
+.list-tight li + li { margin-top: 0.35rem; }
+.shield-row img { margin-right: 0.3rem; margin-bottom: 0.3rem; }
+@media (max-width: 768px) {
+  .page-shell { padding: 1.5rem 1.0rem; }
+}
+</style>
+</head>
+<body>
+<div class="page-shell">
+  <div class="card-root">
+    <span class="badge-pill">Padel Matchtreff</span>
+
+    <h1>hAI.MatchtreffPadel</h1>
+    <p>Web-App für den wöchentlichen Padel-Matchtreff am Donnerstag: Spieler tragen sich ohne Registrierung nur mit ihrem Namen in feste Zeit-Slots ein, der Admin steuert die maximale Anzahl pro Slot.</p>
+
+    <div class="shield-row">
+      <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
+      <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11+">
+      <img src="https://img.shields.io/badge/docker-ready-blue" alt="Docker ready">
+      <img src="https://img.shields.io/badge/Backend-Flask-blue" alt="Backend: Flask">
+    </div>
+
+    <h2>Projektüberblick</h2>
+    <ul class="list-tight">
+      <li>Flask-Web-App ohne Login für Spieler - nur Name eintragen, fertig</li>
+      <li>Zwei feste Donnerstag-Slots: <span class="code-inline">18:00 - 20:00</span> und <span class="code-inline">20:00 - 22:00</span></li>
+      <li>Admin legt maximale Teilnehmerzahl pro Slot fest</li>
+      <li>Änderungen und Löschungen von Anmeldungen ausschließlich durch den Admin</li>
+      <li>SQLite-Backend im <span class="code-inline">instance/</span>-Ordner</li>
+      <li>Docker-/Compose-Setup auf Port <span class="code-inline">1905</span></li>
+    </ul>
+
+    <h2>Tech-Stack</h2>
+    <ul class="list-tight">
+      <li><strong>Backend:</strong> Python, Flask, Gunicorn</li>
+      <li><strong>Datenbank:</strong> SQLite</li>
+      <li><strong>UI:</strong> eigenes responsives CSS im VfB-Kässle-Design</li>
+    </ul>
+
+    <h2>Ablauf für Spieler</h2>
+    <ol class="list-tight">
+      <li>Startseite öffnen</li>
+      <li>Namen eingeben</li>
+      <li>Slot(s) auswählen (18-20 Uhr, 20-22 Uhr oder beide)</li>
+      <li>Eintragen - fertig, kein Account nötig</li>
+    </ol>
+
+    <p>Details zu Installation, Docker-Stack und Admin-Funktionen findest du in der README im Repository.</p>
+
+    <div class="stack-label">Repo-Name: hAI.MatchtreffPadel</div>
+    <a class="btn-accent" href="https://github.com/jbkunama1/hAI.MatchtreffPadel">Zum GitHub-Repository</a>
+    <a class="btn-soft" href="README.md">README / Setup-Anleitung</a>
+  </div>
+</div>
+</body>
+</html>
