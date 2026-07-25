@@ -45,6 +45,12 @@ cp Logo_I_Matchtreff.png static/Logo_I_Matchtreff.png
 
 Spieler koennen sich fuer einen oder beide Slots eintragen. Ist ein Slot bereits voll, ist die Auswahl fuer diesen Slot deaktiviert (Web) bzw. wird abgelehnt (Bot).
 
+## UI-Details (wie bei VfBAHKaessle)
+
+- **Hintergrund-Bubbles:** Wie im Original-Repo steigen dezente, animierte Blasen im Hintergrund auf (per CSS `@keyframes`, respektiert `prefers-reduced-motion`).
+- **Vollstaendig responsive:** Eigene Breakpoints fuer Tablet (< 992px), Mobile (< 768px) und kleine Handys (< 480px) - Buttons werden auf dem Handy automatisch zu vollbreiten Touch-Zielen (min. 44px Hoehe), Checkboxen sind vergroessert, Schriftgroessen und Abstaende passen sich an.
+- Gilt sowohl fuer die Flask-Web-App (`templates/base.html`) als auch fuer die Landing-Page (`index.html`).
+
 ## Design-Themes (wie bei PollUnit)
 
 Der Admin kann im Admin-Dashboard zwischen mehreren vordefinierten Hintergruenden/Farbschemata waehlen, aehnlich den Themes bei PollUnit. Aktuell verfuegbar:
@@ -57,6 +63,23 @@ Der Admin kann im Admin-Dashboard zwischen mehreren vordefinierten Hintergruende
 | Night (Dunkel) | Dunkles Design fuer Abendmodus |
 
 Das gewaehlte Theme wird in der Datenbank gespeichert (`settings`-Tabelle) und gilt fuer alle Besucher der Web-App, bis der Admin es aendert. Neue Themes lassen sich einfach im Dictionary `THEMES` in `app.py` ergaenzen (Label, Hintergrund-Verlauf, zwei Akzentfarben).
+
+
+### Themes mit eigenen Hintergrundbildern
+
+Zusaetzlich zu den Farbverlauf-Themes gibt es Themes, die eigene Hintergrundbilder aus dem `pictures/`-Verzeichnis nutzen (z. B. `Racketfire.png`, `Racketsplash.png`). Fuer die Web-App muessen diese Bilder zusaetzlich nach `static/backgrounds/` kopiert werden, da Flask statische Dateien nur aus `static/` ausliefert:
+
+```bash
+mkdir -p static/backgrounds
+cp pictures/Racketfire.png static/backgrounds/Racketfire.png
+cp pictures/Racketsplash.png static/backgrounds/Racketsplash.png
+```
+
+Weitere Bild-Themes lassen sich im `THEMES`-Dictionary in `app.py` ergaenzen, indem `background_image` auf den Dateinamen in `static/backgrounds/` gesetzt wird.
+
+## Erklaervideo auf der Landing-Page
+
+Die Landing-Page (`index.html`, Root des Repos) bindet das Erklaervideo `pictures/Matchtreff_Silber.mp4` direkt per HTML5-`<video>`-Tag ein. Der Pfad ist relativ zum Root, daher muss das Video im Ordner `pictures/` im Repo bleiben, damit die Landing-Page es korrekt anzeigt.
 
 ## Eintragsschutz gegen Doppel-Anmeldungen
 

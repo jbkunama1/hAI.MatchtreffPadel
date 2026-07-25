@@ -29,26 +29,51 @@ THEMES = {
     "default": {
         "label": "Standard (Blau)",
         "gradient": "radial-gradient(circle at top left, #e0ecff 0, #f5f5fb 40%, #fdfdfd 100%)",
+        "background_image": None,
         "accent": "#2563eb",
         "accent2": "#0ea5e9",
     },
     "sunset": {
         "label": "Sunset (Orange)",
         "gradient": "radial-gradient(circle at top left, #ffe4d6 0, #fff5f0 40%, #fffaf7 100%)",
+        "background_image": None,
         "accent": "#ea580c",
         "accent2": "#f59e0b",
     },
     "court": {
         "label": "Court (Gruen)",
         "gradient": "radial-gradient(circle at top left, #dcfce7 0, #f0fdf4 40%, #fbfffc 100%)",
+        "background_image": None,
         "accent": "#16a34a",
         "accent2": "#22c55e",
     },
     "night": {
         "label": "Night (Dunkel)",
         "gradient": "radial-gradient(circle at top left, #1e293b 0, #0f172a 60%, #020617 100%)",
+        "background_image": None,
         "accent": "#38bdf8",
         "accent2": "#818cf8",
+    },
+    "racket_fire": {
+        "label": "Racket Fire (Bild)",
+        "gradient": "linear-gradient(rgba(15,23,42,0.55), rgba(15,23,42,0.55))",
+        "background_image": "Racketfire.png",
+        "accent": "#f97316",
+        "accent2": "#facc15",
+    },
+    "racket_splash": {
+        "label": "Racket Splash (Bild)",
+        "gradient": "linear-gradient(rgba(15,23,42,0.55), rgba(15,23,42,0.55))",
+        "background_image": "Racketsplash.png",
+        "accent": "#0ea5e9",
+        "accent2": "#38bdf8",
+    },
+    "padel_court_bg": {
+        "label": "Padel Court (Foto)",
+        "gradient": "linear-gradient(rgba(15,23,42,0.5), rgba(15,23,42,0.5))",
+        "background_image": "padel_bg_1.jpg",
+        "accent": "#16a34a",
+        "accent2": "#4ade80",
     },
 }
 DEFAULT_THEME = "default"
