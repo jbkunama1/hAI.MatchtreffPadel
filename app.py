@@ -24,6 +24,35 @@ SLOT_DEFINITIONS = [
 ]
 SLOT_LABEL = {s["key"]: s["label"] for s in SLOT_DEFINITIONS}
 WAITLIST_LIMIT = 4
+
+THEMES = {
+    "default": {
+        "label": "Standard (Blau)",
+        "gradient": "radial-gradient(circle at top left, #e0ecff 0, #f5f5fb 40%, #fdfdfd 100%)",
+        "accent": "#2563eb",
+        "accent2": "#0ea5e9",
+    },
+    "sunset": {
+        "label": "Sunset (Orange)",
+        "gradient": "radial-gradient(circle at top left, #ffe4d6 0, #fff5f0 40%, #fffaf7 100%)",
+        "accent": "#ea580c",
+        "accent2": "#f59e0b",
+    },
+    "court": {
+        "label": "Court (Gruen)",
+        "gradient": "radial-gradient(circle at top left, #dcfce7 0, #f0fdf4 40%, #fbfffc 100%)",
+        "accent": "#16a34a",
+        "accent2": "#22c55e",
+    },
+    "night": {
+        "label": "Night (Dunkel)",
+        "gradient": "radial-gradient(circle at top left, #1e293b 0, #0f172a 60%, #020617 100%)",
+        "accent": "#38bdf8",
+        "accent2": "#818cf8",
+    },
+}
+DEFAULT_THEME = "default"
+
 SIGNUP_COOKIE_PREFIX = "mtp_signed_"
 
 
@@ -80,8 +109,21 @@ def create_app(test_config=None):
                 FOREIGN KEY(slot_id) REFERENCES slots(id),
                 UNIQUE(slot_id, name_normalized)
             );
+
+            CREATE TABLE IF NOT EXISTS settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            );
             """
         )
+        existing_theme = db.execute(
+            "SELECT value FROM settings WHERE key = \'theme\'"
+        ).fetchone()
+        if not existing_theme:
+            db.execute(
+                "INSERT INTO settings (key, value) VALUES (\'theme\', ?)",
+                (DEFAULT_THEME,),
+            )
         for s in SLOT_DEFINITIONS:
             existing = db.execute(
                 "SELECT id FROM slots WHERE slot_key = ?", (s["key"],)
@@ -146,11 +188,21 @@ def create_app(test_config=None):
             return view(*args, **kwargs)
         return wrapped
 
+    def get_current_theme_key():
+        db = get_db()
+        row = db.execute("SELECT value FROM settings WHERE key = \'theme\'").fetchone()
+        key = row["value"] if row else DEFAULT_THEME
+        return key if key in THEMES else DEFAULT_THEME
+
     @app.context_processor
     def inject_globals():
+        theme_key = get_current_theme_key()
         return {
             "is_admin": bool(session.get("is_admin")),
             "next_thursday": next_thursday().strftime("%d.%m.%Y"),
+            "current_theme_key": theme_key,
+            "current_theme": THEMES[theme_key],
+            "themes": THEMES,
         }
 
     @app.route("/")
@@ -357,6 +409,24 @@ def create_app(test_config=None):
                 return redirect(url_for("admin_dashboard"))
 
         flash("Anmeldung geloescht.", "info")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/theme/update", methods=["POST"])
+    @admin_required
+    def admin_update_theme():
+        theme_key = request.form.get("theme", DEFAULT_THEME)
+        if theme_key not in THEMES:
+            flash("Unbekanntes Design.", "danger")
+            return redirect(url_for("admin_dashboard"))
+
+        db = get_db()
+        db.execute(
+            "INSERT INTO settings (key, value) VALUES (\'theme\', ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (theme_key,),
+        )
+        db.commit()
+        flash(f"Design auf \'{THEMES[theme_key][\'label\']}\' geaendert.", "success")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/signups/clear", methods=["POST"])

@@ -45,6 +45,19 @@ cp Logo_I_Matchtreff.png static/Logo_I_Matchtreff.png
 
 Spieler koennen sich fuer einen oder beide Slots eintragen. Ist ein Slot bereits voll, ist die Auswahl fuer diesen Slot deaktiviert (Web) bzw. wird abgelehnt (Bot).
 
+## Design-Themes (wie bei PollUnit)
+
+Der Admin kann im Admin-Dashboard zwischen mehreren vordefinierten Hintergruenden/Farbschemata waehlen, aehnlich den Themes bei PollUnit. Aktuell verfuegbar:
+
+| Theme | Beschreibung |
+|---|---|
+| Standard (Blau) | Helles Blau/Grau, wie bisher |
+| Sunset (Orange) | Warmer Orange-Verlauf |
+| Court (Gruen) | Gruener Verlauf, passend zum Padel-Court |
+| Night (Dunkel) | Dunkles Design fuer Abendmodus |
+
+Das gewaehlte Theme wird in der Datenbank gespeichert (`settings`-Tabelle) und gilt fuer alle Besucher der Web-App, bis der Admin es aendert. Neue Themes lassen sich einfach im Dictionary `THEMES` in `app.py` ergaenzen (Label, Hintergrund-Verlauf, zwei Akzentfarben).
+
 ## Eintragsschutz gegen Doppel-Anmeldungen
 
 - **Datenbank-Regel (hart):** Pro Slot ist ein normalisierter Name (getrimmt, klein geschrieben) nur einmal moeglich (`UNIQUE(slot_id, name_normalized)`), egal ueber welchen Kanal die Anmeldung erfolgt.

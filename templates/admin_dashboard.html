@@ -50,6 +50,21 @@
     </div>
 {% endfor %}
 
+
+<div class="stack-label">Design / Hintergrund</div>
+<p>Waehle einen von mehreren vordefinierten Hintergruenden und Akzentfarben fuer die Web-App.</p>
+<form action="{{ url_for('admin_update_theme') }}" method="post" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
+    <div class="form-group" style="margin-top:0;">
+        <label for="theme">Aktuelles Design: {{ current_theme.label }}</label>
+        <select class="form-control" id="theme" name="theme">
+            {% for key, theme in themes.items() %}
+                <option value="{{ key }}" {% if key == current_theme_key %}selected{% endif %}>{{ theme.label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <button class="btn-accent" type="submit">Design uebernehmen</button>
+</form>
+
 <div class="stack-label">Gefahrenzone</div>
 <form action="{{ url_for('admin_clear_signups') }}" method="post" onsubmit="return confirm('Wirklich alle Anmeldungen loeschen?');">
     <button class="btn-danger" type="submit">Alle Anmeldungen zuruecksetzen</button>

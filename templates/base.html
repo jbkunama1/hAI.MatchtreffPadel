@@ -5,6 +5,18 @@
     <title>{% block title %}Matchtreff Padel{% endblock %}</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body {
+            background: {{ current_theme.gradient }};
+        }
+        .badge-pill {
+            background: {{ current_theme.accent }}14;
+            color: {{ current_theme.accent }};
+        }
+        .btn-accent {
+            background: linear-gradient(135deg, {{ current_theme.accent }}, {{ current_theme.accent2 }});
+        }
+    </style>
 </head>
 <body>
     <div class="page-shell">
