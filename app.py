@@ -7,8 +7,9 @@ from flask import (
     Flask, render_template, request, redirect, url_for,
     session, g, flash, make_response
 )
+from werkzeug.security import generate_password_hash, check_password_hash
 
-_REQUIRED_ENV = ["SECRET_KEY", "ADMIN_PASSWORD"]
+_REQUIRED_ENV = ["SECRET_KEY", "ADMIN_PASSWORD_ADMIN", "ADMIN_PASSWORD_DANIEL"]
 _missing = [v for v in _REQUIRED_ENV if not os.environ.get(v, "").strip()]
 if _missing:
     print(
@@ -17,6 +18,11 @@ if _missing:
         file=sys.stderr,
     )
     sys.exit(1)
+
+SEED_ADMIN_USERS = {
+    "Admin": os.environ.get("ADMIN_PASSWORD_ADMIN"),
+    "Daniel": os.environ.get("ADMIN_PASSWORD_DANIEL"),
+}
 
 SLOT_DEFINITIONS = [
     {"key": "slot_a", "label": "Slot A: 18:00 - 20:00 Uhr"},
@@ -90,7 +96,6 @@ def create_app(test_config=None):
     app.config.from_mapping(
         SECRET_KEY=os.environ.get("SECRET_KEY"),
         DATABASE=os.path.join(app.instance_path, "matchtreff.sqlite3"),
-        ADMIN_PASSWORD=os.environ.get("ADMIN_PASSWORD"),
     )
     if test_config is not None:
         app.config.update(test_config)
@@ -139,6 +144,14 @@ def create_app(test_config=None):
                 key TEXT PRIMARY KEY,
                 value TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS admin_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                created_by TEXT,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
             """
         )
         existing_theme = db.execute(
@@ -149,6 +162,18 @@ def create_app(test_config=None):
                 "INSERT INTO settings (key, value) VALUES (\'theme\', ?)",
                 (DEFAULT_THEME,),
             )
+
+        for seed_name, seed_password in SEED_ADMIN_USERS.items():
+            if not seed_password:
+                continue
+            existing_admin = db.execute(
+                "SELECT id FROM admin_users WHERE username = ?", (seed_name,)
+            ).fetchone()
+            if not existing_admin:
+                db.execute(
+                    "INSERT INTO admin_users (username, password_hash, created_by) VALUES (?, ?, ?)",
+                    (seed_name, generate_password_hash(seed_password), "system"),
+                )
         for s in SLOT_DEFINITIONS:
             existing = db.execute(
                 "SELECT id FROM slots WHERE slot_key = ?", (s["key"],)
@@ -224,6 +249,7 @@ def create_app(test_config=None):
         theme_key = get_current_theme_key()
         return {
             "is_admin": bool(session.get("is_admin")),
+            "admin_username": session.get("admin_username"),
             "next_thursday": next_thursday().strftime("%d.%m.%Y"),
             "current_theme_key": theme_key,
             "current_theme": THEMES[theme_key],
@@ -333,17 +359,26 @@ def create_app(test_config=None):
     @app.route("/admin/login", methods=["GET", "POST"])
     def admin_login():
         if request.method == "POST":
+            username = request.form.get("username", "").strip()
             password = request.form.get("password", "")
-            if password == app.config["ADMIN_PASSWORD"]:
+
+            db = get_db()
+            row = db.execute(
+                "SELECT * FROM admin_users WHERE username = ?", (username,)
+            ).fetchone()
+
+            if row and check_password_hash(row["password_hash"], password):
                 session["is_admin"] = True
-                flash("Admin-Login erfolgreich.", "success")
+                session["admin_username"] = row["username"]
+                flash(f"Admin-Login erfolgreich als {row[\'username\']}.", "success")
                 return redirect(url_for("admin_dashboard"))
-            flash("Falsches Passwort.", "danger")
+            flash("Benutzername oder Passwort falsch.", "danger")
         return render_template("admin_login.html")
 
     @app.route("/admin/logout")
     def admin_logout():
         session.pop("is_admin", None)
+        session.pop("admin_username", None)
         flash("Admin abgemeldet.", "info")
         return redirect(url_for("index"))
 
@@ -435,6 +470,76 @@ def create_app(test_config=None):
 
         flash("Anmeldung geloescht.", "info")
         return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/users", methods=["GET"])
+    @admin_required
+    def admin_users_list():
+        db = get_db()
+        users = db.execute(
+            "SELECT id, username, created_by, created_at FROM admin_users ORDER BY created_at ASC"
+        ).fetchall()
+        return render_template(
+            "admin_users.html",
+            users=users,
+        )
+
+    @app.route("/admin/users/create", methods=["POST"])
+    @admin_required
+    def admin_users_create():
+        new_username = request.form.get("new_username", "").strip()
+        new_password = request.form.get("new_password", "")
+        new_password_confirm = request.form.get("new_password_confirm", "")
+
+        if not new_username:
+            flash("Bitte einen Benutzernamen angeben.", "danger")
+            return redirect(url_for("admin_users_list"))
+
+        if len(new_password) < 6:
+            flash("Passwort muss mindestens 6 Zeichen lang sein.", "danger")
+            return redirect(url_for("admin_users_list"))
+
+        if new_password != new_password_confirm:
+            flash("Passwoerter stimmen nicht ueberein.", "danger")
+            return redirect(url_for("admin_users_list"))
+
+        db = get_db()
+        existing = db.execute(
+            "SELECT id FROM admin_users WHERE username = ?", (new_username,)
+        ).fetchone()
+        if existing:
+            flash("Dieser Benutzername existiert bereits.", "danger")
+            return redirect(url_for("admin_users_list"))
+
+        db.execute(
+            "INSERT INTO admin_users (username, password_hash, created_by) VALUES (?, ?, ?)",
+            (new_username, generate_password_hash(new_password), session.get("admin_username")),
+        )
+        db.commit()
+        flash(f"Admin \'{new_username}\' wurde angelegt.", "success")
+        return redirect(url_for("admin_users_list"))
+
+    @app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
+    @admin_required
+    def admin_users_delete(user_id):
+        db = get_db()
+        row = db.execute("SELECT * FROM admin_users WHERE id = ?", (user_id,)).fetchone()
+        if row is None:
+            flash("Admin nicht gefunden.", "danger")
+            return redirect(url_for("admin_users_list"))
+
+        total_admins = db.execute("SELECT COUNT(*) AS c FROM admin_users").fetchone()["c"]
+        if total_admins <= 1:
+            flash("Der letzte verbleibende Admin kann nicht geloescht werden.", "danger")
+            return redirect(url_for("admin_users_list"))
+
+        if row["username"] == session.get("admin_username"):
+            flash("Du kannst dich nicht selbst loeschen. Bitte von einem anderen Admin loeschen lassen.", "danger")
+            return redirect(url_for("admin_users_list"))
+
+        db.execute("DELETE FROM admin_users WHERE id = ?", (user_id,))
+        db.commit()
+        flash(f"Admin \'{row[\'username\']}\' wurde geloescht.", "info")
+        return redirect(url_for("admin_users_list"))
 
     @app.route("/admin/theme/update", methods=["POST"])
     @admin_required

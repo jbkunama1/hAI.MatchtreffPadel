@@ -45,6 +45,28 @@ cp Logo_I_Matchtreff.png static/Logo_I_Matchtreff.png
 
 Spieler koennen sich fuer einen oder beide Slots eintragen. Ist ein Slot bereits voll, ist die Auswahl fuer diesen Slot deaktiviert (Web) bzw. wird abgelehnt (Bot).
 
+## Admin-Benutzer & Admin-Verwaltung
+
+Beim ersten Start werden ueber Umgebungsvariablen zwei initiale Admins in der Datenbank angelegt (Passwoerter werden dabei sicher gehasht gespeichert, nicht im Klartext):
+
+| Benutzername | Passwort-Variable |
+|---|---|
+| `Admin` | `ADMIN_PASSWORD_ADMIN` |
+| `Daniel` | `ADMIN_PASSWORD_DANIEL` |
+
+Der Login (`/admin/login`) erfolgt ueber ein normales Formular mit Benutzername + Passwort - keine feste Auswahlliste, da beliebig viele Admins existieren koennen.
+
+### Weitere Admins anlegen
+
+Jeder eingeloggte Admin - egal ob `Admin`, `Daniel` oder ein spaeter angelegter Admin - kann im Bereich **Admin-Verwaltung** (`/admin/users`) neue Admin-Accounts anlegen. Dazu werden Benutzername, Passwort (mind. 6 Zeichen) und eine Passwort-Wiederholung angegeben. Alle Admins haben identische Rechte (Slot-Limits aendern, Anmeldungen loeschen/zuruecksetzen, Design wechseln, weitere Admins anlegen/loeschen).
+
+### Admins loeschen
+
+Im selben Bereich lassen sich bestehende Admins wieder entfernen. Zwei Schutzmechanismen greifen dabei automatisch:
+
+- Der **letzte verbleibende Admin** kann nicht geloescht werden, damit die App nie ohne Admin-Zugang endet.
+- Ein Admin kann **sich nicht selbst loeschen** - das muss ein anderer Admin uebernehmen.
+
 ## UI-Details (wie bei VfBAHKaessle)
 
 - **Hintergrund-Bubbles:** Wie im Original-Repo steigen dezente, animierte Blasen im Hintergrund auf (per CSS `@keyframes`, respektiert `prefers-reduced-motion`).
@@ -140,7 +162,8 @@ pip install -r requirements.txt
 
 ```bash
 export SECRET_KEY="change-me"        # in Produktion durch sicheren Key ersetzen
-export ADMIN_PASSWORD="change-me"    # Passwort fuer den Admin-Bereich
+export ADMIN_PASSWORD_ADMIN="change-me"    # Passwort fuer Benutzer Admin
+export ADMIN_PASSWORD_DANIEL="change-me"   # Passwort fuer Benutzer Daniel
 export PORT="1905"                   # Port fuer die Web-App
 python app.py
 ```
@@ -157,28 +180,46 @@ python telegram_bot.py
 
 ## Deployment via Portainer (Git-basiert)
 
-Der Stack laesst sich in Portainer direkt aus diesem GitHub-Repository bereitstellen, ohne die Dateien manuell hochzuladen.
+Der komplette Stack (Web-App + Telegram-Bot) laesst sich in Portainer direkt aus diesem GitHub-Repository bereitstellen - ohne manuellen Datei-Upload, inklusive automatischer Updates bei neuen Commits.
 
-1. In Portainer unter **Stacks -> Add stack** gehen.
-2. Als **Build method** die Option **Repository** waehlen (nicht "Web editor" oder "Upload").
-3. Folgende Angaben eintragen:
+### Voraussetzungen
+
+- Portainer CE oder EE, Zugriff auf **Stacks**
+- Das Repository ist oeffentlich (oder Portainer hat Zugriff via Access Token, falls privat)
+- Umgebungsvariablen bereit: `SECRET_KEY`, `ADMIN_PASSWORD`, `TELEGRAM_BOT_TOKEN`, `ADMIN_TELEGRAM_IDS`
+
+### Schritt-fuer-Schritt-Anleitung
+
+1. In Portainer links im Menu auf **Stacks** klicken, dann oben rechts auf **+ Add stack**.
+2. Einen Namen fuer den Stack vergeben, z. B. `matchtreff-padel`.
+3. Unter **Build method** die Option **Repository** auswaehlen (nicht "Web editor", nicht "Upload").
+4. Folgende Felder ausfuellen:
    - **Repository URL:** `https://github.com/jbkunama1/hAI.MatchtreffPadel`
-   - **Repository reference:** `refs/heads/main` (bzw. den Branch, in den gepusht wird)
+   - **Repository reference:** `refs/heads/main`
    - **Compose path:** `docker-compose.yml`
-4. Unter **Environment variables** die folgenden Werte setzen (echte, sichere Werte statt der Platzhalter):
-   - `SECRET_KEY`
-   - `ADMIN_PASSWORD`
-   - `TELEGRAM_BOT_TOKEN`
-   - `ADMIN_TELEGRAM_IDS`
-5. Optional: **GitOps updates** aktivieren (Polling oder Webhook), damit Portainer den Stack automatisch neu deployt, sobald neue Commits auf `main` gepusht werden.
-6. Auf **Deploy the stack** klicken.
+   - Falls das Repo privat ist: **Authentication** aktivieren und einen GitHub Personal Access Token hinterlegen.
+5. Im Bereich **Environment variables** (oder per `.env`-Datei im Repo) folgende Variablen setzen:
+   - `SECRET_KEY` = ein langer, zufaelliger String
+   - `ADMIN_PASSWORD_ADMIN` = Passwort fuer den Benutzer `Admin`
+   - `ADMIN_PASSWORD_DANIEL` = Passwort fuer den Benutzer `Daniel`
+   - `TELEGRAM_BOT_TOKEN` = Token von @BotFather
+   - `ADMIN_TELEGRAM_IDS` = Telegram-User-IDs der Admins, kommagetrennt
+6. Optional, aber empfohlen: **GitOps updates** aktivieren.
+   - **Mechanism:** Polling (z. B. alle 5 Minuten) oder Webhook (sofortige Aktualisierung bei Push).
+   - Bei Webhook: die von Portainer angezeigte URL als Webhook im GitHub-Repo unter **Settings -> Webhooks** eintragen.
+7. Unten auf **Deploy the stack** klicken.
+8. Portainer klont das Repository, baut das Image ueber das vorhandene `Dockerfile` und startet die zwei Services `matchtreff_web` (Port 1905) und `matchtreff_bot` gemaess `docker-compose.yml`.
 
-Portainer klont das Repository intern, baut die Images ueber das vorhandene `Dockerfile` und startet beide Services (`matchtreff_web`, `matchtreff_bot`) gemaess `docker-compose.yml`. Aenderungen am Code muessen nur noch gepusht werden - bei aktivierten GitOps-Updates zieht Portainer den Stand automatisch nach.
+### Nach dem Deploy
 
-### Aktualisieren des Stacks
+- Web-App erreichbar unter `http://<server-ip>:1905`
+- Admin-Login unter `http://<server-ip>:1905/admin/login` mit dem gesetzten `ADMIN_PASSWORD`
+- Telegram-Bot antwortet automatisch, sobald der Container laeuft (Long Polling, kein oeffentlicher Port noetig)
 
-- Mit aktivierten GitOps-Updates: einfach `git push` auf `main` - Portainer aktualisiert den Stack automatisch nach dem konfigurierten Intervall bzw. per Webhook.
-- Ohne GitOps-Updates: in Portainer beim Stack auf **Pull and redeploy** klicken, um den neuesten Commit zu holen und neu zu bauen.
+### Stack aktualisieren
+
+- **Mit GitOps-Updates (Polling oder Webhook):** einfach `git push` auf `main` - Portainer zieht die Aenderung automatisch nach und deployt neu.
+- **Ohne GitOps-Updates:** im Portainer-Stack auf **Pull and redeploy** klicken, um den neuesten Commit manuell zu holen und neu zu bauen.
 
 ## Docker / Portainer (manuelles Setup ohne Git-Integration)
 
@@ -207,7 +248,8 @@ services:
       - "1905:1905"
     environment:
       - SECRET_KEY=change-me
-      - ADMIN_PASSWORD=change-me
+      - ADMIN_PASSWORD_ADMIN=change-me
+      - ADMIN_PASSWORD_DANIEL=change-me
     volumes:
       - matchtreff_data:/app/instance
     restart: unless-stopped

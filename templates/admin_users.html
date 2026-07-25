@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}Admin-Verwaltung{% endblock %}
+{% block content %}
+<h1>Admin-Verwaltung</h1>
+<p>Hier kannst du weitere Admins anlegen oder bestehende (bis auf den letzten verbleibenden) entfernen. Jeder Admin darf weitere Admins anlegen und loeschen.</p>
+
+<div class="slot-card">
+    <div class="slot-title">Bestehende Admins</div>
+    <ul class="player-list">
+        {% for u in users %}
+            <li>
+                <span>
+                    {{ u.username }}
+                    <span class="code-inline">seit {{ u.created_at }}</span>
+                    {% if u.created_by %}<span class="code-inline">von {{ u.created_by }}</span>{% endif %}
+                </span>
+                <form action="{{ url_for('admin_users_delete', user_id=u.id) }}" method="post" style="margin:0;" onsubmit="return confirm('Admin \'{{ u.username }}\' wirklich loeschen?');">
+                    <button class="btn-danger" type="submit">Loeschen</button>
+                </form>
+            </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div class="stack-label">Neuen Admin anlegen</div>
+<form action="{{ url_for('admin_users_create') }}" method="post">
+    <div class="form-group">
+        <label for="new_username">Benutzername</label>
+        <input class="form-control" type="text" id="new_username" name="new_username" required>
+    </div>
+    <div class="form-group">
+        <label for="new_password">Passwort (mind. 6 Zeichen)</label>
+        <input class="form-control" type="password" id="new_password" name="new_password" required minlength="6">
+    </div>
+    <div class="form-group">
+        <label for="new_password_confirm">Passwort wiederholen</label>
+        <input class="form-control" type="password" id="new_password_confirm" name="new_password_confirm" required minlength="6">
+    </div>
+    <button class="btn-accent" type="submit">Admin anlegen</button>
+</form>
+{% endblock %}

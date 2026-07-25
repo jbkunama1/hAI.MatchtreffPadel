@@ -201,12 +201,17 @@ img, video { max-width: 100%; height: auto; }
       <li><strong>UI:</strong> eigenes responsives CSS im VfB-Kässle-Design</li>
     </ul>
 
-        <h2>Deployment</h2>
-    <ul class="list-tight">
-      <li>Deployt via <strong>Portainer Stacks</strong> direkt aus diesem GitHub-Repository (Git-basierter Stack)</li>
-      <li>Zwei Services: Web-App (<span class="code-inline">matchtreff_web</span>) und Telegram-Bot (<span class="code-inline">matchtreff_bot</span>)</li>
-      <li>Optionale GitOps-Updates: Portainer zieht neue Commits automatisch nach</li>
-    </ul>
+        <h2>Deployment via Portainer (Git-Stack)</h2>
+    <ol class="list-tight">
+      <li>Portainer &rarr; <strong>Stacks</strong> &rarr; <strong>+ Add stack</strong></li>
+      <li>Build method: <strong>Repository</strong></li>
+      <li>Repository URL: <span class="code-inline">https://github.com/jbkunama1/hAI.MatchtreffPadel</span></li>
+      <li>Reference: <span class="code-inline">refs/heads/main</span>, Compose path: <span class="code-inline">docker-compose.yml</span></li>
+      <li>Umgebungsvariablen setzen: <span class="code-inline">SECRET_KEY</span>, <span class="code-inline">ADMIN_PASSWORD</span>, <span class="code-inline">TELEGRAM_BOT_TOKEN</span>, <span class="code-inline">ADMIN_TELEGRAM_IDS</span></li>
+      <li>Optional: <strong>GitOps updates</strong> (Polling/Webhook) aktivieren, damit neue Commits automatisch deployt werden</li>
+      <li>Auf <strong>Deploy the stack</strong> klicken - Web-App laeuft danach auf Port <span class="code-inline">1905</span>, Bot startet automatisch mit</li>
+    </ol>
+    <p>Ausfuehrliche Details dazu stehen in der <a href="README.md">README</a> im Abschnitt "Deployment via Portainer (Git-basiert)".</p>
 
     <h2>Ablauf für Spieler</h2>
     <ol class="list-tight">

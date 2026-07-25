@@ -47,7 +47,7 @@
             <div>
                 <a class="btn-soft" href="{{ url_for('index') }}">Startseite</a>
                 {% if is_admin %}
-                    <a class="btn-soft" href="{{ url_for('admin_dashboard') }}">Admin-Bereich</a>
+                    <a class="btn-soft" href="{{ url_for('admin_dashboard') }}">Admin-Bereich ({{ admin_username }})</a>
                     <a class="btn-soft" href="{{ url_for('admin_logout') }}">Admin-Logout</a>
                 {% else %}
                     <a class="btn-soft" href="{{ url_for('admin_login') }}">Admin-Login</a>
