@@ -1,7 +1,11 @@
+# Portainer: als Git-basierter Stack aus diesem Repository deploybar.
+# Repository URL: https://github.com/jbkunama1/hAI.MatchtreffPadel
+# Compose path: docker-compose.yml
 services:
-  matchtreff_padel:
+  matchtreff_web:
     build: .
-    container_name: matchtreff_padel
+    container_name: matchtreff_padel_web
+    command: gunicorn -b 0.0.0.0:1905 app:app
     ports:
       - "1905:1905"
     environment:
@@ -10,6 +14,19 @@ services:
     volumes:
       - matchtreff_data:/app/instance
     restart: unless-stopped
+
+  matchtreff_bot:
+    build: .
+    container_name: matchtreff_padel_bot
+    command: python telegram_bot.py
+    environment:
+      - TELEGRAM_BOT_TOKEN=change-me
+      - ADMIN_TELEGRAM_IDS=123456789
+    volumes:
+      - matchtreff_data:/app/instance
+    restart: unless-stopped
+    depends_on:
+      - matchtreff_web
 
 volumes:
   matchtreff_data:

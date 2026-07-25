@@ -95,6 +95,8 @@ a { text-decoration: none; }
 <body>
 <div class="page-shell">
   <div class="card-root">
+    <img src="Logo_II_Banner.png" alt="Matchtreff Padel Banner" style="width:100%; max-width:100%; border-radius:1rem; margin-bottom:1.25rem; display:block;">
+
     <span class="badge-pill">Padel Matchtreff</span>
 
     <h1>hAI.MatchtreffPadel</h1>
@@ -114,14 +116,23 @@ a { text-decoration: none; }
       <li>Admin legt maximale Teilnehmerzahl pro Slot fest</li>
       <li>Änderungen und Löschungen von Anmeldungen ausschließlich durch den Admin</li>
       <li>SQLite-Backend im <span class="code-inline">instance/</span>-Ordner</li>
-      <li>Docker-/Compose-Setup auf Port <span class="code-inline">1905</span></li>
+      <li>Telegram-Bot zum Eintragen &amp; als Admin-Steuerung</li>
+      <li>Docker-/Compose-Setup mit zwei Containern (Web &amp; Bot) auf Port <span class="code-inline">1905</span></li>
     </ul>
 
     <h2>Tech-Stack</h2>
     <ul class="list-tight">
       <li><strong>Backend:</strong> Python, Flask, Gunicorn</li>
       <li><strong>Datenbank:</strong> SQLite</li>
+      <li><strong>Bot:</strong> python-telegram-bot</li>
       <li><strong>UI:</strong> eigenes responsives CSS im VfB-Kässle-Design</li>
+    </ul>
+
+        <h2>Deployment</h2>
+    <ul class="list-tight">
+      <li>Deployt via <strong>Portainer Stacks</strong> direkt aus diesem GitHub-Repository (Git-basierter Stack)</li>
+      <li>Zwei Services: Web-App (<span class="code-inline">matchtreff_web</span>) und Telegram-Bot (<span class="code-inline">matchtreff_bot</span>)</li>
+      <li>Optionale GitOps-Updates: Portainer zieht neue Commits automatisch nach</li>
     </ul>
 
     <h2>Ablauf für Spieler</h2>

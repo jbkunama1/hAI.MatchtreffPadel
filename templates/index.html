@@ -2,7 +2,7 @@
 {% block title %}Matchtreff Padel - Anmeldung{% endblock %}
 {% block content %}
 <h1>Padel Matchtreff</h1>
-<p>Anmeldung für Donnerstag, {{ next_thursday }}. Trag einfach deinen Namen ein und wähle einen oder beide Slots.</p>
+<p>Anmeldung fuer Donnerstag, {{ next_thursday }}. Trag einfach deinen Namen ein und waehle einen oder beide Slots. Pro Geraet kann man sich pro Slot nur einmal eintragen.</p>
 
 <form action="{{ url_for('eintragen') }}" method="post">
     <div class="form-group">
@@ -14,9 +14,12 @@
         <label>Slot-Auswahl</label>
         {% for slot in slots %}
             <div class="checkbox-row">
-                <input type="checkbox" id="{{ slot.slot_key }}" name="slots" value="{{ slot.slot_key }}" {% if slot.full %}disabled{% endif %}>
+                <input type="checkbox" id="{{ slot.slot_key }}" name="slots" value="{{ slot.slot_key }}"
+                       {% if cookie_locked[slot.slot_key] or slot.waitlist_full and slot.full %}disabled{% endif %}>
                 <label for="{{ slot.slot_key }}" style="margin:0;">
-                    {{ slot.label }} ({{ slot.count }}/{{ slot.max_players }}{% if slot.full %} - VOLL{% endif %})
+                    {{ slot.label }} ({{ slot.count }}/{{ slot.max_players }}{% if slot.full %} - VOLL{% endif %}
+                    {% if slot.waitlist_count > 0 or slot.full %}, Warteliste {{ slot.waitlist_count }}/4{% endif %}
+                    {% if cookie_locked[slot.slot_key] %} - bereits eingetragen{% endif %})
                 </label>
             </div>
         {% endfor %}
@@ -29,14 +32,25 @@
 {% for slot in slots %}
     <div class="slot-card {% if slot.full %}full{% endif %}">
         <div class="slot-title">{{ slot.label }}</div>
-        <div class="slot-meta">{{ slot.count }} von {{ slot.max_players }} Plätzen belegt{% if slot.full %} - Slot ist voll{% endif %}</div>
+        <div class="slot-meta">
+            {{ slot.count }} von {{ slot.max_players }} Plaetzen belegt{% if slot.full %} - Slot ist voll{% endif %}
+            {% if slot.waitlist_count > 0 %} | Warteliste: {{ slot.waitlist_count }}/4{% endif %}
+        </div>
         <ul class="player-list">
-            {% for signup in signups_by_slot[slot.id] %}
+            {% for signup in signups_by_slot[slot.id].confirmed %}
                 <li>{{ signup.name }}</li>
             {% else %}
                 <li>Noch niemand angemeldet.</li>
             {% endfor %}
         </ul>
+        {% if signups_by_slot[slot.id].waitlist %}
+            <div class="stack-label" style="margin-top:0.75rem;">Warteliste</div>
+            <ul class="player-list">
+                {% for signup in signups_by_slot[slot.id].waitlist %}
+                    <li>{{ signup.name }}</li>
+                {% endfor %}
+            </ul>
+        {% endif %}
     </div>
 {% endfor %}
 {% endblock %}
