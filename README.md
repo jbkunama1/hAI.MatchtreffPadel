@@ -185,6 +185,10 @@ export ADMIN_TELEGRAM_IDS="123456789,987654321"
 python telegram_bot.py
 ```
 
+## Umbenennung: Zeitraum FRUEH/SPAET zu Temprano/Tarde
+
+Die Zeitraum-Bezeichnungen wurden erneut umbenannt: "Zeitraum FRUEH" heisst jetzt "Temprano" und "Zeitraum SPAET" heisst jetzt "Tarde" (jeweils mit den bekannten Uhrzeiten 18:00-20:00 bzw. 20:00-22:00 Uhr). Die Aenderung gilt sowohl in der Web-App als auch im Telegram-Bot; die internen Datenbank-Schluessel (`slot_a`, `slot_b`) bleiben unveraendert, sodass bestehende Anmeldungen erhalten bleiben.
+
 ## Max. Teilnehmer 14 + editierbarer Einleitungstext
 
 Der Standardwert fuer die maximale Teilnehmerzahl pro Zeitraum wurde von 8 auf 14 erhoeht (gilt fuer neu angelegte Datenbanken; bestehende Slots kannst du im Admin-Dashboard weiterhin individuell anpassen). Zusaetzlich kannst du jetzt im Admin-Dashboard unter "Einleitungstext auf der Startseite" den Text, der ganz oben auf der Anmeldeseite unter dem Titel steht, frei bearbeiten und speichern. Leeres Feld speichern setzt den Text wieder auf den Standard zurueck.
