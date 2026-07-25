@@ -91,6 +91,16 @@
     <button class="btn-accent" type="submit">Effekt uebernehmen</button>
 </form>
 
+<div class="stack-label">Einleitungstext auf der Startseite</div>
+<p>Passe den Text an, der ganz oben auf der Anmeldeseite unter dem Titel angezeigt wird. Leer lassen und speichern setzt den Standardtext zurueck.</p>
+<form action="{{ url_for('admin_update_intro_text') }}" method="post">
+    <div class="form-group" style="margin-top:0;">
+        <label for="intro_text">Text</label>
+        <textarea class="form-control" id="intro_text" name="intro_text" rows="3">{{ intro_text }}</textarea>
+    </div>
+    <button class="btn-accent" type="submit">Text speichern</button>
+</form>
+
 <div class="stack-label">Admins</div>
 <a class="btn-soft" href="{{ url_for('admin_users_list') }}">Admins verwalten</a>
 

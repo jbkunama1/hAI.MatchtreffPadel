@@ -185,6 +185,10 @@ export ADMIN_TELEGRAM_IDS="123456789,987654321"
 python telegram_bot.py
 ```
 
+## Max. Teilnehmer 14 + editierbarer Einleitungstext
+
+Der Standardwert fuer die maximale Teilnehmerzahl pro Zeitraum wurde von 8 auf 14 erhoeht (gilt fuer neu angelegte Datenbanken; bestehende Slots kannst du im Admin-Dashboard weiterhin individuell anpassen). Zusaetzlich kannst du jetzt im Admin-Dashboard unter "Einleitungstext auf der Startseite" den Text, der ganz oben auf der Anmeldeseite unter dem Titel steht, frei bearbeiten und speichern. Leeres Feld speichern setzt den Text wieder auf den Standard zurueck.
+
 ## Banner oben und groesseres Logo
 
 Oben auf der Seite wird jetzt das Banner (`static/Logo_II_Banner.png`) angezeigt, allerdings nur auf Bildschirmen ab Tablet-Groesse (ab 768px Breite) - auf schmalen Handy-Bildschirmen wird es automatisch ausgeblendet, damit die Seite dort nicht ueberladen wirkt und die eigentlichen Anmelde-Inhalte im Vordergrund bleiben. Das kleine Logo (`Logo_I_Matchtreff.png`) neben dem Titel wurde zusaetzlich von 48px auf 64px Hoehe vergroessert.

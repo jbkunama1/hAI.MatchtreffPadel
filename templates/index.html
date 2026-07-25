@@ -2,7 +2,7 @@
 {% block title %}Matchtreff Padel - Anmeldung{% endblock %}
 {% block content %}
 <h1>Padel Matchtreff</h1>
-<p>Anmeldung fuer Donnerstag, {{ next_thursday }}. Trag einfach deinen Namen ein und waehle einen oder beide Slots. Pro Geraet kann man sich pro Slot nur einmal eintragen.</p>
+<p>{{ intro_text }}</p>
 
 <form action="{{ url_for('eintragen') }}" method="post">
     <div class="form-group">

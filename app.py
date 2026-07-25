@@ -34,6 +34,11 @@ SLOT_DEFINITIONS = [
 ]
 SLOT_LABEL = {s["key"]: s["label"] for s in SLOT_DEFINITIONS}
 WAITLIST_LIMIT = 4
+DEFAULT_MAX_PLAYERS = 14
+DEFAULT_INTRO_TEXT = (
+    "Anmeldung fuer Donnerstag, {next_thursday}. Trag einfach deinen Namen ein "
+    "und waehle einen oder beide Slots. Pro Geraet kann man sich pro Slot nur einmal eintragen."
+)
 
 THEMES = {
     "default": {
@@ -198,7 +203,7 @@ def create_app(test_config=None):
             if not existing:
                 db.execute(
                     "INSERT INTO slots (slot_key, label, max_players) VALUES (?, ?, ?)",
-                    (s["key"], s["label"], 8),
+                    (s["key"], s["label"], DEFAULT_MAX_PLAYERS),
                 )
         db.commit()
 
@@ -267,6 +272,13 @@ def create_app(test_config=None):
         key = row["value"] if row else DEFAULT_BG_STYLE
         return key if key in BG_STYLES else DEFAULT_BG_STYLE
 
+    def get_intro_text():
+        db = get_db()
+        row = db.execute("SELECT value FROM settings WHERE key = 'intro_text'").fetchone()
+        if row and row["value"].strip():
+            return row["value"]
+        return DEFAULT_INTRO_TEXT.format(next_thursday=next_thursday().strftime("%d.%m.%Y"))
+
     @app.context_processor
     def inject_globals():
         theme_key = get_current_theme_key()
@@ -281,6 +293,7 @@ def create_app(test_config=None):
             "orga_team_normalized": ORGA_TEAM_NORMALIZED,
             "current_bg_style": bg_style_key,
             "bg_styles": BG_STYLES,
+            "intro_text": get_intro_text(),
         }
 
     @app.route("/")
@@ -602,6 +615,24 @@ def create_app(test_config=None):
         )
         db.commit()
         flash(f"Hintergrund-Effekt auf '{BG_STYLES[bg_style_key]}' geaendert.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/intro-text/update", methods=["POST"])
+    @admin_required
+    def admin_update_intro_text():
+        intro_text = request.form.get("intro_text", "").strip()
+        db = get_db()
+        if intro_text:
+            db.execute(
+                "INSERT INTO settings (key, value) VALUES ('intro_text', ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (intro_text,),
+            )
+            flash("Einleitungstext wurde aktualisiert.", "success")
+        else:
+            db.execute("DELETE FROM settings WHERE key = 'intro_text'")
+            flash("Einleitungstext wurde auf Standard zurueckgesetzt.", "info")
+        db.commit()
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/signups/clear", methods=["POST"])
