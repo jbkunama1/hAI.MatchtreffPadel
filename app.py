@@ -41,6 +41,52 @@ DEFAULT_INTRO_TEXT = (
     "und waehle einen oder beide Slots. Pro Geraet kann man sich pro Slot nur einmal eintragen."
 )
 
+INFO_PAGE_TEXT = """Hallo Padel-Spieler,
+
+hier findet Ihr die Abfrage, wer so alles beim MATCHTREFF SILBER dabei ist.
+
+Ich habe uns aktuell 3 Plaetze reserviert von 18 - 22 Uhr.
+
+
+Wuerde mich freuen, wenn wir uns am Donnerstag sehen!
+Das ganze findet natuerlich nur statt, wenn es das Wetter auch zulaesst.
+Ihr koennt jederzeit dazukommen, entweder direkt ab 18 Uhr, oder auch spaeter ab 20 Uhr.
+Bitte beachtet diese Startzeiten, damit wir auch immer genuegend Spieler sind und nicht warten muessen.
+
+Ich bekomme bitte von jedem Teilnehmer 2 Euro (TCG-Mitglieder) , das Nutzen wir um zb Baelle fuer den Matchtreff zu organisieren.
+
+Gaeste (Nicht TCG Mitglieder) sind willkommen, zahlen aber pauschal 15 Euro.
+(Gaeste bitte unbedingt vorher bei mir anmelden! -> TCG Mitglieder haben Vorrang!)
+
+Wann immer es geht -> Wir spielen "Golden Court"
+(Je nach Teilnehmerzahl)
+
+So bekommen wir das ganze etwas durchgemischt und haben dabei noch eine kleine Challenge :-)
+
+
+In unregelmaessigen Abstaenden wird Donnerstags auch ein GPS100 DPV angeboten, hier sind dann die Plaetze begrenzt. Planung ist, das mindestens zweimal pro Saison anzubieten.
+
+Ausserdem wird es ab dieser Saison auch immer wieder ein AMERICANO geben, das geben wir aber auch vorher bekannt
+
+
+Naechstes Turnier // Naechstes Americano am xx.xx.26
+->
+
+--------------------------------------------------------
+
+Das Angebot richtet sich an Spieler auf "SILBER"-Level.
+(Fuer Anfaenger/Interessierte gibt es Montags ein Angebot).
+--------------------------------------------------------
+
+Tragt euch ein wer dabei ist !
+
+Danke und gruss
+Daniel
+
+
+Fragen?
+Immer gerne, entweder per WhatsApp oder per Mail: daniel@will-padel-spielen.de"""
+
 GALLERY_IMAGES = [
     "1716335274392.png", "1716335619157.png", "Designer (1).jpeg", "Designer (10).jpeg",
     "Designer (11).jpeg", "Designer (12).jpeg", "Designer (13).jpeg", "Designer (14).jpeg",
@@ -248,6 +294,28 @@ def create_app(test_config=None):
                     "INSERT INTO slots (slot_key, label, max_players) VALUES (?, ?, ?)",
                     (s["key"], s["label"], DEFAULT_MAX_PLAYERS),
                 )
+
+        # Migration: alte, individuell nicht mehr gewuenschte Labels (z.B. "FRUEH"/"SPAET")
+        # aus frueheren Versionen automatisch auf die aktuellen Standard-Labels anheben,
+        # aber nur, wenn der Admin das Label noch NIE manuell ueber das Admin-Panel
+        # geaendert hat (siehe custom_label-Flag in settings).
+        migrated_flag = db.execute(
+            "SELECT value FROM settings WHERE key = 'slot_labels_migrated_v2'"
+        ).fetchone()
+        if not migrated_flag:
+            for s in SLOT_DEFINITIONS:
+                custom_flag = db.execute(
+                    "SELECT value FROM settings WHERE key = ?", (f"slot_label_custom_{s['key']}",)
+                ).fetchone()
+                if not custom_flag:
+                    db.execute(
+                        "UPDATE slots SET label = ? WHERE slot_key = ?",
+                        (s["label"], s["key"]),
+                    )
+            db.execute(
+                "INSERT INTO settings (key, value) VALUES ('slot_labels_migrated_v2', '1') "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value"
+            )
         db.commit()
 
     with app.app_context():
@@ -361,6 +429,10 @@ def create_app(test_config=None):
             s["slot_key"]: request.cookies.get(SIGNUP_COOKIE_PREFIX + s["slot_key"]) is not None for s in slots
         }
         return render_template("index.html", slots=slots, signups_by_slot=signups_by_slot, cookie_locked=cookie_locked)
+
+    @app.route("/info")
+    def info_page():
+        return render_template("info.html", info_text=INFO_PAGE_TEXT)
 
     @app.route("/eintragen", methods=["POST"])
     def eintragen():
@@ -486,6 +558,7 @@ def create_app(test_config=None):
     def admin_update_slot(slot_id):
         db = get_db()
         max_raw = request.form.get("max_players", "0")
+        label_raw = request.form.get("label", "").strip()
         try:
             max_players = int(max_raw)
         except ValueError:
@@ -495,6 +568,16 @@ def create_app(test_config=None):
             return redirect(url_for("admin_dashboard"))
 
         db.execute("UPDATE slots SET max_players = ? WHERE id = ?", (max_players, slot_id))
+
+        if label_raw:
+            slot_row_for_label = db.execute("SELECT slot_key FROM slots WHERE id = ?", (slot_id,)).fetchone()
+            db.execute("UPDATE slots SET label = ? WHERE id = ?", (label_raw, slot_id))
+            if slot_row_for_label:
+                db.execute(
+                    "INSERT INTO settings (key, value) VALUES (?, '1') "
+                    "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                    (f"slot_label_custom_{slot_row_for_label['slot_key']}",),
+                )
         db.commit()
 
         row = db.execute("SELECT * FROM slots WHERE id = ?", (slot_id,)).fetchone()
