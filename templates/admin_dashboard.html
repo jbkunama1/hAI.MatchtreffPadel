@@ -30,6 +30,11 @@
                         {% else %}
                             {{ signup.name }}
                         {% endif %}
+                        {% if signup.is_member %}
+                            <span class="badge-member">Mitglied</span>
+                        {% else %}
+                            <span class="badge-guest">Gast</span>
+                        {% endif %}
                     </span>
                     <form action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}" method="post" style="margin:0;">
                         <button class="btn-danger" type="submit">Loeschen</button>
@@ -49,6 +54,11 @@
                             <strong>{{ signup.name }} &#9733;</strong>
                         {% else %}
                             {{ signup.name }}
+                        {% endif %}
+                        {% if signup.is_member %}
+                            <span class="badge-member">Mitglied</span>
+                        {% else %}
+                            <span class="badge-guest">Gast</span>
                         {% endif %}
                     </span>
                     <form action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}" method="post" style="margin:0;">
@@ -77,8 +87,25 @@
     <button class="btn-accent" type="submit">Design uebernehmen</button>
 </form>
 
-<div class="stack-label">Schwebe-Effekt im Hintergrund</div>
-<p>Waehle, ob im Hintergrund farbige Blasen oder Padel-Ball-Icons nach oben schweben.</p>
+<div class="stack-label" style="margin-top:1.5rem;">Eigenes Hintergrundbild waehlen</div>
+<p>Waehle eines der Bilder aus dem pictures-Verzeichnis als Hintergrund. Aktivierung setzt automatisch das Design auf "Eigenes Bild (Galerie)".</p>
+<form action="{{ url_for('admin_update_custom_image') }}" method="post">
+    <div class="form-group" style="margin-top:0.5rem;">
+        <label>Aktuelles Bild: <span class="code-inline">{{ current_custom_image }}</span></label>
+    </div>
+    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:0.75rem; margin-top:0.5rem;">
+        {% for img in gallery_images %}
+            <label style="cursor:pointer; display:block; border-radius:0.75rem; overflow:hidden; border:3px solid {% if img == current_custom_image %}var(--accent, #2563eb){% else %}transparent{% endif %}; position:relative;">
+                <input type="radio" name="custom_image" value="{{ img }}" {% if img == current_custom_image %}checked{% endif %} style="position:absolute; top:0.35rem; left:0.35rem; width:18px; height:18px; z-index:2;">
+                <img src="{{ url_for('static', filename='pictures/' + img) }}" alt="{{ img }}" style="width:100%; height:90px; object-fit:cover; display:block;">
+            </label>
+        {% endfor %}
+    </div>
+    <button class="btn-accent" type="submit" style="margin-top:1rem;">Bild als Hintergrund uebernehmen</button>
+</form>
+
+<div class="stack-label" style="margin-top:1.5rem;">Schwebe-Effekt im Hintergrund</div>
+<p>Waehle, ob im Hintergrund farbige Blasen oder Padel-Ball-Icons nach oben schweben (Icons werden gross angezeigt).</p>
 <form action="{{ url_for('admin_update_bg_style') }}" method="post" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
     <div class="form-group" style="margin-top:0;">
         <label for="bg_style">Aktueller Effekt: {{ bg_styles[current_bg_style] }}</label>
@@ -92,11 +119,11 @@
 </form>
 
 <div class="stack-label">Einleitungstext auf der Startseite</div>
-<p>Passe den Text an, der ganz oben auf der Anmeldeseite unter dem Titel angezeigt wird. Leer lassen und speichern setzt den Standardtext zurueck.</p>
+<p>Passe den Text an, der ganz oben auf der Anmeldeseite unter dem Titel angezeigt wird. Verwende <span class="code-inline">{next_thursday}</span> als Platzhalter - er wird automatisch durch das Datum des naechsten Donnerstags ersetzt und aktualisiert sich jede Woche von selbst. Leer lassen und speichern setzt den Standardtext zurueck.</p>
 <form action="{{ url_for('admin_update_intro_text') }}" method="post">
     <div class="form-group" style="margin-top:0;">
-        <label for="intro_text">Text</label>
-        <textarea class="form-control" id="intro_text" name="intro_text" rows="3">{{ intro_text }}</textarea>
+        <label for="intro_text">Text (Vorlage mit Platzhalter)</label>
+        <textarea class="form-control" id="intro_text" name="intro_text" rows="3">{{ raw_intro_text }}</textarea>
     </div>
     <button class="btn-accent" type="submit">Text speichern</button>
 </form>

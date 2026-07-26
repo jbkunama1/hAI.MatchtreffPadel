@@ -11,6 +11,14 @@
     </div>
 
     <div class="form-group">
+        <div class="checkbox-row">
+            <input type="checkbox" id="is_member" name="is_member" checked>
+            <label for="is_member" style="margin:0;">Ich bin TPCG-Mitglied</label>
+        </div>
+        <div class="slot-meta" style="margin-top:0.35rem;">Mitglieder werden bei der Platzvergabe bevorzugt. Nicht-Mitglieder koennen sich trotzdem eintragen.</div>
+    </div>
+
+    <div class="form-group">
         <label>Slot-Auswahl</label>
         {% for slot in slots %}
             <div class="checkbox-row">
@@ -44,6 +52,11 @@
                     {% else %}
                         {{ signup.name }}
                     {% endif %}
+                    {% if signup.is_member %}
+                        <span class="badge-member">Mitglied</span>
+                    {% else %}
+                        <span class="badge-guest">Gast</span>
+                    {% endif %}
                 </li>
             {% else %}
                 <li>Noch niemand angemeldet.</li>
@@ -58,6 +71,11 @@
                             <strong>{{ signup.name }} &#9733;</strong>
                         {% else %}
                             {{ signup.name }}
+                        {% endif %}
+                        {% if signup.is_member %}
+                            <span class="badge-member">Mitglied</span>
+                        {% else %}
+                            <span class="badge-guest">Gast</span>
                         {% endif %}
                     </li>
                 {% endfor %}

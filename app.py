@@ -1,7 +1,8 @@
 import os
 import sys
 import sqlite3
-import secrets
+import json
+import urllib.request
 from datetime import datetime, timedelta
 from flask import (
     Flask, render_template, request, redirect, url_for,
@@ -40,6 +41,21 @@ DEFAULT_INTRO_TEXT = (
     "und waehle einen oder beide Slots. Pro Geraet kann man sich pro Slot nur einmal eintragen."
 )
 
+GALLERY_IMAGES = [
+    "1716335274392.png", "1716335619157.png", "Designer (1).jpeg", "Designer (10).jpeg",
+    "Designer (11).jpeg", "Designer (12).jpeg", "Designer (13).jpeg", "Designer (14).jpeg",
+    "Designer (2).jpeg", "Designer (3).jpeg", "Designer (4).jpeg", "Designer (5).jpeg",
+    "Designer (6).jpeg", "Designer (7).jpeg", "Designer (8).jpeg", "Designer (9).jpeg",
+    "Designer.jpeg", "Designer1.jpeg", "Designer_Paypal_1.jpeg", "Designer_Paypal_2.jpeg",
+    "Download.png", "FollowLogo.jpeg", "Racketfire.png", "Racketsplash.png",
+    "image_fx_a__flyer_for_a_padel_tennis_event_called__ma.jpg",
+    "image_fx_a_background_for_a_padel_tennis_event_without (1).jpg",
+    "image_fx_a_background_for_a_padel_tennis_event_without (2).jpg",
+    "image_fx_a_background_for_a_padel_tennis_event_without (3).jpg",
+    "image_fx_a_background_for_a_padel_tennis_event_without.jpg",
+    "image_fx_a_flyer_for_a_padel_tennis_event_without_any.jpg",
+]
+
 THEMES = {
     "default": {
         "label": "Standard (Blau)",
@@ -69,37 +85,23 @@ THEMES = {
         "accent": "#38bdf8",
         "accent2": "#818cf8",
     },
-    "racket_fire": {
-        "label": "Racket Fire (Bild)",
+    "custom_image": {
+        "label": "Eigenes Bild (Galerie)",
         "gradient": "linear-gradient(rgba(15,23,42,0.55), rgba(15,23,42,0.55))",
-        "background_image": "Racketfire.png",
+        "background_image": "__CUSTOM__",
         "accent": "#f97316",
         "accent2": "#facc15",
-    },
-    "racket_splash": {
-        "label": "Racket Splash (Bild)",
-        "gradient": "linear-gradient(rgba(15,23,42,0.55), rgba(15,23,42,0.55))",
-        "background_image": "Racketsplash.png",
-        "accent": "#0ea5e9",
-        "accent2": "#38bdf8",
-    },
-    "padel_court_bg": {
-        "label": "Padel Court (Foto)",
-        "gradient": "linear-gradient(rgba(15,23,42,0.5), rgba(15,23,42,0.5))",
-        "background_image": "padel_bg_1.jpg",
-        "accent": "#16a34a",
-        "accent2": "#4ade80",
     },
 }
 DEFAULT_THEME = "night"
 DEFAULT_BG_STYLE = "bubbles"
+DEFAULT_CUSTOM_IMAGE = "Racketfire.png"
 BG_STYLES = {
     "bubbles": "Farbige Blasen",
     "logo": "Padel-Ball-Icons",
 }
 
 ORGA_TEAM = ["Daniel", "Cosme", "Sascha", "Patrick"]
-
 SIGNUP_COOKIE_PREFIX = "mtp_signed_"
 
 
@@ -108,6 +110,48 @@ def normalize_name(name: str) -> str:
 
 
 ORGA_TEAM_NORMALIZED = {normalize_name(n) for n in ORGA_TEAM}
+
+
+def telegram_api_call(method, payload):
+    token = os.environ.get("TELEGRAM_BOT_TOKEN")
+    if not token:
+        return None
+    url = f"https://api.telegram.org/bot{token}/{method}"
+    data = json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            return json.loads(resp.read().decode("utf-8"))
+    except Exception as exc:
+        print(f"[WARN] Telegram-API-Aufruf fehlgeschlagen: {exc}", file=sys.stderr)
+        return None
+
+
+def notify_admins_guest_signup(signup_id, name, slot_label, status):
+    admin_ids_raw = os.environ.get("ADMIN_TELEGRAM_IDS", "")
+    admin_ids = [x.strip() for x in admin_ids_raw.split(",") if x.strip()]
+    if not admin_ids:
+        return
+    status_txt = "Warteliste" if status == "waitlist" else "bestaetigt"
+    text = (
+        "Neue Gast-Anmeldung (kein TPCG-Mitglied)\n\n"
+        f"Name: {name}\n"
+        f"Slot: {slot_label}\n"
+        f"Status: {status_txt}\n\n"
+        "Die Anmeldung ist bereits eingetragen. Du kannst sie jederzeit entfernen."
+    )
+    keyboard = {
+        "inline_keyboard": [[
+            {"text": "Bestaetigen (ok)", "callback_data": f"ack_signup:{signup_id}"},
+            {"text": "Entfernen", "callback_data": f"reject_signup:{signup_id}"},
+        ]]
+    }
+    for admin_id in admin_ids:
+        telegram_api_call("sendMessage", {
+            "chat_id": admin_id,
+            "text": text,
+            "reply_markup": keyboard,
+        })
 
 
 def create_app(test_config=None):
@@ -156,7 +200,8 @@ def create_app(test_config=None):
                 slot_id INTEGER NOT NULL,
                 name TEXT NOT NULL,
                 name_normalized TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT \'confirmed\',
+                status TEXT NOT NULL DEFAULT 'confirmed',
+                is_member INTEGER NOT NULL DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(slot_id) REFERENCES slots(id),
                 UNIQUE(slot_id, name_normalized)
@@ -176,30 +221,28 @@ def create_app(test_config=None):
             );
             """
         )
-        existing_theme = db.execute(
-            "SELECT value FROM settings WHERE key = \'theme\'"
-        ).fetchone()
+        cols = [r[1] for r in db.execute("PRAGMA table_info(signups)").fetchall()]
+        if "is_member" not in cols:
+            db.execute("ALTER TABLE signups ADD COLUMN is_member INTEGER NOT NULL DEFAULT 1")
+
+        existing_theme = db.execute("SELECT value FROM settings WHERE key = 'theme'").fetchone()
         if not existing_theme:
-            db.execute(
-                "INSERT INTO settings (key, value) VALUES (\'theme\', ?)",
-                (DEFAULT_THEME,),
-            )
+            db.execute("INSERT INTO settings (key, value) VALUES ('theme', ?)", (DEFAULT_THEME,))
+        existing_custom_img = db.execute("SELECT value FROM settings WHERE key = 'custom_bg_image'").fetchone()
+        if not existing_custom_img:
+            db.execute("INSERT INTO settings (key, value) VALUES ('custom_bg_image', ?)", (DEFAULT_CUSTOM_IMAGE,))
 
         for seed_name, seed_password in SEED_ADMIN_USERS.items():
             if not seed_password:
                 continue
-            existing_admin = db.execute(
-                "SELECT id FROM admin_users WHERE username = ?", (seed_name,)
-            ).fetchone()
+            existing_admin = db.execute("SELECT id FROM admin_users WHERE username = ?", (seed_name,)).fetchone()
             if not existing_admin:
                 db.execute(
                     "INSERT INTO admin_users (username, password_hash, created_by) VALUES (?, ?, ?)",
                     (seed_name, generate_password_hash(seed_password), "system"),
                 )
         for s in SLOT_DEFINITIONS:
-            existing = db.execute(
-                "SELECT id FROM slots WHERE slot_key = ?", (s["key"],)
-            ).fetchone()
+            existing = db.execute("SELECT id FROM slots WHERE slot_key = ?", (s["key"],)).fetchone()
             if not existing:
                 db.execute(
                     "INSERT INTO slots (slot_key, label, max_players) VALUES (?, ?, ?)",
@@ -223,29 +266,22 @@ def create_app(test_config=None):
         result = []
         for row in rows:
             confirmed = db.execute(
-                "SELECT COUNT(*) AS c FROM signups WHERE slot_id = ? AND status = \'confirmed\'",
-                (row["id"],),
+                "SELECT COUNT(*) AS c FROM signups WHERE slot_id = ? AND status = 'confirmed'", (row["id"],)
             ).fetchone()["c"]
             waitlisted = db.execute(
-                "SELECT COUNT(*) AS c FROM signups WHERE slot_id = ? AND status = \'waitlist\'",
-                (row["id"],),
+                "SELECT COUNT(*) AS c FROM signups WHERE slot_id = ? AND status = 'waitlist'", (row["id"],)
             ).fetchone()["c"]
             result.append({
-                "id": row["id"],
-                "slot_key": row["slot_key"],
-                "label": row["label"],
-                "max_players": row["max_players"],
-                "count": confirmed,
-                "waitlist_count": waitlisted,
-                "full": confirmed >= row["max_players"],
-                "waitlist_full": waitlisted >= WAITLIST_LIMIT,
+                "id": row["id"], "slot_key": row["slot_key"], "label": row["label"],
+                "max_players": row["max_players"], "count": confirmed, "waitlist_count": waitlisted,
+                "full": confirmed >= row["max_players"], "waitlist_full": waitlisted >= WAITLIST_LIMIT,
             })
         return result
 
     def get_signups_for_slot(slot_id, status):
         db = get_db()
         return db.execute(
-            "SELECT * FROM signups WHERE slot_id = ? AND status = ? ORDER BY created_at ASC",
+            "SELECT * FROM signups WHERE slot_id = ? AND status = ? ORDER BY is_member DESC, created_at ASC",
             (slot_id, status),
         ).fetchall()
 
@@ -272,23 +308,41 @@ def create_app(test_config=None):
         key = row["value"] if row else DEFAULT_BG_STYLE
         return key if key in BG_STYLES else DEFAULT_BG_STYLE
 
+    def get_custom_bg_image():
+        db = get_db()
+        row = db.execute("SELECT value FROM settings WHERE key = 'custom_bg_image'").fetchone()
+        img = row["value"] if row else DEFAULT_CUSTOM_IMAGE
+        return img if img in GALLERY_IMAGES else DEFAULT_CUSTOM_IMAGE
+
     def get_intro_text():
+        db = get_db()
+        row = db.execute("SELECT value FROM settings WHERE key = 'intro_text'").fetchone()
+        template = row["value"] if row and row["value"].strip() else DEFAULT_INTRO_TEXT
+        try:
+            return template.format(next_thursday=next_thursday().strftime("%d.%m.%Y"))
+        except (KeyError, IndexError):
+            return template
+
+    def get_raw_intro_text():
         db = get_db()
         row = db.execute("SELECT value FROM settings WHERE key = 'intro_text'").fetchone()
         if row and row["value"].strip():
             return row["value"]
-        return DEFAULT_INTRO_TEXT.format(next_thursday=next_thursday().strftime("%d.%m.%Y"))
+        return DEFAULT_INTRO_TEXT
 
     @app.context_processor
     def inject_globals():
         theme_key = get_current_theme_key()
         bg_style_key = get_current_bg_style()
+        theme = dict(THEMES[theme_key])
+        if theme.get("background_image") == "__CUSTOM__":
+            theme["background_image"] = get_custom_bg_image()
         return {
             "is_admin": bool(session.get("is_admin")),
             "admin_username": session.get("admin_username"),
             "next_thursday": next_thursday().strftime("%d.%m.%Y"),
             "current_theme_key": theme_key,
-            "current_theme": THEMES[theme_key],
+            "current_theme": theme,
             "themes": THEMES,
             "orga_team_normalized": ORGA_TEAM_NORMALIZED,
             "current_bg_style": bg_style_key,
@@ -300,32 +354,23 @@ def create_app(test_config=None):
     def index():
         slots = get_slots_with_counts()
         signups_by_slot = {
-            s["id"]: {
-                "confirmed": get_signups_for_slot(s["id"], "confirmed"),
-                "waitlist": get_signups_for_slot(s["id"], "waitlist"),
-            }
+            s["id"]: {"confirmed": get_signups_for_slot(s["id"], "confirmed"), "waitlist": get_signups_for_slot(s["id"], "waitlist")}
             for s in slots
         }
         cookie_locked = {
-            s["slot_key"]: request.cookies.get(SIGNUP_COOKIE_PREFIX + s["slot_key"]) is not None
-            for s in slots
+            s["slot_key"]: request.cookies.get(SIGNUP_COOKIE_PREFIX + s["slot_key"]) is not None for s in slots
         }
-        return render_template(
-            "index.html",
-            slots=slots,
-            signups_by_slot=signups_by_slot,
-            cookie_locked=cookie_locked,
-        )
+        return render_template("index.html", slots=slots, signups_by_slot=signups_by_slot, cookie_locked=cookie_locked)
 
     @app.route("/eintragen", methods=["POST"])
     def eintragen():
         name = request.form.get("name", "").strip()
         selected_slots = request.form.getlist("slots")
+        is_member = 1 if request.form.get("is_member") else 0
 
         if not name:
             flash("Bitte einen Namen eingeben.", "danger")
             return redirect(url_for("index"))
-
         if not selected_slots:
             flash("Bitte mindestens einen Slot auswaehlen.", "danger")
             return redirect(url_for("index"))
@@ -333,6 +378,7 @@ def create_app(test_config=None):
         name_norm = normalize_name(name)
         db = get_db()
         added, waitlisted, blocked_cookie, blocked_duplicate = [], [], [], []
+        guest_notifications = []
 
         for slot_key in selected_slots:
             cookie_name = SIGNUP_COOKIE_PREFIX + slot_key
@@ -340,19 +386,15 @@ def create_app(test_config=None):
                 blocked_cookie.append(SLOT_LABEL.get(slot_key, slot_key))
                 continue
 
-            slot_row = db.execute(
-                "SELECT * FROM slots WHERE slot_key = ?", (slot_key,)
-            ).fetchone()
+            slot_row = db.execute("SELECT * FROM slots WHERE slot_key = ?", (slot_key,)).fetchone()
             if slot_row is None:
                 continue
 
             confirmed_count = db.execute(
-                "SELECT COUNT(*) AS c FROM signups WHERE slot_id = ? AND status = \'confirmed\'",
-                (slot_row["id"],),
+                "SELECT COUNT(*) AS c FROM signups WHERE slot_id = ? AND status = 'confirmed'", (slot_row["id"],)
             ).fetchone()["c"]
             waitlist_count = db.execute(
-                "SELECT COUNT(*) AS c FROM signups WHERE slot_id = ? AND status = \'waitlist\'",
-                (slot_row["id"],),
+                "SELECT COUNT(*) AS c FROM signups WHERE slot_id = ? AND status = 'waitlist'", (slot_row["id"],)
             ).fetchone()["c"]
 
             status = "confirmed" if confirmed_count < slot_row["max_players"] else "waitlist"
@@ -362,11 +404,12 @@ def create_app(test_config=None):
                 continue
 
             try:
-                db.execute(
-                    "INSERT INTO signups (slot_id, name, name_normalized, status) VALUES (?, ?, ?, ?)",
-                    (slot_row["id"], name, name_norm, status),
+                cur = db.execute(
+                    "INSERT INTO signups (slot_id, name, name_normalized, status, is_member) VALUES (?, ?, ?, ?, ?)",
+                    (slot_row["id"], name, name_norm, status, is_member),
                 )
                 db.commit()
+                new_id = cur.lastrowid
             except sqlite3.IntegrityError:
                 blocked_duplicate.append(slot_row["label"])
                 continue
@@ -375,6 +418,12 @@ def create_app(test_config=None):
                 added.append((slot_row["label"], slot_key))
             else:
                 waitlisted.append((slot_row["label"], slot_key))
+
+            if not is_member:
+                guest_notifications.append((new_id, name, slot_row["label"], status))
+
+        for signup_id, gname, glabel, gstatus in guest_notifications:
+            notify_admins_guest_signup(signup_id, gname, glabel, gstatus)
 
         messages = []
         if added:
@@ -401,12 +450,8 @@ def create_app(test_config=None):
         if request.method == "POST":
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "")
-
             db = get_db()
-            row = db.execute(
-                "SELECT * FROM admin_users WHERE username = ?", (username,)
-            ).fetchone()
-
+            row = db.execute("SELECT * FROM admin_users WHERE username = ?", (username,)).fetchone()
             if row and check_password_hash(row["password_hash"], password):
                 session["is_admin"] = True
                 session["admin_username"] = row["username"]
@@ -427,17 +472,13 @@ def create_app(test_config=None):
     def admin_dashboard():
         slots = get_slots_with_counts()
         signups_by_slot = {
-            s["id"]: {
-                "confirmed": get_signups_for_slot(s["id"], "confirmed"),
-                "waitlist": get_signups_for_slot(s["id"], "waitlist"),
-            }
+            s["id"]: {"confirmed": get_signups_for_slot(s["id"], "confirmed"), "waitlist": get_signups_for_slot(s["id"], "waitlist")}
             for s in slots
         }
         return render_template(
-            "admin_dashboard.html",
-            slots=slots,
-            signups_by_slot=signups_by_slot,
-            waitlist_limit=WAITLIST_LIMIT,
+            "admin_dashboard.html", slots=slots, signups_by_slot=signups_by_slot,
+            waitlist_limit=WAITLIST_LIMIT, gallery_images=GALLERY_IMAGES,
+            current_custom_image=get_custom_bg_image(), raw_intro_text=get_raw_intro_text(),
         )
 
     @app.route("/admin/slot/<int:slot_id>/update", methods=["POST"])
@@ -449,15 +490,11 @@ def create_app(test_config=None):
             max_players = int(max_raw)
         except ValueError:
             max_players = 0
-
         if max_players <= 0:
             flash("Bitte eine gueltige maximale Anzahl eintragen.", "danger")
             return redirect(url_for("admin_dashboard"))
 
-        db.execute(
-            "UPDATE slots SET max_players = ? WHERE id = ?",
-            (max_players, slot_id),
-        )
+        db.execute("UPDATE slots SET max_players = ? WHERE id = ?", (max_players, slot_id))
         db.commit()
 
         row = db.execute("SELECT * FROM slots WHERE id = ?", (slot_id,)).fetchone()
@@ -468,7 +505,7 @@ def create_app(test_config=None):
         for su in waitlist:
             if free_slots <= 0:
                 break
-            db.execute("UPDATE signups SET status = \'confirmed\' WHERE id = ?", (su["id"],))
+            db.execute("UPDATE signups SET status = 'confirmed' WHERE id = ?", (su["id"],))
             free_slots -= 1
             moved += 1
         db.commit()
@@ -494,16 +531,12 @@ def create_app(test_config=None):
         db.commit()
 
         if was_confirmed:
-            slot_row = db.execute("SELECT * FROM slots WHERE id = ?", (slot_id,)).fetchone()
             next_waiting = db.execute(
-                "SELECT * FROM signups WHERE slot_id = ? AND status = \'waitlist\' ORDER BY created_at ASC LIMIT 1",
+                "SELECT * FROM signups WHERE slot_id = ? AND status = 'waitlist' ORDER BY created_at ASC LIMIT 1",
                 (slot_id,),
             ).fetchone()
             if next_waiting:
-                db.execute(
-                    "UPDATE signups SET status = \'confirmed\' WHERE id = ?",
-                    (next_waiting["id"],),
-                )
+                db.execute("UPDATE signups SET status = 'confirmed' WHERE id = ?", (next_waiting["id"],))
                 db.commit()
                 flash(f"Anmeldung geloescht. {next_waiting['name']} ist von der Warteliste nachgerueckt.", "info")
                 return redirect(url_for("admin_dashboard"))
@@ -515,13 +548,8 @@ def create_app(test_config=None):
     @admin_required
     def admin_users_list():
         db = get_db()
-        users = db.execute(
-            "SELECT id, username, created_by, created_at FROM admin_users ORDER BY created_at ASC"
-        ).fetchall()
-        return render_template(
-            "admin_users.html",
-            users=users,
-        )
+        users = db.execute("SELECT id, username, created_by, created_at FROM admin_users ORDER BY created_at ASC").fetchall()
+        return render_template("admin_users.html", users=users)
 
     @app.route("/admin/users/create", methods=["POST"])
     @admin_required
@@ -533,19 +561,15 @@ def create_app(test_config=None):
         if not new_username:
             flash("Bitte einen Benutzernamen angeben.", "danger")
             return redirect(url_for("admin_users_list"))
-
         if len(new_password) < 6:
             flash("Passwort muss mindestens 6 Zeichen lang sein.", "danger")
             return redirect(url_for("admin_users_list"))
-
         if new_password != new_password_confirm:
             flash("Passwoerter stimmen nicht ueberein.", "danger")
             return redirect(url_for("admin_users_list"))
 
         db = get_db()
-        existing = db.execute(
-            "SELECT id FROM admin_users WHERE username = ?", (new_username,)
-        ).fetchone()
+        existing = db.execute("SELECT id FROM admin_users WHERE username = ?", (new_username,)).fetchone()
         if existing:
             flash("Dieser Benutzername existiert bereits.", "danger")
             return redirect(url_for("admin_users_list"))
@@ -555,7 +579,7 @@ def create_app(test_config=None):
             (new_username, generate_password_hash(new_password), session.get("admin_username")),
         )
         db.commit()
-        flash(f"Admin \'{new_username}\' wurde angelegt.", "success")
+        flash(f"Admin '{new_username}' wurde angelegt.", "success")
         return redirect(url_for("admin_users_list"))
 
     @app.route("/admin/users/<int:user_id>/delete", methods=["POST"])
@@ -571,7 +595,6 @@ def create_app(test_config=None):
         if total_admins <= 1:
             flash("Der letzte verbleibende Admin kann nicht geloescht werden.", "danger")
             return redirect(url_for("admin_users_list"))
-
         if row["username"] == session.get("admin_username"):
             flash("Du kannst dich nicht selbst loeschen. Bitte von einem anderen Admin loeschen lassen.", "danger")
             return redirect(url_for("admin_users_list"))
@@ -588,15 +611,30 @@ def create_app(test_config=None):
         if theme_key not in THEMES:
             flash("Unbekanntes Design.", "danger")
             return redirect(url_for("admin_dashboard"))
-
         db = get_db()
         db.execute(
-            "INSERT INTO settings (key, value) VALUES (\'theme\', ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            "INSERT INTO settings (key, value) VALUES ('theme', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             (theme_key,),
         )
         db.commit()
         flash(f"Design auf '{THEMES[theme_key]['label']}' geaendert.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/custom-image/update", methods=["POST"])
+    @admin_required
+    def admin_update_custom_image():
+        image_name = request.form.get("custom_image", DEFAULT_CUSTOM_IMAGE)
+        if image_name not in GALLERY_IMAGES:
+            flash("Unbekanntes Bild.", "danger")
+            return redirect(url_for("admin_dashboard"))
+        db = get_db()
+        db.execute(
+            "INSERT INTO settings (key, value) VALUES ('custom_bg_image', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            (image_name,),
+        )
+        db.execute("INSERT INTO settings (key, value) VALUES ('theme', 'custom_image') ON CONFLICT(key) DO UPDATE SET value = excluded.value")
+        db.commit()
+        flash(f"Hintergrundbild auf '{image_name}' gesetzt und Design 'Eigenes Bild' aktiviert.", "success")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/bg-style/update", methods=["POST"])
@@ -606,11 +644,9 @@ def create_app(test_config=None):
         if bg_style_key not in BG_STYLES:
             flash("Unbekannter Hintergrund-Effekt.", "danger")
             return redirect(url_for("admin_dashboard"))
-
         db = get_db()
         db.execute(
-            "INSERT INTO settings (key, value) VALUES ('bg_style', ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            "INSERT INTO settings (key, value) VALUES ('bg_style', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
             (bg_style_key,),
         )
         db.commit()
@@ -624,11 +660,10 @@ def create_app(test_config=None):
         db = get_db()
         if intro_text:
             db.execute(
-                "INSERT INTO settings (key, value) VALUES ('intro_text', ?) "
-                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                "INSERT INTO settings (key, value) VALUES ('intro_text', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
                 (intro_text,),
             )
-            flash("Einleitungstext wurde aktualisiert.", "success")
+            flash("Einleitungstext wurde aktualisiert. Tipp: {next_thursday} wird automatisch durch das naechste Donnerstagsdatum ersetzt.", "success")
         else:
             db.execute("DELETE FROM settings WHERE key = 'intro_text'")
             flash("Einleitungstext wurde auf Standard zurueckgesetzt.", "info")

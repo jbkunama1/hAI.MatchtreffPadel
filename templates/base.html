@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         :root {
-            --app-bg: {{ current_theme.gradient }}{% if current_theme.background_image %}, url("{{ url_for('static', filename='backgrounds/' + current_theme.background_image) }}") center/cover no-repeat fixed{% endif %};
+            --app-bg: {{ current_theme.gradient }}{% if current_theme.background_image %}, url("{{ url_for('static', filename='pictures/' + current_theme.background_image) }}") center/cover no-repeat fixed{% endif %};
             --bubble-color: {{ current_theme.accent }}2E;
             --bg-icon-image: url("{{ url_for('static', filename='padel_ball.png') }}");
         }
