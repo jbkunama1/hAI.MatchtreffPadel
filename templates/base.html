@@ -18,9 +18,6 @@
         .btn-accent {
             background: linear-gradient(135deg, {{ current_theme.accent }}, {{ current_theme.accent2 }});
         }
-        .site-navbar-link.active {
-            color: {{ current_theme.accent }};
-        }
     </style>
 </head>
 <body>
@@ -29,39 +26,23 @@
         <span></span><span></span><span></span><span></span>
     </div>
 
-    <header class="site-navbar">
-        <div class="site-navbar-inner">
-            <a class="site-navbar-brand" href="{{ url_for('index') }}">
-                <img src="{{ url_for('static', filename='Logo_I_Matchtreff.png') }}" alt="Matchtreff Padel Logo" class="site-navbar-logo">
-                <span class="site-navbar-title">Padel Matchtreff</span>
-            </a>
-
-            <input type="checkbox" id="nav-toggle" class="nav-toggle-checkbox">
-            <label for="nav-toggle" class="nav-toggle-btn" aria-label="Menue">
-                <span></span><span></span><span></span>
-            </label>
-
-            <nav class="site-navbar-links">
-                <a class="site-navbar-link" href="{{ url_for('index') }}">Startseite</a>
-                <a class="site-navbar-link" href="{{ url_for('info_page') }}">MATCHTREFF Silber - Alle Infos dazu gibt es hier</a>
-                {% if is_admin %}
-                    <a class="site-navbar-link" href="{{ url_for('admin_dashboard') }}">Admin-Bereich ({{ admin_username }})</a>
-                    <a class="site-navbar-link" href="{{ url_for('admin_logout') }}">Admin-Logout</a>
-                {% else %}
-                    <a class="site-navbar-link" href="{{ url_for('admin_login') }}">Admin-Login</a>
-                {% endif %}
-                <span class="site-navbar-powered">
-                    <span class="powered-by-label">powered by</span>
-                    <img src="{{ url_for('static', filename='tpc_logo_75px.jpg') }}" alt="TPC Logo" class="powered-by-logo">
-                </span>
-            </nav>
-        </div>
-    </header>
-
     <div class="page-shell">
         <div class="card-root">
             <img src="{{ url_for('static', filename='Logo_II_Banner.png') }}" alt="Matchtreff Padel Banner" class="site-banner">
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem; margin-bottom:0.75rem; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                    <img src="{{ url_for('static', filename='Logo_I_Matchtreff.png') }}" alt="Matchtreff Padel Logo" style="height:64px; width:auto;">
+                    <span class="badge-pill" style="margin-bottom:0;">Padel Matchtreff</span>
+                </div>
+                <div class="powered-by">
+                    <span class="powered-by-label">powered by</span>
+                    <img src="{{ url_for('static', filename='tpc_logo_75px.jpg') }}" alt="TPC Logo" class="powered-by-logo">
+                </div>
+            </div>
 
+            <nav class="top-menu">
+                <a class="top-menu-link" href="{{ url_for('info_page') }}">MATCHTREFF Silber - Alle Infos dazu gibt es hier</a>
+            </nav>
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     <ul class="flash-list">
@@ -73,6 +54,17 @@
             {% endwith %}
 
             {% block content %}{% endblock %}
+
+            <div class="stack-label">Navigation</div>
+            <div>
+                <a class="btn-soft" href="{{ url_for('index') }}">Startseite</a>
+                {% if is_admin %}
+                    <a class="btn-soft" href="{{ url_for('admin_dashboard') }}">Admin-Bereich ({{ admin_username }})</a>
+                    <a class="btn-soft" href="{{ url_for('admin_logout') }}">Admin-Logout</a>
+                {% else %}
+                    <a class="btn-soft" href="{{ url_for('admin_login') }}">Admin-Login</a>
+                {% endif %}
+            </div>
         </div>
     </div>
 </body>
