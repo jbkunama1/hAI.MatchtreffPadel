@@ -7,8 +7,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
     <style>
         :root {
-            --app-bg: {{ current_theme.gradient }}{% if current_theme.background_image %}, url("{{ url_for('static', filename='pictures/' + current_theme.background_image) }}") center/cover no-repeat{% endif %};
-            --app-bg-attachment: {% if current_theme.background_image %}scroll{% else %}fixed{% endif %};
+            --app-bg: {{ current_theme.gradient }}{% if current_theme.background_image %}, url("{{ url_for('static', filename='pictures/' + current_theme.background_image) }}") center/cover no-repeat fixed{% endif %};
             --bubble-color: {{ current_theme.accent }}2E;
             --bg-icon-image: url("{{ url_for('static', filename='padel_ball.png') }}");
         }
@@ -30,10 +29,10 @@
     <div class="page-shell">
         <div class="card-root">
             <img src="{{ url_for('static', filename='Logo_II_Banner.png') }}" alt="Matchtreff Padel Banner" class="site-banner">
-            <div class="app-header">
-                <div class="app-header-brand">
-                    <img src="{{ url_for('static', filename='Logo_I_Matchtreff.png') }}" alt="Matchtreff Padel Logo" class="app-logo">
-                    <span class="badge-pill app-badge">Padel Matchtreff</span>
+            <div style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem; margin-bottom:0.75rem; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+                    <img src="{{ url_for('static', filename='Logo_I_Matchtreff.png') }}" alt="Matchtreff Padel Logo" style="height:64px; width:auto;">
+                    <span class="badge-pill" style="margin-bottom:0;">Padel Matchtreff</span>
                 </div>
                 <div class="powered-by">
                     <span class="powered-by-label">powered by</span>
@@ -57,7 +56,7 @@
             {% block content %}{% endblock %}
 
             <div class="stack-label">Navigation</div>
-            <div class="nav-links">
+            <div>
                 <a class="btn-soft" href="{{ url_for('index') }}">Startseite</a>
                 {% if is_admin %}
                     <a class="btn-soft" href="{{ url_for('admin_dashboard') }}">Admin-Bereich ({{ admin_username }})</a>
