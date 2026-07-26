@@ -1,93 +1,44 @@
-# Matchtreff Padel
+# Matchtreff Padel - Update
 
-Flask-Web-App zur Anmeldung fuer den woechentlichen Padel-Matchtreff (TPCG). Spieler
-tragen sich pro Zeit-Slot ein, Admins verwalten Slots, Anmeldungen, Design und Texte
-ueber ein eigenes Admin-Panel. Optional gibt es eine Telegram-Anbindung fuer
-Gast-Benachrichtigungen.
+Aenderungen in diesem Stand gegenueber GitHub:
 
-## Funktionsumfang
+1. Gast-Anmeldung ohne Pending: Jede Anmeldung (Mitglied oder Gast) wird sofort
+   eingetragen (confirmed/waitlist wie gehabt), es gibt keinen Pending-Status mehr.
+   Ueber die Checkbox "Ich bin TPCG-Mitglied" (standardmaessig angehakt, abwaehlbar)
+   wird zwischen Mitglied und Gast unterschieden; entsprechend erscheint ein
+   "Mitglied"- oder "Gast"-Badge in der Anmeldeliste.
 
-### Anmeldung (oeffentliche Seite)
-- Anmeldung per Name + Auswahl eines oder beider Zeit-Slots (Temprano 18-20 Uhr,
-  Tarde 20-22 Uhr), Slot-Bezeichnungen sind im Admin-Panel frei editierbar.
-- Checkbox "Ich bin TPCG-Mitglied" (standardmaessig angehakt, abwaehlbar). Jede
-  Anmeldung - Mitglied oder Gast - wird sofort eingetragen (confirmed oder
-  Warteliste), es gibt keinen Pending-Status. In der Anmeldeliste erscheint
-  entsprechend ein "Mitglied"- oder "Gast"-Badge.
-- Automatische Warteliste pro Slot (max. 4 Eintraege), sobald ein Slot voll ist.
-- Orga-Team-Mitglieder (Daniel, Cosme, Sascha, Patrick) werden in der Liste mit
-  einem Stern markiert.
-- Anti-Doppel-Anmeldung: Ein Geraet kann sich pro Slot per Cookie nur einmal
-  eintragen; zusaetzlich verhindert die Datenbank doppelte Namen pro Slot.
-- Einleitungstext auf der Startseite mit Platzhalter {next_thursday}, der
-  automatisch jede Woche durch das Datum des naechsten Donnerstags ersetzt wird.
-- Eigene Info-Seite (/info) mit allen Rahmeninfos zum Matchtreff (Kosten,
-  Ablauf, Golden Court, Gaeste-Regelung etc.), ueber das Hauptmenue erreichbar.
+2. Telegram-Benachrichtigung bei Gast-Anmeldung: Meldet sich jemand OHNE Haken bei
+   "Ich bin TPCG-Mitglied" an, bekommen alle in ADMIN_TELEGRAM_IDS hinterlegten
+   Chat-IDs sofort eine Telegram-Nachricht mit Name, Slot und Status, plus zwei
+   Inline-Buttons ("Bestaetigen" / "Entfernen"). Admins koennen die Anmeldung
+   jederzeit im Admin-Dashboard oder direkt per Telegram-Button entfernen; die
+   Anmeldung selbst war aber sofort gueltig und im System.
+   Fuer die Inline-Buttons zusaetzlich telegram_bot.py starten (gleiche
+   instance/-Datenbank per Volume mounten).
 
-### Admin-Panel (/admin, Login unter /admin/login)
-- Mehrere Admin-Accounts (Admin, Daniel, Cosme, Sascha, Patrick) mit eigenem
-  Passwort je Account, verwaltbar unter "Admins verwalten" (Erstellen/Loeschen).
-- Pro Slot: Bezeichnung und maximale Spieleranzahl aendern, bestaetigte
-  Anmeldungen und Warteliste einsehen, einzelne Anmeldungen loeschen.
-- Design/Hintergrund: Auswahl aus vordefinierten Farb-Themes (Standard/Blau,
-  Sunset/Orange, Court/Gruen, Night/Dunkel) oder einem eigenen Hintergrundbild
-  aus einer Bildergalerie (Kachel-Auswahl aus dem pictures-Verzeichnis).
-- Schwebe-Effekt im Hintergrund umschaltbar: farbige Blasen oder grosse
-  Padel-Ball-Icons.
-- Einleitungstext der Startseite frei bearbeitbar (inkl. {next_thursday}-
-  Platzhalter), Zuruecksetzen auf Standardtext moeglich.
-- Gefahrenzone: Alle Anmeldungen auf einmal loeschen.
+3. Admin-Panel: "Design mit Bild" repariert und Bildergalerie ergaenzt: Alle
+   Bilder aus dem pictures-Verzeichnis werden im Admin-Dashboard als Auswahl-
+   Kacheln angezeigt. Auswahl + "Bild als Hintergrund uebernehmen" setzt das
+   Bild als Hintergrund und aktiviert automatisch das Design "Eigenes Bild
+   (Galerie)".
 
-### Telegram-Anbindung (optional)
-- Meldet sich ein Gast (kein Haken bei "Ich bin TPCG-Mitglied") an, erhalten
-  alle in ADMIN_TELEGRAM_IDS hinterlegten Chat-IDs sofort eine Telegram-
-  Nachricht mit Name, Slot und Status, inkl. Inline-Buttons "Bestaetigen" und
-  "Entfernen". Die Anmeldung ist unabhaengig davon sofort im System gueltig.
-  Fuer die Inline-Buttons muss telegram_bot.py parallel laufen (gleiche
-  instance/-Datenbank per Volume mounten).
+4. Hintergrund-Icons 4x groesser: Die schwebenden Padel-Ball-Icons sind jetzt
+   ca. 4x so gross wie zuvor (36-80px statt 9-20px).
 
-## Navigation / Menue
-
-Die App nutzt eine feste Kopfzeile (Navbar) oben auf jeder Seite:
-- Logo + Titel "Padel Matchtreff" links, verlinkt zur Startseite.
-- Rechts: Startseite, Info-Seite ("MATCHTREFF Silber - Alle Infos"),
-  Admin-Login bzw. Admin-Bereich/Logout (je nach Login-Status), sowie das
-  "powered by TPC"-Logo.
-- Auf Mobilgeraeten (< 768px) klappt die Navigation zu einem Hamburger-Menue
-  zusammen; ein Klick zeigt alle Links untereinander in voller Breite.
-
-## Projektstruktur
-
-```
-app.py                  Flask-App: Routen, DB-Init, Logik, Kontextvariablen
-telegram_bot.py         Optionaler Telegram-Bot fuer Inline-Button-Aktionen
-templates/
-  base.html             Grundgeruest inkl. Navbar, Flash-Messages
-  index.html            Anmeldeformular + Live-Anzeige der Slots
-  info.html             Statische Info-Seite zum Matchtreff
-  admin_login.html      Admin-Login-Formular
-  admin_dashboard.html  Slot-/Anmeldungs-/Design-/Text-Verwaltung
-  admin_users.html      Admin-Accounts verwalten
-static/
-  style.css             Gesamtes Styling (Karten, Buttons, Navbar, Mobile)
-  pictures/             Bildergalerie fuer eigene Hintergruende
-Dockerfile               Container-Build (gunicorn, Port 1905)
-requirements.txt         Flask, gunicorn, python-telegram-bot
-.env.example             Vorlage fuer noetige Umgebungsvariablen
-```
+5. Automatisches Donnerstagsdatum: Der Text "Anmeldung fuer Donnerstag,
+   TT.MM.JJJJ." verwendet den Platzhalter {next_thursday}, der bei jedem
+   Seitenaufruf live durch das Datum des naechsten Donnerstags ersetzt wird.
+   Sobald der Donnerstag vorbei ist, zeigt die Seite automatisch den naechsten
+   Donnerstag - ganz ohne manuelles Eingreifen. Der Text bleibt im Admin-Panel
+   frei editierbar (mit dem Platzhalter im Text).
 
 ## Setup
 
 1. Alle Originalbilder aus dem pictures-Ordner nach static/pictures/ kopieren
    (Dateinamen 1:1 wie im GitHub-Repo, siehe GALLERY_IMAGES in app.py).
-2. .env nach Vorlage .env.example ausfuellen:
-   - Pflicht: SECRET_KEY, ADMIN_PASSWORD_ADMIN, ADMIN_PASSWORD_DANIEL
-   - Optional: ADMIN_PASSWORD_COSME/SASCHA/PATRICK fuer weitere Admin-Accounts
-   - Optional: TELEGRAM_BOT_TOKEN + ADMIN_TELEGRAM_IDS fuer Gast-Benachrichtigungen
-3. Mit Docker: `docker build -t matchtreff-padel .` und Container starten
-   (Port 1905), oder lokal: `pip install -r requirements.txt && python app.py`
-4. Optional fuer die Telegram-Inline-Buttons: `python telegram_bot.py` parallel
-   starten (gleiche instance/-Datenbank per Volume mounten).
-
-Die SQLite-Datenbank wird beim ersten Start automatisch unter instance/ angelegt
-und mit den Standard-Slots, Admin-Accounts und Einstellungen befuellt.
+2. .env nach Vorlage .env.example ausfuellen (SECRET_KEY, Admin-Passwoerter,
+   optional TELEGRAM_BOT_TOKEN + ADMIN_TELEGRAM_IDS).
+3. docker build -t matchtreff-padel . und starten, oder lokal:
+   pip install -r requirements.txt && python app.py
+4. Optional fuer Telegram-Buttons: python telegram_bot.py parallel starten.
