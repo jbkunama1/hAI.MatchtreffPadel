@@ -352,3 +352,143 @@ img, video { max-width: 100%; height: auto; }
   .powered-by-logo { height: 32px; }
   .powered-by-label { font-size: 0.62rem; }
 }
+
+
+.site-navbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: rgba(15, 23, 42, 0.92);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 12px rgba(15, 23, 42, 0.25);
+}
+
+.site-navbar-inner {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 0.6rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.site-navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.site-navbar-logo {
+  height: 36px;
+  width: auto;
+  border-radius: 0.35rem;
+}
+
+.site-navbar-title {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1rem;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.nav-toggle-checkbox {
+  display: none;
+}
+
+.nav-toggle-btn {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 32px;
+  height: 32px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.nav-toggle-btn span {
+  display: block;
+  height: 2px;
+  background: #ffffff;
+  border-radius: 2px;
+}
+
+.site-navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.site-navbar-link {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.site-navbar-link:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.site-navbar-powered {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.5rem;
+  padding-left: 0.75rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.site-navbar-powered .powered-by-label {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.site-navbar-powered .powered-by-logo {
+  height: 28px;
+}
+
+@media (max-width: 767.98px) {
+  .nav-toggle-btn {
+    display: flex;
+  }
+
+  .site-navbar-links {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.3rem;
+    padding-top: 0.6rem;
+  }
+
+  .nav-toggle-checkbox:checked ~ .site-navbar-links {
+    display: flex;
+  }
+
+  .site-navbar-link {
+    width: 100%;
+    box-sizing: border-box;
+    text-align: center;
+    padding: 0.6rem 0.8rem;
+  }
+
+  .site-navbar-powered {
+    margin-left: 0;
+    padding-left: 0;
+    border-left: none;
+    justify-content: center;
+    padding-top: 0.4rem;
+  }
+}
