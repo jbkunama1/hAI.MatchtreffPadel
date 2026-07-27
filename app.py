@@ -234,11 +234,22 @@ def create_app(test_config=None):
         db = get_db()
         db.executescript(
             """
+            CREATE TABLE IF NOT EXISTS events (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT,
+                event_date DATE NOT NULL,
+                is_default INTEGER NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
             CREATE TABLE IF NOT EXISTS slots (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                slot_key TEXT UNIQUE NOT NULL,
+                event_id INTEGER NOT NULL,
+                slot_key TEXT NOT NULL,
                 label TEXT NOT NULL,
-                max_players INTEGER NOT NULL DEFAULT 8
+                max_players INTEGER NOT NULL DEFAULT 8,
+                FOREIGN KEY(event_id) REFERENCES events(id),
+                UNIQUE(event_id, slot_key)
             );
 
             CREATE TABLE IF NOT EXISTS signups (
@@ -248,9 +259,18 @@ def create_app(test_config=None):
                 name_normalized TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'confirmed',
                 is_member INTEGER NOT NULL DEFAULT 1,
+                telegram_user_id INTEGER,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY(slot_id) REFERENCES slots(id),
                 UNIQUE(slot_id, name_normalized)
+            );
+
+            CREATE TABLE IF NOT EXISTS comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                signup_id INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(signup_id) REFERENCES signups(id) ON DELETE CASCADE
             );
 
             CREATE TABLE IF NOT EXISTS settings (
@@ -272,6 +292,32 @@ def create_app(test_config=None):
             db.execute("ALTER TABLE signups ADD COLUMN is_member INTEGER NOT NULL DEFAULT 1")
 
         existing_theme = db.execute("SELECT value FROM settings WHERE key = 'theme'").fetchone()
+
+        # Migrate old slots table (without event_id) to new schema
+        cols = [r[1] for r in db.execute("PRAGMA table_info(slots)").fetchall()]
+        if "event_id" not in cols:
+            db.execute("PRAGMA foreign_keys = OFF")
+            db.execute("ALTER TABLE slots RENAME TO slots_old")
+            db.execute("CREATE TABLE slots (id INTEGER PRIMARY KEY AUTOINCREMENT, event_id INTEGER NOT NULL, slot_key TEXT NOT NULL, label TEXT NOT NULL, max_players INTEGER NOT NULL DEFAULT 8, FOREIGN KEY(event_id) REFERENCES events(id), UNIQUE(event_id, slot_key))")
+            legacy_event = db.execute("SELECT id FROM events LIMIT 1").fetchone()
+            if not legacy_event:
+                event_date = next_thursday()
+                db.execute("INSERT INTO events (title, event_date, is_default) VALUES (?, ?, 1)", (f"Matchtreff {event_date.strftime('%d.%m.%Y')}", event_date))
+                legacy_event_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+            else:
+                legacy_event_id = legacy_event[0]
+            db.execute("INSERT INTO slots (id, event_id, slot_key, label, max_players) SELECT id, ?, slot_key, label, max_players FROM slots_old", (legacy_event_id,))
+            db.execute("DROP TABLE slots_old")
+            db.execute("PRAGMA foreign_keys = ON")
+
+        ensure_current_event(db)
+
+        cols = [r[1] for r in db.execute("PRAGMA table_info(signups)").fetchall()]
+        if "telegram_user_id" not in cols:
+            db.execute("ALTER TABLE signups ADD COLUMN telegram_user_id INTEGER")
+            db.commit()
+
+        
         if not existing_theme:
             db.execute("INSERT INTO settings (key, value) VALUES ('theme', ?)", (DEFAULT_THEME,))
         existing_custom_img = db.execute("SELECT value FROM settings WHERE key = 'custom_bg_image'").fetchone()
@@ -328,9 +374,168 @@ def create_app(test_config=None):
             days_ahead = 7
         return today + timedelta(days=days_ahead)
 
-    def get_slots_with_counts():
+
+
+def get_event_by_id(db, event_id):
+    row = db.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
+    return dict(row) if row else None
+
+
+def get_event_by_date(db, event_date):
+    row = db.execute("SELECT * FROM events WHERE event_date = ?", (event_date,)).fetchone()
+    return dict(row) if row else None
+
+
+def ensure_current_event(db):
+    event_date = next_thursday()
+    row = db.execute("SELECT id FROM events WHERE event_date = ?", (event_date,)).fetchone()
+    if row:
+        return row["id"]
+    db.execute(
+        "INSERT INTO events (title, event_date, is_default) VALUES (?, ?, 1)",
+        (f"Matchtreff {event_date.strftime('%d.%m.%Y')}", event_date)
+    )
+    event_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    for s in SLOT_DEFINITIONS:
+        db.execute(
+            "INSERT INTO slots (event_id, slot_key, label, max_players) VALUES (?, ?, ?, ?)",
+            (event_id, s["key"], s["label"], DEFAULT_MAX_PLAYERS)
+        )
+    db.commit()
+    return event_id
+
+
+def get_current_event_id(db):
+    active = db.execute("SELECT value FROM settings WHERE key = 'active_event_id'").fetchone()
+    if active:
+        return int(active["value"])
+    event_date = next_thursday()
+    row = db.execute("SELECT id FROM events WHERE event_date = ?", (event_date,)).fetchone()
+    if row:
+        return row["id"]
+    return ensure_current_event(db)
+
+
+def get_event_id_from_slot(db, slot_id):
+    row = db.execute("SELECT event_id FROM slots WHERE id = ?", (slot_id,)).fetchone()
+    return row["event_id"] if row else None
+
+
+    def get_stats_weekly_trend(db, weeks=8):
+        """Anmelde-Trend der letzten N Wochen"""
+        results = []
+        today = datetime.today().date()
+        for i in range(weeks - 1, -1, -1):
+            week_start = today - timedelta(days=i * 7 + today.weekday())
+            week_end = week_start + timedelta(days=6)
+            events = db.execute(
+                "SELECT id FROM events WHERE event_date BETWEEN ? AND ?",
+                (week_start, week_end)
+            ).fetchall()
+            event_ids = [e["id"] for e in events]
+            if not event_ids:
+                results.append({"week": week_start, "count": 0, "label": week_start.strftime("%d.%m")})
+                continue
+            placeholders = ",".join("?" * len(event_ids))
+            count = db.execute(
+                f"SELECT COUNT(*) AS c FROM signups WHERE status = 'confirmed' AND slot_id IN (SELECT id FROM slots WHERE event_id IN ({placeholders}))",
+                event_ids
+            ).fetchone()["c"]
+            results.append({"week": week_start, "count": count, "label": week_start.strftime("%d.%m")})
+        return results
+
+    def get_stats_slot_usage(db, weeks=8):
+        """Durchschnittliche Auslastung pro Slot"""
+        today = datetime.today().date()
+        week_start = today - timedelta(days=weeks * 7)
+        events = db.execute(
+            "SELECT id FROM events WHERE event_date BETWEEN ? AND ?",
+            (week_start, today)
+        ).fetchall()
+        event_ids = [e["id"] for e in events]
+        if not event_ids:
+            return []
+        placeholders = ",".join("?" * len(event_ids))
+        rows = db.execute(
+            f"""
+            SELECT s.slot_key, s.label, s.max_players,
+                   COUNT(CASE WHEN su.status = 'confirmed' THEN 1 END) AS confirmed_count,
+                   COUNT(CASE WHEN su.status = 'waitlist' THEN 1 END) AS waitlist_count
+            FROM slots s
+            LEFT JOIN signups su ON su.slot_id = s.id
+            WHERE s.event_id IN ({placeholders})
+            GROUP BY s.slot_key, s.label, s.max_players
+            ORDER BY s.slot_key
+            """,
+            event_ids
+        ).fetchall()
+        result = []
+        for row in rows:
+            total_slots = db.execute(
+                f"SELECT COUNT(*) AS c FROM slots WHERE event_id IN ({placeholders}) AND slot_key = ?",
+                event_ids + [row["slot_key"]]
+            ).fetchone()["c"]
+            avg_confirmed = round(row["confirmed_count"] / max(total_slots, 1), 1)
+            avg_waitlist = round(row["waitlist_count"] / max(total_slots, 1), 1)
+            result.append({
+                "slot_key": row["slot_key"],
+                "label": row["label"],
+                "avg_confirmed": avg_confirmed,
+                "avg_waitlist": avg_waitlist,
+                "max_players": row["max_players"]
+            })
+        return result
+
+    def get_stats_top_players(db, limit=20):
+        """Top-Spieler nach Haeufigkeit"""
+        rows = db.execute(
+            """
+            SELECT name, name_normalized, COUNT(*) AS total,
+                   SUM(CASE WHEN status = 'confirmed' THEN 1 ELSE 0 END) AS confirmed_count,
+                   SUM(CASE WHEN status = 'waitlist' THEN 1 ELSE 0 END) AS waitlist_count
+            FROM signups
+            GROUP BY name_normalized
+            ORDER BY total DESC
+            LIMIT ?
+            """,
+            (limit,)
+        ).fetchall()
+        return [dict(row) for row in rows]
+
+    def get_stats_current_vs_average(db, event_id):
+        """Aktuelle Woche vs. Durchschnitt"""
+        current = db.execute(
+            """
+            SELECT COUNT(*) AS c FROM signups WHERE status = 'confirmed'
+            AND slot_id IN (SELECT id FROM slots WHERE event_id = ?)
+            """,
+            (event_id,)
+        ).fetchone()["c"]
+
+        today = datetime.today().date()
+        week_start = today - timedelta(days=8 * 7)
+        events = db.execute(
+            "SELECT id FROM events WHERE event_date BETWEEN ? AND ?",
+            (week_start, today)
+        ).fetchall()
+        event_ids = [e["id"] for e in events]
+        if not event_ids:
+            return {"current": current, "average": 0, "diff": current}
+        placeholders = ",".join("?" * len(event_ids))
+        avg_rows = db.execute(
+            f"""
+            SELECT COUNT(*) AS c FROM signups
+            WHERE status = 'confirmed' AND slot_id IN (SELECT id FROM slots WHERE event_id IN ({placeholders}))
+            """,
+            event_ids
+        ).fetchone()["c"]
+        total_events = len(event_ids)
+        avg = round(avg_rows / max(total_events, 1), 1)
+        return {"current": current, "average": avg, "diff": current - avg}
+
+    def get_slots_with_counts(event_id):
         db = get_db()
-        rows = db.execute("SELECT * FROM slots ORDER BY id").fetchall()
+        rows = db.execute("SELECT * FROM slots WHERE event_id = ? ORDER BY id", (event_id,)).fetchall()
         result = []
         for row in rows:
             confirmed = db.execute(
@@ -382,12 +587,15 @@ def create_app(test_config=None):
         img = row["value"] if row else DEFAULT_CUSTOM_IMAGE
         return img if img in GALLERY_IMAGES else DEFAULT_CUSTOM_IMAGE
 
-    def get_intro_text():
+    def get_intro_text(event_date=None):
         db = get_db()
         row = db.execute("SELECT value FROM settings WHERE key = 'intro_text'").fetchone()
         template = row["value"] if row and row["value"].strip() else DEFAULT_INTRO_TEXT
+        if event_date is None:
+            event_date = next_thursday()
+        event_title = f"Donnerstag, {event_date.strftime('%d.%m.%Y')}"
         try:
-            return template.format(next_thursday=next_thursday().strftime("%d.%m.%Y"))
+            return template.format(next_thursday=event_date.strftime("%d.%m.%Y"), event_title=event_title)
         except (KeyError, IndexError):
             return template
 
@@ -420,7 +628,10 @@ def create_app(test_config=None):
 
     @app.route("/")
     def index():
-        slots = get_slots_with_counts()
+        db = get_db()
+        event_id = get_current_event_id(db)
+        event = get_event_by_id(db, event_id)
+        slots = get_slots_with_counts(event_id)
         signups_by_slot = {
             s["id"]: {"confirmed": get_signups_for_slot(s["id"], "confirmed"), "waitlist": get_signups_for_slot(s["id"], "waitlist")}
             for s in slots
@@ -436,6 +647,8 @@ def create_app(test_config=None):
 
     @app.route("/eintragen", methods=["POST"])
     def eintragen():
+        db = get_db()
+        event_id = get_current_event_id(db)
         name = request.form.get("name", "").strip()
         selected_slots = request.form.getlist("slots")
         is_member = 1 if request.form.get("is_member") else 0
@@ -458,7 +671,7 @@ def create_app(test_config=None):
                 blocked_cookie.append(SLOT_LABEL.get(slot_key, slot_key))
                 continue
 
-            slot_row = db.execute("SELECT * FROM slots WHERE slot_key = ?", (slot_key,)).fetchone()
+            slot_row = db.execute("SELECT * FROM slots WHERE event_id = ? AND slot_key = ?", (event_id, slot_key)).fetchone()
             if slot_row is None:
                 continue
 
@@ -542,7 +755,10 @@ def create_app(test_config=None):
     @app.route("/admin")
     @admin_required
     def admin_dashboard():
-        slots = get_slots_with_counts()
+        db = get_db()
+        event_id = get_current_event_id(db)
+        event = get_event_by_id(db, event_id)
+        slots = get_slots_with_counts(event_id)
         signups_by_slot = {
             s["id"]: {"confirmed": get_signups_for_slot(s["id"], "confirmed"), "waitlist": get_signups_for_slot(s["id"], "waitlist")}
             for s in slots
@@ -551,6 +767,7 @@ def create_app(test_config=None):
             "admin_dashboard.html", slots=slots, signups_by_slot=signups_by_slot,
             waitlist_limit=WAITLIST_LIMIT, gallery_images=GALLERY_IMAGES,
             current_custom_image=get_custom_bg_image(), raw_intro_text=get_raw_intro_text(),
+            event=event,
         )
 
     @app.route("/admin/slot/<int:slot_id>/update", methods=["POST"])
@@ -757,10 +974,135 @@ def create_app(test_config=None):
     @admin_required
     def admin_clear_signups():
         db = get_db()
-        db.execute("DELETE FROM signups")
+        event_id = get_current_event_id(db)
+        db.execute("DELETE FROM signups WHERE slot_id IN (SELECT id FROM slots WHERE event_id = ?)", (event_id,))
         db.commit()
-        flash("Alle Anmeldungen wurden zurueckgesetzt.", "info")
+        flash("Alle Anmeldungen fuer das aktuelle Event wurden zurueckgesetzt.", "info")
         return redirect(url_for("admin_dashboard"))
+
+
+    @app.route("/admin/events", methods=["GET"])
+    @admin_required
+    def admin_events_list():
+        db = get_db()
+        events = db.execute("SELECT * FROM events ORDER BY event_date DESC").fetchall()
+        return render_template("admin_events.html", events=events)
+
+    @app.route("/admin/events/create", methods=["POST"])
+    @admin_required
+    def admin_events_create():
+        db = get_db()
+        title = request.form.get("title", "").strip()
+        date_str = request.form.get("event_date", "").strip()
+        if not date_str:
+            flash("Bitte ein Datum angeben.", "danger")
+            return redirect(url_for("admin_events_list"))
+        try:
+            event_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+        except ValueError:
+            flash("Ungueltiges Datum. Format: YYYY-MM-DD", "danger")
+            return redirect(url_for("admin_events_list"))
+        existing = db.execute("SELECT id FROM events WHERE event_date = ?", (event_date,)).fetchone()
+        if existing:
+            flash("Ein Event an diesem Datum existiert bereits.", "warning")
+            return redirect(url_for("admin_events_list"))
+        db.execute(
+            "INSERT INTO events (title, event_date, is_default) VALUES (?, ?, 0)",
+            (title or f"Event {date_str}", event_date)
+        )
+        event_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        for s in SLOT_DEFINITIONS:
+            db.execute(
+                "INSERT INTO slots (event_id, slot_key, label, max_players) VALUES (?, ?, ?, ?)",
+                (event_id, s["key"], s["label"], DEFAULT_MAX_PLAYERS)
+            )
+        db.commit()
+        flash(f"Event am {date_str} wurde angelegt.", "success")
+        return redirect(url_for("admin_events_list"))
+
+    @app.route("/admin/events/<int:event_id>/delete", methods=["POST"])
+    @admin_required
+    def admin_events_delete(event_id):
+        db = get_db()
+        db.execute("DELETE FROM signups WHERE slot_id IN (SELECT id FROM slots WHERE event_id = ?)", (event_id,))
+        db.execute("DELETE FROM slots WHERE event_id = ?", (event_id,))
+        db.execute("DELETE FROM events WHERE id = ?", (event_id,))
+        db.commit()
+        flash("Event wurde geloescht.", "info")
+        return redirect(url_for("admin_events_list"))
+
+    @app.route("/admin/events/<int:event_id>/switch", methods=["POST"])
+    @admin_required
+    def admin_events_switch(event_id):
+        db = get_db()
+        event = db.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
+        if not event:
+            flash("Event nicht gefunden.", "danger")
+            return redirect(url_for("admin_events_list"))
+        db.execute(
+            "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            ("active_event_id", str(event_id)),
+        )
+        db.commit()
+        flash(f"Event '{event['title']}' ist jetzt aktiv.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+
+    @app.route("/admin/stats")
+    @admin_required
+    def admin_stats():
+        db = get_db()
+        event_id = get_current_event_id(db)
+        event = get_event_by_id(db, event_id)
+        weekly_trend = get_stats_weekly_trend(db, weeks=8)
+        slot_usage = get_stats_slot_usage(db, weeks=8)
+        top_players = get_stats_top_players(db, limit=20)
+        current_vs_avg = get_stats_current_vs_average(db, event_id)
+        return render_template(
+            "admin_stats.html", event=event,
+            weekly_trend=weekly_trend, slot_usage=slot_usage,
+            top_players=top_players, current_vs_avg=current_vs_avg,
+        )
+
+    @app.route("/admin/qrcode")
+    @admin_required
+    def admin_qrcode():
+        import qrcode
+        import io
+        import base64
+        url = request.url_root
+        img = qrcode.make(url)
+        buffer = io.BytesIO()
+        img.save(buffer, format="PNG")
+        img_base64 = base64.b64encode(buffer.getvalue()).decode()
+        return render_template("admin_qrcode.html", qrcode=img_base64, url=url)
+
+
+    @app.route("/comment", methods=["POST"])
+    def add_comment():
+        name = request.form.get("name", "").strip()
+        comment_text = request.form.get("comment", "").strip()
+        if not name or not comment_text:
+            flash("Bitte Name und Kommentar eingeben.", "danger")
+            return redirect(url_for("index"))
+
+        db = get_db()
+        name_normalized = name.lower().strip()
+        signup = db.execute(
+            "SELECT * FROM signups WHERE name_normalized = ? ORDER BY created_at DESC LIMIT 1",
+            (name_normalized,)
+        ).fetchone()
+        if not signup:
+            flash("Keine Anmeldung unter diesem Namen gefunden.", "danger")
+            return redirect(url_for("index"))
+
+        db.execute(
+            "INSERT INTO comments (signup_id, text) VALUES (?, ?)",
+            (signup["id"], comment_text)
+        )
+        db.commit()
+        flash("Kommentar hinzugefuegt.", "success")
+        return redirect(url_for("index"))
 
     return app
 

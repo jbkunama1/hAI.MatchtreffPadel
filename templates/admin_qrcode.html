@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}QR-Code - Matchtreff Padel{% endblock %}
+{% block content %}
+<h1>QR-Code zum Teilen</h1>
+<p><a href="{{ url_for('admin_dashboard') }}" class="btn-soft">Zurueck zum Admin-Dashboard</a></p>
+
+<div style="text-align: center; margin-top: 2rem;">
+    <div class="slot-card" style="display: inline-block; padding: 2rem;">
+        <img src="data:image/png;base64,{{ qrcode }}" alt="QR-Code" style="max-width: 300px; width: 100%; height: auto;">
+        <div style="margin-top: 1rem; font-size: 0.85rem; opacity: 0.8; word-break: break-all;">
+            {{ url }}
+        </div>
+        <div style="margin-top: 1.5rem;">
+            <a href="data:image/png;base64,{{ qrcode }}" download="matchtreff-padel-qr.png" class="btn-accent">
+                QR-Code herunterladen
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

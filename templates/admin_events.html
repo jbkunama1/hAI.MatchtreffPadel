@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Events verwalten - Matchtreff Padel{% endblock %}
+{% block content %}
+<h2>Events verwalten</h2>
+
+<p><a href="{{ url_for('admin_dashboard') }}" class="btn-soft">Zurueck zum Admin-Dashboard</a></p>
+
+<h3>Neues Event anlegen</h3>
+<form method="POST" action="{{ url_for('admin_events_create') }}" style="margin-bottom: 2rem;">
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+        <div style="flex: 1; min-width: 200px;">
+            <label>Titel</label>
+            <input type="text" name="title" placeholder="z.B. Turnier Sommer 2026">
+        </div>
+        <div style="flex: 1; min-width: 200px;">
+            <label>Datum</label>
+            <input type="date" name="event_date" required>
+        </div>
+        <div>
+            <button type="submit" class="btn-accent">Event anlegen</button>
+        </div>
+    </div>
+</form>
+
+<h3>Alle Events</h3>
+<table class="admin-table" style="width: 100%; margin-top: 1rem;">
+    <thead>
+        <tr>
+            <th>Datum</th>
+            <th>Titel</th>
+            <th>Typ</th>
+            <th>Status</th>
+            <th>Aktionen</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for ev in events %}
+        <tr>
+            <td>{{ ev.event_date }}</td>
+            <td>{{ ev.title }}</td>
+            <td>
+                {% if ev.is_default %}
+                    <span style="color: var(--accent); font-weight: 600;">Standard</span>
+                {% else %}
+                    Sondertermin
+                {% endif %}
+            </td>
+            <td>
+                {% if active_event_id and ev.id == active_event_id|int %}
+                    <span class="badge-pill" style="background: var(--accent); color: white;">Aktiv</span>
+                {% else %}
+                    -
+                {% endif %}
+            </td>
+            <td>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <form method="POST" action="{{ url_for('admin_events_switch', event_id=ev.id) }}" style="display: inline;">
+                        <button type="submit" class="btn-soft" style="padding: 0.25rem 0.75rem;">Aktivieren</button>
+                    </form>
+                    <form method="POST" action="{{ url_for('admin_events_delete', event_id=ev.id) }}" style="display: inline;" onsubmit="return confirm('Event wirklich loeschen? Alle Anmeldungen werden entfernt.')">
+                        <button type="submit" class="btn-soft" style="background: rgba(239,68,68,0.1); color: #ef4444; padding: 0.25rem 0.75rem;">Loeschen</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

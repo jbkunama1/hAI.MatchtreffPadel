@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Statistiken - Matchtreff Padel{% endblock %}
+{% block content %}
+<h1>Statistiken</h1>
+<p><a href="{{ url_for('admin_dashboard') }}" class="btn-soft">Zurueck zum Admin-Dashboard</a></p>
+
+{% if event %}
+<div class="slot-card" style="margin-bottom: 1.5rem; border-left: 4px solid var(--accent, #2563eb);">
+    <strong>Aktuelles Event:</strong> {{ event.title }} ({{ event.event_date }})
+</div>
+{% endif %}
+
+<h2>Aktuelle Woche vs. Durchschnitt</h2>
+<div class="slot-card" style="margin-bottom: 1.5rem;">
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem;">
+        <div style="text-align: center;">
+            <div style="font-size: 2rem; font-weight: bold; color: var(--accent, #2563eb);">{{ current_vs_avg.current }}</div>
+            <div style="font-size: 0.85rem; opacity: 0.8;">Aktuelle Anmeldungen</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 2rem; font-weight: bold;">{{ current_vs_avg.average }}</div>
+            <div style="font-size: 0.85rem; opacity: 0.8;">Durchschnitt (8 Wochen)</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 2rem; font-weight: bold; {% if current_vs_avg.diff >= 0 %}color: #22c55e;{% else %}color: #ef4444;{% endif %}">
+                {% if current_vs_avg.diff >= 0 %}+{% endif %}{{ current_vs_avg.diff }}
+            </div>
+            <div style="font-size: 0.85rem; opacity: 0.8;">Differenz</div>
+        </div>
+    </div>
+</div>
+
+<h2>Teilnehmer-Trend (letzte 8 Wochen)</h2>
+<div class="slot-card" style="margin-bottom: 1.5rem;">
+    <div style="display: flex; align-items: flex-end; gap: 0.5rem; height: 200px; padding-bottom: 2rem; position: relative;">
+        {% for week in weekly_trend %}
+        <div style="flex: 1; display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+            <div style="width: 100%; background: var(--accent, #2563eb); border-radius: 0.25rem 0.25rem 0 0; transition: height 0.3s;"
+                 style="height: {{ week.count * 100 // 30 }}px; min-height: 4px;">
+            </div>
+            <div style="font-size: 0.75rem; opacity: 0.8;">{{ week.label }}</div>
+            <div style="font-size: 0.85rem; font-weight: bold;">{{ week.count }}</div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<h2>Slot-Auslastung (Durchschnitt 8 Wochen)</h2>
+<div style="margin-bottom: 1.5rem;">
+    {% for slot in slot_usage %}
+    <div class="slot-card" style="margin-bottom: 0.75rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <strong>{{ slot.label }}</strong>
+            <span style="opacity: 0.8;">Max {{ slot.max_players }} Plaetze</span>
+        </div>
+        <div style="margin-top: 0.5rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                <span>Bestaetigte</span>
+                <span>{{ slot.avg_confirmed }} / {{ slot.max_players }}</span>
+            </div>
+            <div style="width: 100%; height: 8px; background: rgba(0,0,0,0.1); border-radius: 4px; overflow: hidden;">
+                <div style="width: {{ (slot.avg_confirmed / slot.max_players * 100) | round }}%; height: 100%; background: var(--accent, #2563eb); border-radius: 4px;"></div>
+            </div>
+        </div>
+        {% if slot.avg_waitlist > 0 %}
+        <div style="margin-top: 0.5rem; font-size: 0.85rem; opacity: 0.8;">
+            Durchschnittliche Warteliste: {{ slot.avg_waitlist }} Eintraege
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+
+<h2>Top-Spieler (haeufigste Anmeldungen)</h2>
+<div class="slot-card">
+    <table class="admin-table" style="width: 100%;">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Bestaetigt</th>
+                <th>Warteliste</th>
+                <th>Gesamt</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for player in top_players %}
+            <tr>
+                <td>{{ loop.index }}</td>
+                <td>
+                    {% if player.name_normalized in orga_team_normalized %}
+                        <strong>{{ player.name }} &#9733;</strong>
+                    {% else %}
+                        {{ player.name }}
+                    {% endif %}
+                </td>
+                <td>{{ player.confirmed_count }}</td>
+                <td>{{ player.waitlist_count }}</td>
+                <td><strong>{{ player.total }}</strong></td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}
