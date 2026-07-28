@@ -44,9 +44,66 @@
         outline-offset: 2px;
     }
 
-    .page-intro {
-        margin-bottom: 1rem;
+    .event-date-card {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        margin: 0.8rem 0 0.65rem;
+        padding: 0.9rem 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-left: 5px solid var(--accent, #38bdf8);
+        border-radius: 1rem;
+        background: linear-gradient(
+            135deg,
+            rgba(56, 189, 248, 0.16),
+            rgba(129, 140, 248, 0.1)
+        );
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    }
+
+    .event-date-icon {
+        flex: 0 0 3rem;
+        width: 3rem;
+        height: 3rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.9rem;
+        background: linear-gradient(
+            135deg,
+            var(--accent, #38bdf8),
+            var(--accent2, #818cf8)
+        );
+        color: #06111f;
+        font-size: 1.45rem;
+        box-shadow: 0 5px 14px rgba(56, 189, 248, 0.25);
+    }
+
+    .event-date-content {
+        min-width: 0;
+    }
+
+    .event-date-label {
+        display: block;
+        margin-bottom: 0.1rem;
+        font-size: 0.82rem;
+        font-weight: 800;
+        letter-spacing: 0.04em;
+        opacity: 0.82;
+        text-transform: uppercase;
+    }
+
+    .event-date-value {
+        display: block;
+        font-size: clamp(1.2rem, 4vw, 1.55rem);
+        font-weight: 900;
+        line-height: 1.2;
+    }
+
+    .event-description {
+        margin: 0 0 1rem;
         line-height: 1.55;
+        opacity: 0.94;
     }
 
     .signup-heading {
@@ -72,15 +129,147 @@
         cursor: pointer;
     }
 
+    .content-divider {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        margin: 2rem 0 1.15rem;
+        color: var(--accent, #38bdf8);
+    }
+
+    .content-divider::before,
+    .content-divider::after {
+        content: "";
+        height: 1px;
+        flex: 1;
+        background: linear-gradient(
+            90deg,
+            transparent,
+            rgba(255, 255, 255, 0.35),
+            transparent
+        );
+    }
+
+    .content-divider-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 2.2rem;
+        height: 2.2rem;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 5px 12px rgba(0, 0, 0, 0.12);
+        font-size: 1rem;
+    }
+
     .player-heading {
         display: flex;
         align-items: center;
         gap: 0.45rem;
-        margin-top: 1.5rem;
+        margin-top: 0;
     }
 
     .waitlist-heading {
         margin-top: 0.85rem;
+    }
+
+    .player-list {
+        list-style: none;
+        margin: 0.85rem 0 0;
+        padding: 0;
+        counter-reset: player-counter;
+    }
+
+    .player-row {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        min-width: 0;
+        margin: 0.45rem 0;
+        padding: 0.7rem 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 0.8rem;
+        background: rgba(255, 255, 255, 0.05);
+        counter-increment: player-counter;
+    }
+
+    .player-position {
+        flex: 0 0 1.8rem;
+        width: 1.8rem;
+        height: 1.8rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        color: #06111f;
+        background: linear-gradient(
+            135deg,
+            var(--accent, #38bdf8),
+            var(--accent2, #818cf8)
+        );
+        font-size: 0.82rem;
+        font-weight: 800;
+    }
+
+    .player-avatar {
+        flex: 0 0 2.15rem;
+        width: 2.15rem;
+        height: 2.15rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.11);
+        font-size: 1rem;
+    }
+
+    .player-main {
+        display: flex;
+        flex: 1 1 auto;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        min-width: 0;
+    }
+
+    .player-name {
+        overflow: hidden;
+        font-weight: 700;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .player-name.is-orga {
+        color: var(--accent, #38bdf8);
+    }
+
+    .player-role {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        padding: 0.2rem 0.45rem;
+        border: 1px solid rgba(250, 204, 21, 0.32);
+        border-radius: 999px;
+        background: rgba(250, 204, 21, 0.18);
+        font-size: 0.75rem;
+        font-weight: 800;
+    }
+
+    .empty-player-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.8rem;
+        border: 1px dashed rgba(255, 255, 255, 0.22);
+        border-radius: 0.8rem;
+        opacity: 0.85;
+    }
+
+    .waitlist-list .player-row {
+        border-left: 4px solid #f59e0b;
+        background: rgba(245, 158, 11, 0.08);
     }
 
     @media (max-width: 768px) {
@@ -96,6 +285,18 @@
             justify-content: center;
         }
 
+        .event-date-card {
+            padding: 0.8rem;
+            border-radius: 0.85rem;
+        }
+
+        .event-date-icon {
+            flex-basis: 2.7rem;
+            width: 2.7rem;
+            height: 2.7rem;
+            font-size: 1.25rem;
+        }
+
         .slot-choice {
             padding: 0.75rem;
         }
@@ -103,6 +304,31 @@
         .btn-accent {
             width: 100%;
             min-height: 46px;
+        }
+
+        .content-divider {
+            margin-top: 1.7rem;
+        }
+
+        .player-row {
+            gap: 0.55rem;
+            padding: 0.65rem;
+        }
+
+        .player-position {
+            flex-basis: 1.65rem;
+            width: 1.65rem;
+            height: 1.65rem;
+        }
+
+        .player-avatar {
+            flex-basis: 2rem;
+            width: 2rem;
+            height: 2rem;
+        }
+
+        .player-main {
+            gap: 0.3rem;
         }
     }
 </style>
@@ -119,8 +345,17 @@
     </a>
 </div>
 
-<p class="page-intro">
-    {{ intro_text }}
+<div class="event-date-card">
+    <span class="event-date-icon" aria-hidden="true">📅</span>
+
+    <div class="event-date-content">
+        <span class="event-date-label">Anmeldung fuer Donnerstag</span>
+        <strong class="event-date-value">{{ next_thursday }}</strong>
+    </div>
+</div>
+
+<p class="event-description">
+    Trag einfach deinen Namen ein und waehle einen oder beide Slots.
 </p>
 
 <h2 class="signup-heading">📝 Jetzt anmelden</h2>
@@ -200,6 +435,10 @@
     </button>
 </form>
 
+<div class="content-divider" aria-hidden="true">
+    <span class="content-divider-icon">👥</span>
+</div>
+
 <h2 class="player-heading">👥 Angemeldete Spieler</h2>
 
 {% for slot in slots %}
@@ -222,41 +461,75 @@
 
     <ul class="player-list">
         {% for signup in signups_by_slot[slot.id].confirmed %}
-        <li>
-            {% if signup.name_normalized in orga_team_normalized %}
-                <strong>{{ signup.name }} &#9733;</strong>
-            {% else %}
-                {{ signup.name }}
-            {% endif %}
+        <li class="player-row">
+            <span class="player-position">{{ loop.index }}</span>
 
-            {% if signup.is_member %}
-                <span class="badge-member">🏆 Mitglied</span>
-            {% else %}
-                <span class="badge-guest">👋 Gast</span>
-            {% endif %}
+            <span class="player-avatar" aria-hidden="true">
+                {% if signup.name_normalized in orga_team_normalized %}
+                    ⭐
+                {% elif signup.is_member %}
+                    🏆
+                {% else %}
+                    👋
+                {% endif %}
+            </span>
+
+            <span class="player-main">
+                <span class="player-name {% if signup.name_normalized in orga_team_normalized %}is-orga{% endif %}">
+                    {{ signup.name }}
+                </span>
+
+                {% if signup.name_normalized in orga_team_normalized %}
+                    <span class="player-role">⭐ Orga-Team</span>
+                {% endif %}
+
+                {% if signup.is_member %}
+                    <span class="badge-member">🏆 Mitglied</span>
+                {% else %}
+                    <span class="badge-guest">👋 Gast</span>
+                {% endif %}
+            </span>
         </li>
         {% else %}
-        <li>👀 Noch niemand angemeldet.</li>
+        <li class="empty-player-row">
+            👀 Noch niemand angemeldet – sei der Erste!
+        </li>
         {% endfor %}
     </ul>
 
     {% if signups_by_slot[slot.id].waitlist %}
     <h3 class="waitlist-heading">⏳ Warteliste</h3>
 
-    <ul class="player-list">
+    <ul class="player-list waitlist-list">
         {% for signup in signups_by_slot[slot.id].waitlist %}
-        <li>
-            {% if signup.name_normalized in orga_team_normalized %}
-                <strong>{{ signup.name }} &#9733;</strong>
-            {% else %}
-                {{ signup.name }}
-            {% endif %}
+        <li class="player-row">
+            <span class="player-position">{{ loop.index }}</span>
 
-            {% if signup.is_member %}
-                <span class="badge-member">🏆 Mitglied</span>
-            {% else %}
-                <span class="badge-guest">👋 Gast</span>
-            {% endif %}
+            <span class="player-avatar" aria-hidden="true">
+                {% if signup.name_normalized in orga_team_normalized %}
+                    ⭐
+                {% elif signup.is_member %}
+                    🏆
+                {% else %}
+                    👋
+                {% endif %}
+            </span>
+
+            <span class="player-main">
+                <span class="player-name {% if signup.name_normalized in orga_team_normalized %}is-orga{% endif %}">
+                    {{ signup.name }}
+                </span>
+
+                {% if signup.name_normalized in orga_team_normalized %}
+                    <span class="player-role">⭐ Orga-Team</span>
+                {% endif %}
+
+                {% if signup.is_member %}
+                    <span class="badge-member">🏆 Mitglied</span>
+                {% else %}
+                    <span class="badge-guest">👋 Gast</span>
+                {% endif %}
+            </span>
         </li>
         {% endfor %}
     </ul>
