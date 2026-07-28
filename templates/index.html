@@ -1,86 +1,144 @@
 {% extends "base.html" %}
+
 {% block title %}Matchtreff Padel - Anmeldung{% endblock %}
+
 {% block content %}
 <h1>Padel Matchtreff</h1>
+
 <p>{{ intro_text }}</p>
 
 <form action="{{ url_for('eintragen') }}" method="post">
     <div class="form-group">
         <label for="name">Dein Name</label>
-        <input class="form-control" type="text" id="name" name="name" required>
+        <input
+            class="form-control"
+            type="text"
+            id="name"
+            name="name"
+            required
+        >
     </div>
 
     <div class="form-group">
         <div class="checkbox-row">
-            <input type="checkbox" id="is_member" name="is_member" checked>
-            <label for="is_member" style="margin:0;">Ich bin TPCG-Mitglied</label>
+            <input
+                type="checkbox"
+                id="is_member"
+                name="is_member"
+                checked
+            >
+            <label for="is_member" style="margin: 0;">
+                Ich bin TPCG-Mitglied
+            </label>
         </div>
-        <div class="slot-meta" style="margin-top:0.35rem;">Mitglieder werden bei der Platzvergabe bevorzugt. Nicht-Mitglieder koennen sich trotzdem eintragen.</div>
+
+        <div class="slot-meta" style="margin-top: 0.35rem;">
+            Mitglieder werden bei der Platzvergabe bevorzugt.
+            Nicht-Mitglieder koennen sich trotzdem eintragen.
+        </div>
     </div>
 
     <div class="form-group">
         <label>Slot-Auswahl</label>
+
         {% for slot in slots %}
-            <div class="checkbox-row">
-                <input type="checkbox" id="{{ slot.slot_key }}" name="slots" value="{{ slot.slot_key }}"
-                       {% if cookie_locked[slot.slot_key] or slot.waitlist_full and slot.full %}disabled{% endif %}>
-                <label for="{{ slot.slot_key }}" style="margin:0;">
-                    {{ slot.label }} ({{ slot.count }}/{{ slot.max_players }}{% if slot.full %} - VOLL{% endif %}
-                    {% if slot.waitlist_count > 0 or slot.full %}, Warteliste {{ slot.waitlist_count }}/4{% endif %}
-                    {% if cookie_locked[slot.slot_key] %} - bereits eingetragen{% endif %})
-                </label>
-            </div>
+        <div class="checkbox-row">
+            <input
+                type="checkbox"
+                id="{{ slot.slot_key }}"
+                name="slots"
+                value="{{ slot.slot_key }}"
+                {% if cookie_locked[slot.slot_key] or (slot.waitlist_full and slot.full) %}disabled{% endif %}
+            >
+
+            <label for="{{ slot.slot_key }}" style="margin: 0;">
+                {{ slot.label }}
+                ({{ slot.count }}/{{ slot.max_players }})
+
+                {% if slot.full %}
+                    - VOLL
+                {% endif %}
+
+                {% if slot.waitlist_count > 0 or slot.full %}
+                    , Warteliste {{ slot.waitlist_count }}/{{ waitlist_limit }}
+                {% endif %}
+
+                {% if cookie_locked[slot.slot_key] %}
+                    - bereits eingetragen
+                {% endif %}
+            </label>
+        </div>
         {% endfor %}
     </div>
 
-    <button class="btn-accent" type="submit">Eintragen</button>
+    <button class="btn-accent" type="submit">
+        Eintragen
+    </button>
 </form>
 
 <div class="stack-label">Angemeldete Spieler</div>
+
 {% for slot in slots %}
-    <div class="slot-card {% if slot.full %}full{% endif %}">
-        <div class="slot-title">{{ slot.label }}</div>
-        <div class="slot-meta">
-            {{ slot.count }} von {{ slot.max_players }} Plaetzen belegt{% if slot.full %} - Slot ist voll{% endif %}
-            {% if slot.waitlist_count > 0 %} | Warteliste: {{ slot.waitlist_count }}/4{% endif %}
-        </div>
-        <ul class="player-list">
-            {% for signup in signups_by_slot[slot.id].confirmed %}
-                <li>
-                    {% if signup.name_normalized in orga_team_normalized %}
-                        <strong>{{ signup.name }} &#9733;</strong>
-                    {% else %}
-                        {{ signup.name }}
-                    {% endif %}
-                    {% if signup.is_member %}
-                        <span class="badge-member">Mitglied</span>
-                    {% else %}
-                        <span class="badge-guest">Gast</span>
-                    {% endif %}
-                </li>
-            {% else %}
-                <li>Noch niemand angemeldet.</li>
-            {% endfor %}
-        </ul>
-        {% if signups_by_slot[slot.id].waitlist %}
-            <div class="stack-label" style="margin-top:0.75rem;">Warteliste</div>
-            <ul class="player-list">
-                {% for signup in signups_by_slot[slot.id].waitlist %}
-                    <li>
-                        {% if signup.name_normalized in orga_team_normalized %}
-                            <strong>{{ signup.name }} &#9733;</strong>
-                        {% else %}
-                            {{ signup.name }}
-                        {% endif %}
-                        {% if signup.is_member %}
-                            <span class="badge-member">Mitglied</span>
-                        {% else %}
-                            <span class="badge-guest">Gast</span>
-                        {% endif %}
-                    </li>
-                {% endfor %}
-            </ul>
+<div class="slot-card {% if slot.full %}full{% endif %}">
+    <div class="slot-title">
+        {{ slot.label }}
+    </div>
+
+    <div class="slot-meta">
+        {{ slot.count }} von {{ slot.max_players }} Plaetzen belegt
+
+        {% if slot.full %}
+            - Slot ist voll
+        {% endif %}
+
+        {% if slot.waitlist_count > 0 %}
+            - Warteliste {{ slot.waitlist_count }}/{{ waitlist_limit }}
         {% endif %}
     </div>
+
+    <ul class="player-list">
+        {% for signup in signups_by_slot[slot.id].confirmed %}
+        <li>
+            {% if signup.name_normalized in orga_team_normalized %}
+                <strong>{{ signup.name }} &#9733;</strong>
+            {% else %}
+                {{ signup.name }}
+            {% endif %}
+
+            {% if signup.is_member %}
+                <span class="badge-member">Mitglied</span>
+            {% else %}
+                <span class="badge-guest">Gast</span>
+            {% endif %}
+        </li>
+        {% else %}
+        <li>Noch niemand angemeldet.</li>
+        {% endfor %}
+    </ul>
+
+    {% if signups_by_slot[slot.id].waitlist %}
+    <div class="stack-label" style="margin-top: 0.75rem;">
+        Warteliste
+    </div>
+
+    <ul class="player-list">
+        {% for signup in signups_by_slot[slot.id].waitlist %}
+        <li>
+            {% if signup.name_normalized in orga_team_normalized %}
+                <strong>{{ signup.name }} &#9733;</strong>
+            {% else %}
+                {{ signup.name }}
+            {% endif %}
+
+            {% if signup.is_member %}
+                <span class="badge-member">Mitglied</span>
+            {% else %}
+                <span class="badge-guest">Gast</span>
+            {% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+</div>
 {% endfor %}
 {% endblock %}
