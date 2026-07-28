@@ -3,18 +3,163 @@
 {% block title %}Matchtreff Padel - Anmeldung{% endblock %}
 
 {% block content %}
-<h1>Padel Matchtreff</h1>
+<style>
+    .page-intro {
+        margin-bottom: 1rem;
+        line-height: 1.55;
+    }
 
-<p>{{ intro_text }}</p>
+    .info-cta {
+        display: block;
+        margin: 1rem 0 1.35rem;
+        padding: 1rem;
+        text-decoration: none;
+        color: inherit;
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        border-left: 5px solid var(--accent, #38bdf8);
+        border-radius: 1rem;
+        background:
+            linear-gradient(
+                135deg,
+                rgba(56, 189, 248, 0.18),
+                rgba(129, 140, 248, 0.12)
+            );
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.12);
+        transition: transform 0.16s ease, border-color 0.16s ease;
+    }
+
+    .info-cta:hover {
+        transform: translateY(-2px);
+        border-color: var(--accent, #38bdf8);
+    }
+
+    .info-cta:focus-visible {
+        outline: 3px solid var(--accent, #38bdf8);
+        outline-offset: 3px;
+    }
+
+    .info-cta-title {
+        display: flex;
+        align-items: center;
+        gap: 0.55rem;
+        margin-bottom: 0.3rem;
+        font-size: 1.08rem;
+        font-weight: 800;
+    }
+
+    .info-cta-text {
+        display: block;
+        opacity: 0.92;
+        line-height: 1.45;
+    }
+
+    .info-cta-button {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        margin-top: 0.75rem;
+        padding: 0.55rem 0.8rem;
+        border-radius: 0.7rem;
+        color: #06111f;
+        background: linear-gradient(
+            135deg,
+            var(--accent, #38bdf8),
+            var(--accent2, #818cf8)
+        );
+        font-weight: 800;
+    }
+
+    .signup-heading {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        margin-top: 1.25rem;
+    }
+
+    .slot-choice {
+        margin: 0.55rem 0;
+        padding: 0.7rem 0.75rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 0.8rem;
+        background: rgba(255, 255, 255, 0.04);
+    }
+
+    .slot-choice .checkbox-row {
+        margin: 0;
+    }
+
+    .slot-choice label {
+        cursor: pointer;
+    }
+
+    .player-heading {
+        display: flex;
+        align-items: center;
+        gap: 0.45rem;
+        margin-top: 1.5rem;
+    }
+
+    .waitlist-heading {
+        margin-top: 0.85rem;
+    }
+
+    @media (max-width: 768px) {
+        .info-cta {
+            padding: 0.9rem;
+            border-radius: 0.85rem;
+        }
+
+        .info-cta-button {
+            width: 100%;
+            min-height: 44px;
+            box-sizing: border-box;
+            justify-content: center;
+        }
+
+        .slot-choice {
+            padding: 0.75rem;
+        }
+
+        .btn-accent {
+            width: 100%;
+            min-height: 46px;
+        }
+    }
+</style>
+
+<h1>🎾 Padel Matchtreff</h1>
+
+<p class="page-intro">
+    {{ intro_text }}
+</p>
+
+<a class="info-cta" href="{{ url_for('info_page') }}">
+    <span class="info-cta-title">
+        ℹ️ MATCHTREFF Silber – alle Infos
+    </span>
+
+    <span class="info-cta-text">
+        Spielablauf, Kosten, Regeln, Golden Court, Turniere und wichtige Hinweise
+        zum Matchtreff findest du hier.
+    </span>
+
+    <span class="info-cta-button">
+        📖 Infos ansehen <span aria-hidden="true">→</span>
+    </span>
+</a>
+
+<h2 class="signup-heading">📝 Jetzt anmelden</h2>
 
 <form action="{{ url_for('eintragen') }}" method="post">
     <div class="form-group">
-        <label for="name">Dein Name</label>
+        <label for="name">👤 Dein Name</label>
         <input
             class="form-control"
             type="text"
             id="name"
             name="name"
+            placeholder="Vor- und Nachname"
+            autocomplete="name"
             required
         >
     </div>
@@ -27,8 +172,9 @@
                 name="is_member"
                 checked
             >
+
             <label for="is_member" style="margin: 0;">
-                Ich bin TPCG-Mitglied
+                🏆 Ich bin TPCG-Mitglied
             </label>
         </div>
 
@@ -39,60 +185,62 @@
     </div>
 
     <div class="form-group">
-        <label>Slot-Auswahl</label>
+        <label>🕒 Slot-Auswahl</label>
 
         {% for slot in slots %}
-        <div class="checkbox-row">
-            <input
-                type="checkbox"
-                id="{{ slot.slot_key }}"
-                name="slots"
-                value="{{ slot.slot_key }}"
-                {% if cookie_locked[slot.slot_key] or (slot.waitlist_full and slot.full) %}disabled{% endif %}
-            >
+        <div class="slot-choice">
+            <div class="checkbox-row">
+                <input
+                    type="checkbox"
+                    id="{{ slot.slot_key }}"
+                    name="slots"
+                    value="{{ slot.slot_key }}"
+                    {% if cookie_locked[slot.slot_key] or (slot.waitlist_full and slot.full) %}disabled{% endif %}
+                >
 
-            <label for="{{ slot.slot_key }}" style="margin: 0;">
-                {{ slot.label }}
-                ({{ slot.count }}/{{ slot.max_players }})
+                <label for="{{ slot.slot_key }}" style="margin: 0;">
+                    🎾 <strong>{{ slot.label }}</strong>
+                    — {{ slot.count }}/{{ slot.max_players }} Plaetze
 
-                {% if slot.full %}
-                    - VOLL
-                {% endif %}
+                    {% if slot.full %}
+                        · 🔴 VOLL
+                    {% endif %}
 
-                {% if slot.waitlist_count > 0 or slot.full %}
-                    , Warteliste {{ slot.waitlist_count }}/{{ waitlist_limit }}
-                {% endif %}
+                    {% if slot.waitlist_count > 0 or slot.full %}
+                        · ⏳ Warteliste {{ slot.waitlist_count }}/{{ waitlist_limit }}
+                    {% endif %}
 
-                {% if cookie_locked[slot.slot_key] %}
-                    - bereits eingetragen
-                {% endif %}
-            </label>
+                    {% if cookie_locked[slot.slot_key] %}
+                        · ✅ Bereits eingetragen
+                    {% endif %}
+                </label>
+            </div>
         </div>
         {% endfor %}
     </div>
 
     <button class="btn-accent" type="submit">
-        Eintragen
+        ✅ Verbindlich eintragen
     </button>
 </form>
 
-<div class="stack-label">Angemeldete Spieler</div>
+<h2 class="player-heading">👥 Angemeldete Spieler</h2>
 
 {% for slot in slots %}
 <div class="slot-card {% if slot.full %}full{% endif %}">
     <div class="slot-title">
-        {{ slot.label }}
+        🎾 {{ slot.label }}
     </div>
 
     <div class="slot-meta">
         {{ slot.count }} von {{ slot.max_players }} Plaetzen belegt
 
         {% if slot.full %}
-            - Slot ist voll
+            · 🔴 Slot ist voll
         {% endif %}
 
         {% if slot.waitlist_count > 0 %}
-            - Warteliste {{ slot.waitlist_count }}/{{ waitlist_limit }}
+            · ⏳ Warteliste {{ slot.waitlist_count }}/{{ waitlist_limit }}
         {% endif %}
     </div>
 
@@ -106,20 +254,18 @@
             {% endif %}
 
             {% if signup.is_member %}
-                <span class="badge-member">Mitglied</span>
+                <span class="badge-member">🏆 Mitglied</span>
             {% else %}
-                <span class="badge-guest">Gast</span>
+                <span class="badge-guest">👋 Gast</span>
             {% endif %}
         </li>
         {% else %}
-        <li>Noch niemand angemeldet.</li>
+        <li>👀 Noch niemand angemeldet.</li>
         {% endfor %}
     </ul>
 
     {% if signups_by_slot[slot.id].waitlist %}
-    <div class="stack-label" style="margin-top: 0.75rem;">
-        Warteliste
-    </div>
+    <h3 class="waitlist-heading">⏳ Warteliste</h3>
 
     <ul class="player-list">
         {% for signup in signups_by_slot[slot.id].waitlist %}
@@ -131,9 +277,9 @@
             {% endif %}
 
             {% if signup.is_member %}
-                <span class="badge-member">Mitglied</span>
+                <span class="badge-member">🏆 Mitglied</span>
             {% else %}
-                <span class="badge-guest">Gast</span>
+                <span class="badge-guest">👋 Gast</span>
             {% endif %}
         </li>
         {% endfor %}
