@@ -104,6 +104,7 @@
         margin: 0 0 1rem;
         line-height: 1.55;
         opacity: 0.94;
+        white-space: pre-line;
     }
 
     .signup-heading {
@@ -178,7 +179,6 @@
         list-style: none;
         margin: 0.85rem 0 0;
         padding: 0;
-        counter-reset: player-counter;
     }
 
     .player-row {
@@ -191,7 +191,6 @@
         border: 1px solid rgba(255, 255, 255, 0.12);
         border-radius: 0.8rem;
         background: rgba(255, 255, 255, 0.05);
-        counter-increment: player-counter;
     }
 
     .player-position {
@@ -355,7 +354,10 @@
 </div>
 
 <p class="event-description">
-    Trag einfach deinen Namen ein und waehle einen oder beide Slots.
+    {{ intro_text
+        | replace("Anmeldung fuer Donnerstag, " ~ next_thursday ~ ". ", "")
+        | replace("Anmeldung fuer Donnerstag, {next_thursday}. ", "")
+    }}
 </p>
 
 <h2 class="signup-heading">📝 Jetzt anmelden</h2>
@@ -448,7 +450,7 @@
     </div>
 
     <div class="slot-meta">
-        {{ slot.count }} von {{ slot.max_players }} Plaetzen belegt
+        {{ slot.count }} von {{ slot.max_players }} Plaetze belegt
 
         {% if slot.full %}
             · 🔴 Slot ist voll
