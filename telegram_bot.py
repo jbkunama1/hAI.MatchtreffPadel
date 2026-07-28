@@ -33,6 +33,33 @@ def get_slot_label(slot_id: int) -> Optional[str]:
         return row["label"] if row else None
 
 
+def promote_waiting_signup(conn: sqlite3.Connection, slot_id: int):
+    waiting_signup = conn.execute(
+        """
+        SELECT id, name
+        FROM signups
+        WHERE slot_id = ? AND status = 'waiting'
+        ORDER BY created_at ASC, id ASC
+        LIMIT 1
+        """,
+        (slot_id,),
+    ).fetchone()
+
+    if not waiting_signup:
+        return None
+
+    conn.execute(
+        """
+        UPDATE signups
+        SET status = 'confirmed'
+        WHERE id = ?
+        """,
+        (waiting_signup["id"],),
+    )
+
+    return waiting_signup
+
+
 async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message:
         await update.message.reply_text(
@@ -41,20 +68,22 @@ async def start_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
-async def callback_approve_or_remove(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def callback_guest_signup(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     if not query:
         return
 
     await query.answer()
 
-    data = (query.data or "").split(":")
-    if len(data) != 2:
+    data = query.data or ""
+    logger.info("Callback empfangen: %s", data)
+
+    if ":" not in data:
         await query.edit_message_text("Ungueltige Aktion.")
-        logger.warning("Ungueltige Callback-Daten: %s", query.data)
+        logger.warning("Ungueltige Callback-Daten: %s", data)
         return
 
-    action, signup_id_raw = data
+    action, signup_id_raw = data.split(":", 1)
 
     try:
         signup_id = int(signup_id_raw)
@@ -80,31 +109,56 @@ async def callback_approve_or_remove(update: Update, context: ContextTypes.DEFAU
 
         slot_label = get_slot_label(signup["slot_id"]) or "Unbekannter Slot"
 
-        if action == "approve":
+        if action == "ack_signup":
             await query.edit_message_text(
-                f"Gast-Anmeldung bestaetigt: {signup['name']} ({slot_label})"
+                f"Zur Kenntnis genommen: {signup['name']} ({slot_label}) bleibt eingetragen."
             )
             logger.info(
-                "Gast-Anmeldung bestaetigt: signup_id=%s name=%s slot_id=%s",
+                "Gast-Anmeldung bestaetigt/acknowledged: signup_id=%s name=%s slot_id=%s",
                 signup["id"],
                 signup["name"],
                 signup["slot_id"],
             )
             return
 
-        if action == "remove":
+        if action == "reject_signup":
+            removed_name = signup["name"]
+            removed_slot_id = signup["slot_id"]
+            removed_status = signup["status"]
+
             conn.execute("DELETE FROM signups WHERE id = ?", (signup_id,))
+
+            promoted_signup = None
+            if removed_status == "confirmed":
+                promoted_signup = promote_waiting_signup(conn, removed_slot_id)
+
             conn.commit()
 
-            await query.edit_message_text(
-                f"Gast-Anmeldung entfernt: {signup['name']} ({slot_label})"
-            )
+            message = f"Gast-Anmeldung entfernt: {removed_name} ({slot_label})"
+
+            if promoted_signup:
+                message += (
+                    f"\nNachgerueckt: {promoted_signup['name']} "
+                    f"({slot_label}) ist jetzt bestaetigt."
+                )
+
+            await query.edit_message_text(message)
+
             logger.info(
-                "Gast-Anmeldung entfernt: signup_id=%s name=%s slot_id=%s",
+                "Gast-Anmeldung entfernt: signup_id=%s name=%s slot_id=%s status=%s",
                 signup["id"],
-                signup["name"],
-                signup["slot_id"],
+                removed_name,
+                removed_slot_id,
+                removed_status,
             )
+
+            if promoted_signup:
+                logger.info(
+                    "Warteliste nachgerueckt: signup_id=%s name=%s slot_id=%s",
+                    promoted_signup["id"],
+                    promoted_signup["name"],
+                    removed_slot_id,
+                )
             return
 
     await query.edit_message_text("Unbekannte Aktion.")
@@ -140,9 +194,8 @@ def main():
     clear_webhook(TOKEN)
 
     application = Application.builder().token(TOKEN).post_init(post_init).build()
-
     application.add_handler(CommandHandler("start", start_cmd))
-    application.add_handler(CallbackQueryHandler(callback_approve_or_remove))
+    application.add_handler(CallbackQueryHandler(callback_guest_signup))
     application.add_error_handler(error_handler)
 
     logger.info("Telegram-Bot laeuft (Polling)...")
