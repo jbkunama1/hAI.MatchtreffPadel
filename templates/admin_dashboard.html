@@ -2,7 +2,6 @@
 {% block title %}Admin-Dashboard{% endblock %}
 
 {% block content %}
-
 <style>
   .admin-tabs {
     margin-top: 1rem;
@@ -74,6 +73,29 @@
     gap: 0.75rem;
   }
 
+  .gallery-option {
+    position: relative;
+    padding: 0.5rem;
+    border-radius: 0.85rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.12);
+    min-height: 72px;
+    display: flex;
+    align-items: end;
+  }
+
+  .gallery-option label {
+    display: block;
+    width: 100%;
+    padding-top: 1.6rem;
+    cursor: pointer;
+    word-break: break-word;
+  }
+
+  .meta-text {
+    opacity: 0.9;
+  }
+
   @media (max-width: 768px) {
     .admin-tablist {
       margin-inline: -0.125rem;
@@ -101,13 +123,12 @@
     <button class="admin-tab" role="tab" aria-selected="false" aria-controls="tab-system" id="btn-system" data-tab="system">System</button>
   </div>
 
-  <!-- Tab: Anmeldung -->
   <section class="admin-tabpanel" id="tab-anmeldung" role="tabpanel" aria-labelledby="btn-anmeldung">
     <div class="admin-stack">
       {% for slot in slots %}
       <div class="admin-card">
         <h2>{{ slot.label }}</h2>
-        <p>
+        <p class="meta-text">
           {{ slot.count }} von {{ slot.max_players }} Plaetzen belegt
           {% if slot.full %} - Slot ist voll{% endif %}
           | Warteliste: {{ slot.waitlist_count }}/{{ waitlist_limit }}
@@ -124,9 +145,9 @@
             <input class="form-control" type="number" min="1" id="max_players_{{ slot.id }}" name="max_players" value="{{ slot.max_players }}">
           </p>
 
-          <p>
+          <div class="slot-actions">
             <button type="submit">Speichern</button>
-          </p>
+          </div>
         </form>
 
         <div class="admin-stack" style="margin-top: 1rem;">
@@ -187,7 +208,6 @@
     </div>
   </section>
 
-  <!-- Tab: Aussehen -->
   <section class="admin-tabpanel" id="tab-aussehen" role="tabpanel" aria-labelledby="btn-aussehen" hidden>
     <div class="admin-stack">
       <div class="admin-card">
@@ -206,7 +226,9 @@
               {% endfor %}
             </select>
           </p>
-          <p><button type="submit">Design uebernehmen</button></p>
+          <div class="settings-actions">
+            <button type="submit">Design uebernehmen</button>
+          </div>
         </form>
       </div>
 
@@ -220,20 +242,25 @@
         <p><strong>Aktuelles Bild:</strong> {{ current_custom_image }}</p>
 
         <form method="post" action="{{ url_for('admin_update_custom_image') }}">
-          <p>
+          <div class="gallery-grid">
             {% for img in gallery_images %}
+            <div class="gallery-option">
               <input
                 type="radio"
                 name="custom_image"
                 value="{{ img }}"
                 id="custom_image_{{ loop.index }}"
                 {% if img == current_custom_image %}checked{% endif %}
-                style="width:18px; height:18px; margin-right:0.4rem;"
+                style="position:absolute; top:0.6rem; left:0.6rem; width:18px; height:18px; z-index:2;"
               >
-              <label for="custom_image_{{ loop.index }}">{{ img }}</label><br>
+              <label for="custom_image_{{ loop.index }}">{{ img }}</label>
+            </div>
             {% endfor %}
-          </p>
-          <p><button type="submit">Bild als Hintergrund uebernehmen</button></p>
+          </div>
+
+          <div class="settings-actions">
+            <button type="submit">Bild als Hintergrund uebernehmen</button>
+          </div>
         </form>
       </div>
 
@@ -254,7 +281,9 @@
               {% endfor %}
             </select>
           </p>
-          <p><button type="submit">Effekt uebernehmen</button></p>
+          <div class="settings-actions">
+            <button type="submit">Effekt uebernehmen</button>
+          </div>
         </form>
       </div>
 
@@ -270,15 +299,16 @@
         <form method="post" action="{{ url_for('admin_update_intro_text') }}">
           <p>
             <label for="intro_text">Text (Vorlage mit Platzhalter)</label><br>
-            <textarea class="form-control" id="intro_text" name="intro_text" rows="3">{{ raw_intro_text }}</textarea>
+            <textarea class="form-control" id="intro_text" name="intro_text" rows="4">{{ raw_intro_text }}</textarea>
           </p>
-          <p><button type="submit">Text speichern</button></p>
+          <div class="settings-actions">
+            <button type="submit">Text speichern</button>
+          </div>
         </form>
       </div>
     </div>
   </section>
 
-  <!-- Tab: Admins -->
   <section class="admin-tabpanel" id="tab-admins" role="tabpanel" aria-labelledby="btn-admins" hidden>
     <div class="admin-stack">
       <div class="admin-card">
@@ -289,28 +319,26 @@
     </div>
   </section>
 
-  <!-- Tab: System / Automatik -->
   <section class="admin-tabpanel" id="tab-system" role="tabpanel" aria-labelledby="btn-system" hidden>
     <div class="admin-stack">
       <div class="admin-card">
         <h2>Automatik / Scheduler</h2>
         <p>
           Dieser Bereich ist fuer Reset-, Zeit- und Digest-Einstellungen gedacht.
-          Im aktuellen Stand werden die Werte noch nicht aus der Datenbank geladen.
+          Das Projekt sieht diese Konfiguration bereits vor, sie wird hier jetzt sichtbar vorbereitet.
         </p>
         <p>
-          Sobald die Scheduler-Einstellungen in <code>settings</code> abgelegt werden
-          (z.B. <code>scheduler_enabled</code>, <code>scheduler_weekday</code>, <code>scheduler_time</code>),
-          kann dieser Block mit Formularen befuellt werden.
+          Sobald die passenden Scheduler-Felder aus <code>app.py</code> ans Template uebergeben werden,
+          kann dieser Tab direkt die Automatik-Einstellungen bearbeiten.
         </p>
       </div>
 
       <div class="admin-card">
         <h2>Gefahrenzone</h2>
-        <form method="post" action="{{ url_for('admin_clear_signups') }}">
-          <p>
+        <form method="post" action="{{ url_for('admin_reset_signups') }}">
+          <div class="danger-actions">
             <button type="submit">Alle Anmeldungen zuruecksetzen</button>
-          </p>
+          </div>
         </form>
       </div>
     </div>
@@ -346,5 +374,4 @@ document.addEventListener("DOMContentLoaded", function () {
   });
 });
 </script>
-
 {% endblock %}
