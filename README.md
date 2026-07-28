@@ -46,6 +46,30 @@ cp Logo_I_Matchtreff.png static/Logo_I_Matchtreff.png
 
 Spieler koennen sich fuer einen oder beide Slots eintragen. Ist ein Slot bereits voll, ist die Auswahl fuer diesen Slot deaktiviert (Web) bzw. wird abgelehnt (Bot).
 
+## Neue Features (aktueller Stand)
+
+### 1. Gast-Anmeldung ohne Pending-Status
+
+Jede Anmeldung (Mitglied oder Gast) wird sofort eingetragen (confirmed/waitlist wie gehabt), es gibt keinen Pending-Status mehr. Ueber die Checkbox **"Ich bin TPCG-Mitglied"** (standardmaessig angehakt, abwaehlbar) wird zwischen Mitglied und Gast unterschieden; entsprechend erscheint ein "Mitglied"- oder "Gast"-Badge in der Anmeldeliste.
+
+### 2. Telegram-Benachrichtigung bei Gast-Anmeldung
+
+Meldet sich jemand OHNE Haken bei "Ich bin TPCG-Mitglied" an, bekommen alle in `ADMIN_TELEGRAM_IDS` hinterlegten Chat-IDs sofort eine Telegram-Nachricht mit Name, Slot und Status, plus zwei Inline-Buttons ("Bestaetigen" / "Entfernen"). Admins koennen die Anmeldung jederzeit im Admin-Dashboard oder direkt per Telegram-Button entfernen; die Anmeldung selbst war aber sofort gueltig und im System.
+
+> Fuer die Inline-Buttons muss `telegram_bot.py` parallel laufen (gleiche `instance/`-Datenbank per Volume mounten).
+
+### 3. Admin-Panel: Bildergalerie als Hintergrund
+
+Alle Bilder aus dem `pictures`-Verzeichnis werden im Admin-Dashboard als Auswahl-Kacheln angezeigt. Auswahl + "Bild als Hintergrund uebernehmen" setzt das Bild als Hintergrund und aktiviert automatisch das Design "Eigenes Bild (Galerie)". Das "Design mit Bild"-Feature wurde dabei repariert.
+
+### 4. Hintergrund-Icons 4x groesser
+
+Die schwebenden Padel-Ball-Icons sind jetzt ca. 4x so gross wie zuvor (36-80px statt 9-20px).
+
+### 5. Automatisches Donnerstagsdatum
+
+Der Text "Anmeldung fuer Donnerstag, TT.MM.JJJJ." verwendet den Platzhalter `{next_thursday}`, der bei jedem Seitenaufruf live durch das Datum des naechsten Donnerstags ersetzt wird. Sobald der Donnerstag vorbei ist, zeigt die Seite automatisch den naechsten Donnerstag - ganz ohne manuelles Eingreifen. Der Text bleibt im Admin-Panel frei editierbar (mit dem Platzhalter im Text).
+
 ## Admin-Benutzer & Admin-Verwaltung
 
 Beim ersten Start werden ueber Umgebungsvariablen initiale Admins in der Datenbank angelegt (Passwoerter werden dabei sicher gehasht gespeichert, nicht im Klartext):
@@ -472,6 +496,13 @@ volumes:
 2. Inhalt der `docker-compose.yml` einfuegen.
 3. `SECRET_KEY`, `ADMIN_PASSWORD_*`, `TELEGRAM_BOT_TOKEN` und `ADMIN_TELEGRAM_IDS` auf echte Werte setzen.
 4. Stack deployen.
+
+## Setup (Kurzfassung)
+
+1. Alle Originalbilder aus dem `pictures/`-Ordner nach `static/pictures/` kopieren (Dateinamen 1:1 wie im GitHub-Repo, siehe `GALLERY_IMAGES` in `app.py`).
+2. `.env` nach Vorlage `.env.example` ausfuellen (`SECRET_KEY`, Admin-Passwoerter, optional `TELEGRAM_BOT_TOKEN` + `ADMIN_TELEGRAM_IDS`).
+3. `docker build -t matchtreff-padel .` und starten, oder lokal: `pip install -r requirements.txt && python app.py`
+4. Optional fuer Telegram-Inline-Buttons: `python telegram_bot.py` parallel starten.
 
 ## Sicherheit / Betrieb
 
