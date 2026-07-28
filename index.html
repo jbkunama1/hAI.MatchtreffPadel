@@ -1,232 +1,369 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="UTF-8">
-<title>hAI.MatchtreffPadel - Padel Matchtreff Anmeldung</title>
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-:root {
-  --bg: #f5f5fb;
-  --card-bg: #ffffff;
-  --border-subtle: rgba(15, 23, 42, 0.08);
-  --accent: #2563eb;
-  --accent-soft: rgba(37, 99, 235, 0.08);
-  --bubble-color: rgba(37, 99, 235, 0.16);
-  --app-bg: radial-gradient(circle at top left, #e0ecff 0, #f5f5fb 40%, #fdfdfd 100%);
-}
-html { min-height: 100%; }
-body {
-  position: relative;
-  min-height: 100vh;
-  margin: 0;
-  color: #0f172a;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  background: transparent;
-}
-body::before {
-  content: '';
-  position: fixed;
-  inset: 0;
-  z-index: -2;
-  background: var(--app-bg);
-}
-.bg-bubbles {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: -1;
-  overflow: hidden;
-}
-.bg-bubbles span {
-  position: absolute;
-  bottom: -60px;
-  border-radius: 50%;
-  background: var(--bubble-color);
-  animation: bubbleRise linear infinite;
-  opacity: 0;
-}
-.bg-bubbles span:nth-child(1) { left: 6%;  width: 18px; height: 18px; animation-duration: 13s; animation-delay: 0s; }
-.bg-bubbles span:nth-child(2) { left: 18%; width: 11px; height: 11px; animation-duration: 10s; animation-delay: 2s; }
-.bg-bubbles span:nth-child(3) { left: 33%; width: 15px; height: 15px; animation-duration: 15s; animation-delay: 5s; }
-.bg-bubbles span:nth-child(4) { left: 50%; width: 9px;  height: 9px;  animation-duration: 11s; animation-delay: 1s; }
-.bg-bubbles span:nth-child(5) { left: 64%; width: 20px; height: 20px; animation-duration: 14s; animation-delay: 3.5s; }
-.bg-bubbles span:nth-child(6) { left: 76%; width: 13px; height: 13px; animation-duration: 12s; animation-delay: 7s; }
-.bg-bubbles span:nth-child(7) { left: 87%; width: 10px; height: 10px; animation-duration: 9s;  animation-delay: 4s; }
-.bg-bubbles span:nth-child(8) { left: 95%; width: 16px; height: 16px; animation-duration: 16s; animation-delay: 9s; }
-@keyframes bubbleRise {
-  0%   { transform: translateY(0) scale(0.8); opacity: 0; }
-  8%   { opacity: 0.45; }
-  92%  { opacity: 0.35; }
-  100% { transform: translateY(-105vh) scale(1.2); opacity: 0; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .bg-bubbles span { animation: none !important; opacity: 0.2 !important; }
-}
-.page-shell {
-  position: relative;
-  z-index: 1;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2.5rem 1.5rem;
-  box-sizing: border-box;
-}
-.card-root {
-  max-width: 760px;
-  width: 100%;
-  border-radius: 1.5rem;
-  border: 1px solid var(--border-subtle);
-  background: var(--card-bg);
-  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.8);
-  padding: 2.5rem;
-  box-sizing: border-box;
-}
-.badge-pill {
-  display: inline-block;
-  border-radius: 999px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 0.75rem;
-  padding: 0.35rem 0.8rem;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  margin-bottom: 1rem;
-}
-.stack-label {
-  font-size: 0.8rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: #64748b;
-  margin-top: 2rem;
-}
-a { text-decoration: none; }
-.btn-soft {
-  display: inline-block;
-  border-radius: 999px;
-  border: 1px solid var(--border-subtle);
-  background: #ffffff;
-  color: #0f172a;
-  padding: 0.6rem 1.4rem;
-  margin-right: 0.6rem;
-  margin-top: 0.5rem;
-  text-align: center;
-}
-.btn-soft:hover { background: #f8fafc; border-color: rgba(15, 23, 42, 0.12); }
-.btn-accent {
-  display: inline-block;
-  border-radius: 999px;
-  border: none;
-  background: linear-gradient(135deg, #2563eb, #0ea5e9);
-  color: #ffffff;
-  font-weight: 600;
-  padding: 0.6rem 1.4rem;
-  margin-top: 0.5rem;
-  text-align: center;
-}
-.btn-accent:hover { filter: brightness(1.03); }
-.code-inline {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
-  font-size: 0.8rem;
-  background: #0f172a0d;
-  border-radius: 999px;
-  padding: 0.15rem 0.55rem;
-  word-break: break-word;
-}
-.list-tight li + li { margin-top: 0.35rem; }
-.shield-row img { margin-right: 0.3rem; margin-bottom: 0.3rem; max-width: 100%; height: auto; }
-img, video { max-width: 100%; height: auto; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>hAI.MatchtreffPadel - Padel Matchtreff Anmeldung</title>
+  <link rel="icon" type="image/png" href="Logo_I_Matchtreff.png">
+  <style>
+    :root {
+      --bg: #f5f5fb;
+      --card-bg: #ffffff;
+      --border-subtle: rgba(15, 23, 42, 0.08);
+      --accent: #2563eb;
+      --accent-soft: rgba(37, 99, 235, 0.08);
+      --bubble-color: rgba(37, 99, 235, 0.16);
+      --app-bg: radial-gradient(circle at top left, #e0ecff 0, #f5f5fb 40%, #fdfdfd 100%);
+    }
 
-@media (max-width: 991.98px) {
-  .card-root { max-width: 92vw; }
-}
-@media (max-width: 767.98px) {
-  .page-shell { padding: 1.25rem 0.75rem; }
-  .card-root { padding: 1.25rem; border-radius: 1rem; }
-  h1 { font-size: 1.4rem; }
-  h2 { font-size: 1.15rem; }
-  .btn-soft, .btn-accent { display: block; width: 100%; margin-right: 0; box-sizing: border-box; }
-}
-@media (max-width: 479.98px) {
-  .badge-pill { font-size: 0.68rem; }
-  .code-inline { font-size: 0.72rem; }
-}
-</style>
+    html { min-height: 100%; }
+
+    body {
+      position: relative;
+      min-height: 100vh;
+      margin: 0;
+      color: #0f172a;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: transparent;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      z-index: -2;
+      background: var(--app-bg);
+    }
+
+    .bg-bubbles {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: -1;
+      overflow: hidden;
+    }
+
+    .bg-bubbles span {
+      position: absolute;
+      bottom: -60px;
+      border-radius: 50%;
+      background: var(--bubble-color);
+      animation: bubbleRise linear infinite;
+      opacity: 0;
+    }
+
+    .bg-bubbles span:nth-child(1)  { left: 6%;  width: 18px; height: 18px; animation-duration: 13s; animation-delay: 0s; }
+    .bg-bubbles span:nth-child(2)  { left: 18%; width: 11px; height: 11px; animation-duration: 10s; animation-delay: 2s; }
+    .bg-bubbles span:nth-child(3)  { left: 33%; width: 15px; height: 15px; animation-duration: 15s; animation-delay: 5s; }
+    .bg-bubbles span:nth-child(4)  { left: 50%; width: 9px;  height: 9px;  animation-duration: 11s; animation-delay: 1s; }
+    .bg-bubbles span:nth-child(5)  { left: 64%; width: 20px; height: 20px; animation-duration: 14s; animation-delay: 3.5s; }
+    .bg-bubbles span:nth-child(6)  { left: 76%; width: 13px; height: 13px; animation-duration: 12s; animation-delay: 7s; }
+    .bg-bubbles span:nth-child(7)  { left: 87%; width: 10px; height: 10px; animation-duration: 9s;  animation-delay: 4s; }
+    .bg-bubbles span:nth-child(8)  { left: 95%; width: 16px; height: 16px; animation-duration: 16s; animation-delay: 9s; }
+
+    @keyframes bubbleRise {
+      0%   { transform: translateY(0) scale(0.8); opacity: 0; }
+      8%   { opacity: 0.45; }
+      92%  { opacity: 0.35; }
+      100% { transform: translateY(-105vh) scale(1.2); opacity: 0; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .bg-bubbles span { animation: none !important; opacity: 0.2 !important; }
+    }
+
+    .page-shell {
+      position: relative;
+      z-index: 1;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 2.5rem 1.5rem;
+      box-sizing: border-box;
+    }
+
+    .card-root {
+      max-width: 760px;
+      width: 100%;
+      border-radius: 1.5rem;
+      border: 1px solid var(--border-subtle);
+      background: var(--card-bg);
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.8);
+      padding: 2.5rem;
+      box-sizing: border-box;
+    }
+
+    .banner-img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .badge-pill {
+      display: inline-block;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 0.75rem;
+      padding: 0.35rem 0.8rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .stack-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: #64748b;
+      margin-top: 2rem;
+    }
+
+    a { text-decoration: none; }
+
+    .btn-soft {
+      display: inline-block;
+      border-radius: 999px;
+      border: 1px solid var(--border-subtle);
+      background: #ffffff;
+      color: #0f172a;
+      padding: 0.6rem 1.4rem;
+      margin-right: 0.6rem;
+      margin-top: 0.5rem;
+      text-align: center;
+    }
+
+    .btn-soft:hover {
+      background: #f8fafc;
+      border-color: rgba(15, 23, 42, 0.12);
+    }
+
+    .btn-accent {
+      display: inline-block;
+      border-radius: 999px;
+      border: none;
+      background: linear-gradient(135deg, #2563eb, #0ea5e9);
+      color: #ffffff;
+      font-weight: 600;
+      padding: 0.6rem 1.4rem;
+      margin-top: 0.5rem;
+      text-align: center;
+    }
+
+    .btn-accent:hover { filter: brightness(1.03); }
+
+    .code-inline {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      font-size: 0.8rem;
+      background: #0f172a0d;
+      border-radius: 999px;
+      padding: 0.15rem 0.55rem;
+      word-break: break-word;
+    }
+
+    .list-tight li + li { margin-top: 0.35rem; }
+
+    .shield-row img {
+      margin-right: 0.3rem;
+      margin-bottom: 0.3rem;
+      max-width: 100%;
+      height: auto;
+    }
+
+    img, video { max-width: 100%; height: auto; }
+
+    .feature-card {
+      border: 1px solid var(--border-subtle);
+      border-radius: 0.75rem;
+      padding: 1rem 1.25rem;
+      margin-top: 0.75rem;
+      background: #f8fafc;
+    }
+
+    .feature-card h3 {
+      font-size: 0.95rem;
+      margin: 0 0 0.35rem 0;
+      color: var(--accent);
+    }
+
+    .feature-card p {
+      font-size: 0.85rem;
+      margin: 0;
+      color: #475569;
+    }
+
+    .video-section {
+      margin: 1.5rem 0;
+      border-radius: 0.75rem;
+      overflow: hidden;
+    }
+
+    .video-section video {
+      width: 100%;
+      border-radius: 0.75rem;
+      display: block;
+    }
+
+    @media (max-width: 991.98px) {
+      .card-root { max-width: 92vw; }
+    }
+
+    @media (max-width: 767.98px) {
+      .page-shell { padding: 1.25rem 0.75rem; }
+      .card-root { padding: 1.25rem; border-radius: 1rem; }
+      h1 { font-size: 1.4rem; }
+      h2 { font-size: 1.15rem; }
+      .btn-soft, .btn-accent {
+        display: block;
+        width: 100%;
+        margin-right: 0;
+        box-sizing: border-box;
+      }
+    }
+
+    @media (max-width: 479.98px) {
+      .badge-pill { font-size: 0.68rem; }
+      .code-inline { font-size: 0.72rem; }
+    }
+  </style>
 </head>
 <body>
-<div class="bg-bubbles" aria-hidden="true">
-  <span></span><span></span><span></span><span></span>
-  <span></span><span></span><span></span><span></span>
-</div>
-<div class="page-shell">
-  <div class="card-root">
-    <img src="Logo_II_Banner.png" alt="Matchtreff Padel Banner" style="width:100%; max-width:100%; border-radius:1rem; margin-bottom:1.25rem; display:block;">
-
-    <span class="badge-pill">Padel Matchtreff</span>
-
-    <h1>hAI.MatchtreffPadel</h1>
-    <p>Web-App für den wöchentlichen Padel-Matchtreff am Donnerstag: Spieler tragen sich ohne Registrierung nur mit ihrem Namen in feste Zeit-Slots ein, der Admin steuert die maximale Anzahl pro Slot.</p>
-
-    <div class="shield-row">
-      <img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT">
-      <img src="https://img.shields.io/badge/python-3.11%2B-blue" alt="Python 3.11+">
-      <img src="https://img.shields.io/badge/docker-ready-blue" alt="Docker ready">
-      <img src="https://img.shields.io/badge/Backend-Flask-blue" alt="Backend: Flask">
-    </div>
-
-        <h2>Erklaervideo</h2>
-    <video controls style="width:100%; max-width:100%; border-radius:1rem; margin-bottom:1.25rem; display:block;" poster="pictures/Racketfire.png">
-      <source src="pictures/Matchtreff_Silber.mp4" type="video/mp4">
-      Dein Browser unterstuetzt das Video-Element nicht. Video direkt herunterladen: <a href="pictures/Matchtreff_Silber.mp4">Matchtreff_Silber.mp4</a>
-    </video>
-
-    <h2>Projektüberblick</h2>
-    <ul class="list-tight">
-      <li>Flask-Web-App ohne Login für Spieler - nur Name eintragen, fertig</li>
-      <li>Zwei feste Donnerstag-Slots: <span class="code-inline">18:00 - 20:00</span> und <span class="code-inline">20:00 - 22:00</span></li>
-      <li>Admin legt maximale Teilnehmerzahl pro Slot fest</li>
-      <li>Änderungen und Löschungen von Anmeldungen ausschließlich durch den Admin</li>
-      <li>SQLite-Backend im <span class="code-inline">instance/</span>-Ordner</li>
-      <li>Telegram-Bot zum Eintragen &amp; als Admin-Steuerung</li>
-      <li>Docker-/Compose-Setup mit zwei Containern (Web &amp; Bot) auf Port <span class="code-inline">1905</span></li>
-    </ul>
-
-    <h2>Tech-Stack</h2>
-    <ul class="list-tight">
-      <li><strong>Backend:</strong> Python, Flask, Gunicorn</li>
-      <li><strong>Datenbank:</strong> SQLite</li>
-      <li><strong>Bot:</strong> python-telegram-bot</li>
-      <li><strong>UI:</strong> eigenes responsives CSS im VfB-Kässle-Design</li>
-    </ul>
-
-        <h2>Deployment via Portainer (Git-Stack)</h2>
-    <ol class="list-tight">
-      <li>Portainer &rarr; <strong>Stacks</strong> &rarr; <strong>+ Add stack</strong></li>
-      <li>Build method: <strong>Repository</strong></li>
-      <li>Repository URL: <span class="code-inline">https://github.com/jbkunama1/hAI.MatchtreffPadel</span></li>
-      <li>Reference: <span class="code-inline">refs/heads/main</span>, Compose path: <span class="code-inline">docker-compose.yml</span></li>
-      <li>Umgebungsvariablen setzen: <span class="code-inline">SECRET_KEY</span>, <span class="code-inline">ADMIN_PASSWORD</span>, <span class="code-inline">TELEGRAM_BOT_TOKEN</span>, <span class="code-inline">ADMIN_TELEGRAM_IDS</span></li>
-      <li>Optional: <strong>GitOps updates</strong> (Polling/Webhook) aktivieren, damit neue Commits automatisch deployt werden</li>
-      <li>Auf <strong>Deploy the stack</strong> klicken - Web-App laeuft danach auf Port <span class="code-inline">1905</span>, Bot startet automatisch mit</li>
-    </ol>
-    <p>Ausfuehrliche Details dazu stehen in der <a href="README.md">README</a> im Abschnitt "Deployment via Portainer (Git-basiert)".</p>
-
-    <h2>Ablauf für Spieler</h2>
-    <ol class="list-tight">
-      <li>Startseite öffnen</li>
-      <li>Namen eingeben</li>
-      <li>Slot(s) auswählen (18-20 Uhr, 20-22 Uhr oder beide)</li>
-      <li>Eintragen - fertig, kein Account nötig</li>
-    </ol>
-
-    <p>Details zu Installation, Docker-Stack und Admin-Funktionen findest du in der README im Repository.</p>
-
-    <div class="stack-label">Repo-Name: hAI.MatchtreffPadel</div>
-    <a class="btn-accent" href="https://github.com/jbkunama1/hAI.MatchtreffPadel">Zum GitHub-Repository</a>
-    <a class="btn-soft" href="README.md">README / Setup-Anleitung</a>
+  <div class="bg-bubbles">
+    <span></span><span></span><span></span><span></span>
+    <span></span><span></span><span></span><span></span>
   </div>
-</div>
+
+  <div class="page-shell">
+    <div class="card-root">
+      <img src="Logo_II_Banner.png" alt="Matchtreff Padel Banner" class="banner-img">
+
+      <span class="badge-pill">Padel Matchtreff</span>
+
+      <h1>hAI.MatchtreffPadel</h1>
+
+      <p>
+        Web-App f&uuml;r den w&ouml;chentlichen Padel-Matchtreff am Donnerstag: Spieler
+        tragen sich ohne Registrierung nur mit ihrem Namen in feste Zeit-Slots ein, der
+        Admin steuert die maximale Anzahl pro Slot.
+      </p>
+
+      <div class="shield-row" style="margin-top: 0.75rem;">
+        <img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-yellow.svg">
+        <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-blue">
+        <img alt="Docker ready" src="https://img.shields.io/badge/docker-ready-blue">
+        <img alt="Backend: Flask" src="https://img.shields.io/badge/Backend-Flask-blue">
+      </div>
+
+      <h2>Erkl&auml;rvideo</h2>
+
+      <div class="video-section">
+        <video controls preload="metadata" poster="Logo_I_Matchtreff.png">
+          <source src="Matchtreff_Silber.mp4" type="video/mp4">
+          Dein Browser unterst&uuml;tzt keine HTML5-Videos.
+        </video>
+      </div>
+
+      <h2>Projekt&uuml;berblick</h2>
+
+      <ul class="list-tight">
+        <li>Flask-Web-App ohne Login f&uuml;r Spieler &ndash; nur Name eintragen, fertig</li>
+        <li>Zwei feste Donnerstag-Slots: <span class="code-inline">18:00 - 20:00</span> und <span class="code-inline">20:00 - 22:00</span></li>
+        <li>Admin legt maximale Teilnehmerzahl pro Slot fest</li>
+        <li>&Auml;nderungen und L&ouml;schungen von Anmeldungen ausschlie&szlig;lich durch den Admin</li>
+        <li>SQLite-Backend im <span class="code-inline">instance/</span>-Ordner</li>
+        <li>Telegram-Bot zum Eintragen &amp; als Admin-Steuerung</li>
+        <li>Docker-/Compose-Setup mit drei Containern (Web, Bot &amp; Scheduler) auf Port <span class="code-inline">1905</span></li>
+      </ul>
+
+      <h2>Features</h2>
+
+      <div class="feature-card">
+        <h3>Automatischer Reset</h3>
+        <p>L&ouml;scht jede Woche alle Anmeldungen komplett (Standard: Freitag 06:00 Uhr). Konfigurierbar im Admin-Dashboard (Wochentag, Uhrzeit, Intervall).</p>
+      </div>
+
+      <div class="feature-card">
+        <h3>Digest-Benachrichtigung</h3>
+        <p>Sammelt neue Anmeldungen und schickt alle 60 Minuten (konfigurierbar) eine Zusammenfassung an die Telegram-Admins. G&auml;ste erhalten weiterhin sofort ihre eigene Nachricht.</p>
+      </div>
+
+      <div class="feature-card">
+        <h3>Backup-Download</h3>
+        <p>Ein Klick im Admin-Dashboard erstellt eine konsistente Kopie der SQLite-Datenbank &ndash; auch bei laufendem Schreibzugriff.</p>
+      </div>
+
+      <div class="feature-card">
+        <h3>Eintr&auml;ge bearbeiten</h3>
+        <p>Admins k&ouml;nnen Anmeldungen (Best&auml;tigt + Warteliste) bearbeiten: Name, Mitglied/Gast-Status, Slot und Status, inkl. Dubletten- und Kapazit&auml;tspr&uuml;fung.</p>
+      </div>
+
+      <div class="feature-card">
+        <h3>Warteliste</h3>
+        <p>Volle Slots f&uuml;hren automatisch eine Warteliste (max. 4 pro Slot). Bei freien Pl&auml;tzen r&uuml;ckt die n&auml;chste Person automatisch nach.</p>
+      </div>
+
+      <div class="feature-card">
+        <h3>Design-Themes</h3>
+        <p>Der Admin kann zwischen mehreren Farbschemata und Hintergrundbildern wechseln (Standard, Sunset, Court, Night). Das Theme gilt f&uuml;r alle Besucher.</p>
+      </div>
+
+      <div class="feature-card">
+        <h3>Orga-Team-Hervorhebung</h3>
+        <p>Die Orga-Mitglieder werden in der Spielerliste automatisch fett mit Stern (&#9733;) markiert.</p>
+      </div>
+
+      <h2>Tech-Stack</h2>
+
+      <ul class="list-tight">
+        <li><strong>Backend:</strong> Python, Flask, Gunicorn</li>
+        <li><strong>Datenbank:</strong> SQLite (WAL-Modus)</li>
+        <li><strong>Bot:</strong> python-telegram-bot</li>
+        <li><strong>Scheduler:</strong> APScheduler (eigener Container)</li>
+        <li><strong>UI:</strong> eigenes responsives CSS im VfB-K&auml;ssle-Design</li>
+      </ul>
+
+      <h2>Deployment via Portainer (Git-Stack)</h2>
+
+      <ol class="list-tight">
+        <li>Portainer &rarr; <strong>Stacks</strong> &rarr; <strong>+ Add stack</strong></li>
+        <li>Build method: <strong>Repository</strong></li>
+        <li>Repository URL: <span class="code-inline">https://github.com/jbkunama1/hAI.MatchtreffPadel</span></li>
+        <li>Reference: <span class="code-inline">refs/heads/main</span>, Compose path: <span class="code-inline">docker-compose.yml</span></li>
+        <li>Umgebungsvariablen setzen: <span class="code-inline">SECRET_KEY</span>, <span class="code-inline">ADMIN_PASSWORD_*</span>, <span class="code-inline">TELEGRAM_BOT_TOKEN</span>, <span class="code-inline">ADMIN_TELEGRAM_IDS</span></li>
+        <li>Optional: <strong>GitOps updates</strong> (Polling/Webhook) aktivieren, damit neue Commits automatisch deployt werden</li>
+        <li>Auf <strong>Deploy the stack</strong> klicken &ndash; Web-App l&auml;uft danach auf Port <span class="code-inline">1905</span>, Bot und Scheduler starten automatisch mit</li>
+      </ol>
+
+      <p style="margin-top: 0.75rem; color: #64748b; font-size: 0.9rem;">
+        Ausf&uuml;hrliche Details dazu stehen in der <a href="README.md" style="color: var(--accent); font-weight: 500;">README</a>
+        im Abschnitt "Deployment via Portainer (Git-basiert)".
+      </p>
+
+      <h2>Ablauf f&uuml;r Spieler</h2>
+
+      <ol class="list-tight">
+        <li>Startseite &ouml;ffnen</li>
+        <li>Namen eingeben</li>
+        <li>Slot(s) ausw&auml;hlen (18&ndash;20 Uhr, 20&ndash;22 Uhr oder beide)</li>
+        <li>Eintragen &ndash; fertig, kein Account n&ouml;tig</li>
+      </ol>
+
+      <p style="margin-top: 1rem; color: #64748b; font-size: 0.9rem;">
+        Details zu Installation, Docker-Stack und Admin-Funktionen findest du in der
+        <a href="README.md" style="color: var(--accent); font-weight: 500;">README</a> im Repository.
+      </p>
+
+      <div class="stack-label">Repo-Name: hAI.MatchtreffPadel</div>
+
+      <div style="margin-top: 0.5rem;">
+        <a href="https://github.com/jbkunama1/hAI.MatchtreffPadel" class="btn-accent">Zum GitHub-Repository</a>
+        <a href="README.md" class="btn-soft">README / Setup-Anleitung</a>
+      </div>
+    </div>
+  </div>
 </body>
 </html>

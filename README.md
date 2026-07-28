@@ -27,13 +27,14 @@ cp Logo_I_Matchtreff.png static/Logo_I_Matchtreff.png
 - Aenderungen und Loeschungen von Anmeldungen ausschliesslich durch den Admin
 - **Telegram-Bot** zum Eintragen und als Admin-Steuerung, parallel zur Web-App
 - SQLite-Backend im `instance/`-Ordner, von Web-App und Bot gemeinsam genutzt
-- Docker-/Compose-Setup mit zwei Containern (Web & Bot) auf Port `1905`
+- Docker-/Compose-Setup mit drei Containern (Web, Bot & Scheduler) auf Port `1905`
 
 ## Tech-Stack
 
 - **Backend:** Python, Flask, Gunicorn
 - **Datenbank:** SQLite
 - **Bot:** python-telegram-bot
+- **Scheduler:** APScheduler ( eigener Container)
 - **UI:** eigenes responsives CSS im VfB-Kaessle-Design
 
 ## Slots
@@ -47,7 +48,7 @@ Spieler koennen sich fuer einen oder beide Slots eintragen. Ist ein Slot bereits
 
 ## Admin-Benutzer & Admin-Verwaltung
 
-Beim ersten Start werden ueber Umgebungsvariablen zwei initiale Admins in der Datenbank angelegt (Passwoerter werden dabei sicher gehasht gespeichert, nicht im Klartext):
+Beim ersten Start werden ueber Umgebungsvariablen initiale Admins in der Datenbank angelegt (Passwoerter werden dabei sicher gehasht gespeichert, nicht im Klartext):
 
 | Benutzername | Passwort-Variable |
 |---|---|
@@ -107,7 +108,11 @@ Weitere Bild-Themes lassen sich im `THEMES`-Dictionary in `app.py` ergaenzen, in
 
 ## Erklaervideo auf der Landing-Page
 
-Die Landing-Page (`index.html`, Root des Repos) bindet das Erklaervideo `pictures/Matchtreff_Silber.mp4` direkt per HTML5-`<video>`-Tag ein. Der Pfad ist relativ zum Root, daher muss das Video im Ordner `pictures/` im Repo bleiben, damit die Landing-Page es korrekt anzeigt.
+Die Landing-Page (`index.html`, Root des Repos) bindet das Erklaervideo `Matchtreff_Silber.mp4` direkt per HTML5-`<video>`-Tag ein. Zusaetzlich wird das Video auf der Info-Seite (`/info`) ueber einen HTML5-Player abspielbar eingebunden. Fuer die Flask-App muss die Videodatei nach `static/` kopiert werden:
+
+```bash
+cp Matchtreff_Silber.mp4 static/Matchtreff_Silber.mp4
+```
 
 ## Eintragsschutz gegen Doppel-Anmeldungen
 
@@ -129,82 +134,46 @@ Die Landing-Page (`index.html`, Root des Repos) bindet das Erklaervideo `picture
 - Live-Anzeige, wie viele Plaetze pro Slot noch frei sind
 - Admin-Bereich (passwortgeschuetzt):
   - Maximale Teilnehmerzahl pro Slot aendern
-  - Einzelne Anmeldungen loeschen
+  - Einzelne Anmeldungen loeschen oder bearbeiten
   - Alle Anmeldungen fuer die kommende Woche zuruecksetzen
+  - Backup der Datenbank herunterladen
+  - Automatik (Reset & Digest) konfigurieren
 
-## Telegram-Bot: Flow (Kurzfassung)
+## Automatik: Woechentlicher Reset & Digest-Benachrichtigung
 
-1. Bot in Telegram starten: `/start`
-2. Aktuelle Slot-Belegung ansehen: `/slots`
-3. Fuer einen Slot eintragen: `/eintragen <Name> <a|b|beide>`
-   - Beispiel: `/eintragen MaxMustermann a`
-   - Beispiel fuer beide Slots: `/eintragen MaxMustermann beide`
-4. Eigenen Status abfragen: `/status <Name>`
+### Automatischer Reset
 
-### Admin-Befehle im Bot
+- Standard: jeden Freitag 06:00 Uhr, loescht **alle** Anmeldungen komplett (neue Woche, neuer Anfang)
+- Konfigurierbar direkt im Admin-Dashboard unter "Automatik" (Wochentag, Stunde, Minute)
+- Ein-/Ausschalten (Checkbox `reset_enabled`) wirkt sofort beim naechsten geplanten Lauf
+- Aenderungen an Wochentag/Uhrzeit erfordern einen Neustart des Scheduler-Containers (Portainer Redeploy)
 
-Admins werden ueber die Telegram-User-ID in `ADMIN_TELEGRAM_IDS` festgelegt (kommagetrennt).
+### Digest-Benachrichtigung
 
-- `/admin_liste` - alle Anmeldungen fuer beide Slots anzeigen
-- `/admin_max <a|b> <zahl>` - maximale Plaetze fuer einen Slot setzen
-- `/admin_loeschen <id>` - einzelne Anmeldung per ID loeschen
-- `/admin_reset` - alle Anmeldungen zuruecksetzen
+- Sammelt neue Anmeldungen und schickt alle 60 Minuten (konfigurierbar) **eine** Zusammenfassung an die Telegram-Admins (`ADMIN_TELEGRAM_IDS`)
+- Geht **nicht** an E-Mail, nur an Telegram-Admins
+- Gaeste bekommen weiterhin sofort ihre eigene Nachricht wie bisher
 
-Genau wie in der Web-App gilt: **nur Admins duerfen Anmeldungen aendern oder loeschen.**
+### Scheduler-Container
 
-## Neue Features (v2): Automatik, Backup, Bearbeiten
+Der Scheduler laeuft als eigener dritter Container (`matchtreff_scheduler`) neben Web-App und Bot. Er liest die Automatik-Einstellungen beim Start aus der Datenbank. Aenderungen an Wochentag/Uhrzeit/Intervall werden erst nach einem Neustart aktiv (Portainer Redeploy).
 
-Dieses Update ergaenzt ausschliesslich neue Funktionen. Das Design/Layout bleibt unveraendert - alle bestehenden Funktionen (Anmeldung, Warteliste, Admin-Login, Themes, Telegram-Gast-Benachrichtigung) funktionieren exakt wie vorher.
+## Backup-Download
 
-### 1. Automatischer woechentlicher Reset
+Neuer Button im Admin-Dashboard: "Backup herunterladen". Erstellt ueber die SQLite-Online-Backup-API eine konsistente Kopie der Datenbank, auch bei laufendem Schreibzugriff.
 
-- Standard: jeden Freitag 06:00 Uhr, loescht ALLE Anmeldungen komplett (neue Woche, neuer Anfang).
-- Konfigurierbar direkt im Admin-Dashboard unter **„Automatik"** - kein Umgebungsvariablen-Frickeln noetig.
+## Eintraege bearbeiten
 
-### 2. 60-Minuten-Digest
+Neuer "Bearbeiten"-Link bei jedem Signup (Bestaetigt + Warteliste). Name, Mitglied/Gast-Status, Slot und Status (bestaetigt/Warteliste) koennen angepasst werden, inkl. Dubletten- und Kapazitaetspruefung.
 
-- Sammelt neue Anmeldungen und schickt alle 60 Minuten (konfigurierbar) EINE Zusammenfassung an die Telegram-Admins (`ADMIN_TELEGRAM_IDS`).
-- Geht **nicht** an E-Mail, nur an Telegram-Admins.
-- Gaeste bekommen weiterhin sofort ihre eigene Nachricht wie bisher.
+<details>
+<summary><b>Admin-Dashboard manuell erweitern (HTML-Snippets)</b></summary>
 
-### 3. Backup-Download
+Falls `templates/admin_dashboard.html` von Hand ergaenzt werden muss, sind hier die drei betroffenen Bereiche dokumentiert. Alle Snippets nutzen ausschliesslich Bootstrap-Klassen, die im Projekt bereits verwendet werden.
 
-- Neuer Button im Admin-Dashboard: **„Backup herunterladen"**.
-- Erstellt ueber die SQLite-Online-Backup-API eine konsistente Kopie der Datenbank, auch bei laufendem Schreibzugriff.
+### 1. Bearbeiten-Link bei Signup-Eintraegen
 
-### 4. Eintraege bearbeiten
-
-- Neuer **„Bearbeiten"**-Link bei jedem Signup (Bestaetigt + Warteliste) im Admin-Dashboard.
-- Name, Mitglied/Gast-Status, Slot und Status (bestaetigt/Warteliste) koennen angepasst werden, inkl. Duplikaten- und Kapazitaetspruefung.
-
-### 5. Erklaervideo auf der Info-Seite
-
-- Auf der Seite `/info` wird das Video `Matchtreff_Silber.mp4` direkt abspielbar eingebunden (HTML5 `<video>`-Player).
-
-### Deployment nach dem Update
-
-Nach dem Einspielen der neuen Dateien laufen drei Container:
-
-| Container | Funktion |
-|---|---|
-| `matchtreff_padel_web` | Flask-Web-App |
-| `matchtreff_padel_bot` | Telegram-Bot |
-| `matchtreff_padel_scheduler` | NEU: Automatik-Reset & Digest |
-
-```bash
-# Video fuer Flask-Auslieferung bereitstellen
-cp pictures/Matchtreff_Silber.mp4 static/Matchtreff_Silber.mp4
-```
-
-In Portainer danach: **Pull and redeploy**.
-
-## Admin-Dashboard manuell erweitern
-
-> Diese Aenderungen betreffen ausschliesslich `templates/admin_dashboard.html`. Es wird kein neues CSS benoetigt - alle Klassen (`btn`, `btn-accent`, `form-control`, `card`, ...) sind bereits im Projekt vorhanden.
-
-### 1. „Bearbeiten"-Link bei jedem Signup einfuegen
-
-Direkt **vor** dem bestehenden „Loeschen"-Button bei Bestaetigt- und Warteliste-Eintraegen einfuegen:
+Bei jedem Signup-Eintrag (Bestaetigt UND Warteliste) zusaetzlich zum bestehenden "Loeschen"-Button einen "Bearbeiten"-Link einfuegen. Direkt **vor** dem bestehenden Loeschen-Form einfuegen:
 
 ```html
 <a href="{{ url_for('admin_edit_signup', signup_id=signup.id) }}" class="btn btn-sm btn-outline-secondary">
@@ -212,11 +181,11 @@ Direkt **vor** dem bestehenden „Loeschen"-Button bei Bestaetigt- und Wartelist
 </a>
 ```
 
-Gilt fuer den Block `signups_by_slot[slot.id].confirmed` **und** den Block `signups_by_slot[slot.id].waitlist`.
+Das Gleiche fuer den Warteliste-Block (`signups_by_slot[slot.id].waitlist`).
 
-### 2. Abschnitt „Automatik" einfuegen
+### 2. Automatik-Abschnitt (Reset + Digest)
 
-Nach dem Abschnitt **„Einleitungstext auf der Startseite"** und vor **„Admins"** einfuegen:
+Neuer Abschnitt z.B. nach "Einleitungstext auf der Startseite" und vor "Admins":
 
 ```html
 <div class="card mb-4">
@@ -233,6 +202,7 @@ Nach dem Abschnitt **„Einleitungstext auf der Startseite"** und vor **„Admin
                {% if automation.reset_enabled %}checked{% endif %}>
         <label class="form-check-label" for="reset_enabled">Automatischen Reset aktivieren</label>
       </div>
+
       <div class="row g-3 mb-3">
         <div class="col-auto">
           <label class="form-label" for="reset_weekday">Wochentag</label>
@@ -258,17 +228,19 @@ Nach dem Abschnitt **„Einleitungstext auf der Startseite"** und vor **„Admin
                  name="notify_interval_minutes" value="{{ automation.notify_interval_minutes }}">
         </div>
       </div>
+
       {% if automation.last_auto_reset_at %}
       <p class="small text-muted">Letzter automatischer Reset: {{ automation.last_auto_reset_at }}</p>
       {% endif %}
       {% if automation.digest_last_sent_at %}
       <p class="small text-muted">Letzter Digest gesendet bis: {{ automation.digest_last_sent_at }}</p>
       {% endif %}
+
       <button type="submit" class="btn btn-accent">Automatik-Einstellungen speichern</button>
     </form>
     <p class="small text-muted mt-2">
       Hinweis: Aenderungen an Wochentag/Uhrzeit/Intervall werden vom
-      scheduler-Container erst nach einem Neustart (z.B. „Redeploy" in
+      scheduler-Container erst nach einem Neustart (z.B. "Redeploy" in
       Portainer) uebernommen. Das Ein-/Ausschalten (reset_enabled) wirkt
       sofort beim naechsten geplanten Lauf.
     </p>
@@ -276,9 +248,9 @@ Nach dem Abschnitt **„Einleitungstext auf der Startseite"** und vor **„Admin
 </div>
 ```
 
-### 3. Backup-Button einfuegen
+### 3. Backup-Button
 
-Direkt **oberhalb** der „Gefahrenzone" einfuegen:
+Direkt oberhalb der "Gefahrenzone":
 
 ```html
 <div class="card mb-4">
@@ -293,6 +265,28 @@ Direkt **oberhalb** der „Gefahrenzone" einfuegen:
   </div>
 </div>
 ```
+
+</details>
+
+## Telegram-Bot: Flow (Kurzfassung)
+
+1. Bot in Telegram starten: `/start`
+2. Aktuelle Slot-Belegung ansehen: `/slots`
+3. Fuer einen Slot eintragen: `/eintragen <Name> <a|b|beide>`
+   - Beispiel: `/eintragen MaxMustermann a`
+   - Beispiel fuer beide Slots: `/eintragen MaxMustermann beide`
+4. Eigenen Status abfragen: `/status <Name>`
+
+### Admin-Befehle im Bot
+
+Admins werden ueber die Telegram-User-ID in `ADMIN_TELEGRAM_IDS` festgelegt (kommagetrennt).
+
+- `/admin_liste` - alle Anmeldungen fuer beide Slots anzeigen
+- `/admin_max <a|b> <zahl>` - maximale Plaetze fuer einen Slot setzen
+- `/admin_loeschen <id>` - einzelne Anmeldung per ID loeschen
+- `/admin_reset` - alle Anmeldungen zuruecksetzen
+
+Genau wie in der Web-App gilt: **nur Admins duerfen Anmeldungen aendern oder loeschen.**
 
 ## Lokale Installation (ohne Docker)
 
@@ -328,27 +322,23 @@ python telegram_bot.py
 
 ## Umbenennung: Zeitraum FRUEH/SPAET zu Temprano/Tarde
 
-Die Zeitraum-Bezeichnungen wurden erneut umbenannt: „Zeitraum FRUEH" heisst jetzt „Temprano" und „Zeitraum SPAET" heisst jetzt „Tarde" (jeweils mit den bekannten Uhrzeiten 18:00-20:00 bzw. 20:00-22:00 Uhr). Die Aenderung gilt sowohl in der Web-App als auch im Telegram-Bot; die internen Datenbank-Schluessel (`slot_a`, `slot_b`) bleiben unveraendert, sodass bestehende Anmeldungen erhalten bleiben.
+Die Zeitraum-Bezeichnungen wurden erneut umbenannt: "Zeitraum FRUEH" heisst jetzt "Temprano" und "Zeitraum SPAET" heisst jetzt "Tarde" (jeweils mit den bekannten Uhrzeiten 18:00-20:00 bzw. 20:00-22:00 Uhr). Die Aenderung gilt sowohl in der Web-App als auch im Telegram-Bot; die internen Datenbank-Schluessel (`slot_a`, `slot_b`) bleiben unveraendert, sodass bestehende Anmeldungen erhalten bleiben.
 
 ## Max. Teilnehmer 14 + editierbarer Einleitungstext
 
-Der Standardwert fuer die maximale Teilnehmerzahl pro Zeitraum wurde von 8 auf 14 erhoeht (gilt fuer neu angelegte Datenbanken; bestehende Slots kannst du im Admin-Dashboard weiterhin individuell anpassen). Zusaetzlich kannst du jetzt im Admin-Dashboard unter „Einleitungstext auf der Startseite" den Text, der ganz oben auf der Anmeldeseite unter dem Titel steht, frei bearbeiten und speichern. Leeres Feld speichern setzt den Text wieder auf den Standard zurueck.
+Der Standardwert fuer die maximale Teilnehmerzahl pro Zeitraum wurde von 8 auf 14 erhoeht (gilt fuer neu angelegte Datenbanken; bestehende Slots kannst du im Admin-Dashboard weiterhin individuell anpassen). Zusaetzlich kannst du jetzt im Admin-Dashboard unter "Einleitungstext auf der Startseite" den Text, der ganz oben auf der Anmeldeseite unter dem Titel steht, frei bearbeiten und speichern. Leeres Feld speichern setzt den Text wieder auf den Standard zurueck.
 
 ## Banner oben und groesseres Logo
 
 Oben auf der Seite wird jetzt das Banner (`static/Logo_II_Banner.png`) angezeigt, allerdings nur auf Bildschirmen ab Tablet-Groesse (ab 768px Breite) - auf schmalen Handy-Bildschirmen wird es automatisch ausgeblendet, damit die Seite dort nicht ueberladen wirkt und die eigentlichen Anmelde-Inhalte im Vordergrund bleiben. Das kleine Logo (`Logo_I_Matchtreff.png`) neben dem Titel wurde zusaetzlich von 48px auf 64px Hoehe vergroessert.
 
-## Umbenennung: Slot A/B zu Zeitraum FRUEH/SPAET
-
-Die Slot-Bezeichnungen wurden von „Slot A" / „Slot B" auf „Zeitraum FRUEH" (18:00-20:00 Uhr) und „Zeitraum SPAET" (20:00-22:00 Uhr) umbenannt. Die internen Datenbank-Schluessel (`slot_a`, `slot_b`) bleiben unveraendert, sodass bestehende Anmeldungen und der Telegram-Bot (inkl. der Kurzbefehle `a`/`b`/`18`/`20`) weiterhin funktionieren - nur die sichtbaren Bezeichnungen in Web-App und Telegram-Bot wurden geaendert.
-
 ## Dark Mode als Standard + Padel-Ball-Hintergrund-Effekt
 
-Die App startet jetzt standardmaessig im dunklen Design (Theme „Night"), statt im hellen Standard-Design. Zusaetzlich gibt es im Admin-Dashboard unter „Schwebe-Effekt im Hintergrund" einen Umschalter zwischen den bisherigen farbigen Blasen und Padel-Ball-Icons (`static/padel_ball.png`), die sich exakt gleich verhalten (gleiche Animation, Positionen, Geschwindigkeit), aber statt Kreisen dein Padel-Ball-Icon nach oben schweben und dabei leicht rotieren lassen. Beide Einstellungen (Design-Theme und Hintergrund-Effekt) werden in der Datenbank gespeichert und gelten fuer alle Besucher der Seite, bis ein Admin sie erneut aendert.
+Die App startet jetzt standardmaessig im dunklen Design (Theme "Night"), statt im hellen Standard-Design. Zusaetzlich gibt es im Admin-Dashboard unter "Schwebe-Effekt im Hintergrund" einen Umschalter zwischen den bisherigen farbigen Blasen und Padel-Ball-Icons (`static/padel_ball.png`), die sich exakt gleich verhalten (gleiche Animation, Positionen, Geschwindigkeit), aber statt Kreisen dein Padel-Ball-Icon nach oben schweben und dabei leicht rotieren lassen. Beide Einstellungen (Design-Theme und Hintergrund-Effekt) werden in der Datenbank gespeichert und gelten fuer alle Besucher der Seite, bis ein Admin sie erneut aendert.
 
 ## Troubleshooting: Umgebungsvariablen aus Portainer werden ignoriert
 
-Falls du im Portainer Stack-Editor z.B. `TELEGRAM_BOT_TOKEN` gesetzt hast, der Bot aber trotzdem mit `change-me` startet: Das liegt daran, dass in `docker-compose.yml` frueher feste Platzhalterwerte wie `TELEGRAM_BOT_TOKEN=change-me` standen, die deine echten Werte ueberschrieben haben. Das ist jetzt behoben - die Compose-Datei nutzt jetzt `${VARIABLE_NAME}`-Platzhalter, die automatisch durch die Environment-Variablen ersetzt werden, die du im Portainer Stack-Editor unter „Environment variables" eintraegst.
+Falls du im Portainer Stack-Editor z.B. `TELEGRAM_BOT_TOKEN` gesetzt hast, der Bot aber trotzdem mit `change-me` startet: Das liegt daran, dass in `docker-compose.yml` frueher feste Platzhalterwerte wie `TELEGRAM_BOT_TOKEN=change-me` standen, die deine echten Werte ueberschrieben haben. Das ist jetzt behoben - die Compose-Datei nutzt jetzt `${VARIABLE_NAME}`-Platzhalter, die automatisch durch die Environment-Variablen ersetzt werden, die du im Portainer Stack-Editor unter "Environment variables" eintraegst.
 
 Wichtig beim Eintragen im Stack-Editor:
 
@@ -369,19 +359,19 @@ Falls das Problem weiterhin auftritt: pruefen, ob das `instance/`-Volume korrekt
 
 ## Deployment via Portainer (Git-basiert)
 
-Der komplette Stack (Web-App + Telegram-Bot) laesst sich in Portainer direkt aus diesem GitHub-Repository bereitstellen - ohne manuellen Datei-Upload, inklusive automatischer Updates bei neuen Commits.
+Der komplette Stack (Web-App + Telegram-Bot + Scheduler) laesst sich in Portainer direkt aus diesem GitHub-Repository bereitstellen - ohne manuellen Datei-Upload, inklusive automatischer Updates bei neuen Commits.
 
 ### Voraussetzungen
 
 - Portainer CE oder EE, Zugriff auf **Stacks**
 - Das Repository ist oeffentlich (oder Portainer hat Zugriff via Access Token, falls privat)
-- Umgebungsvariablen bereit: `SECRET_KEY`, `ADMIN_PASSWORD`, `TELEGRAM_BOT_TOKEN`, `ADMIN_TELEGRAM_IDS`
+- Umgebungsvariablen bereit: `SECRET_KEY`, `ADMIN_PASSWORD_*`, `TELEGRAM_BOT_TOKEN`, `ADMIN_TELEGRAM_IDS`
 
 ### Schritt-fuer-Schritt-Anleitung
 
 1. In Portainer links im Menu auf **Stacks** klicken, dann oben rechts auf **+ Add stack**.
 2. Einen Namen fuer den Stack vergeben, z. B. `matchtreff-padel`.
-3. Unter **Build method** die Option **Repository** auswaehlen (nicht „Web editor", nicht „Upload").
+3. Unter **Build method** die Option **Repository** auswaehlen (nicht "Web editor", nicht "Upload").
 4. Folgende Felder ausfuellen:
    - **Repository URL:** `https://github.com/jbkunama1/hAI.MatchtreffPadel`
    - **Repository reference:** `refs/heads/main`
@@ -397,13 +387,14 @@ Der komplette Stack (Web-App + Telegram-Bot) laesst sich in Portainer direkt aus
    - **Mechanism:** Polling (z. B. alle 5 Minuten) oder Webhook (sofortige Aktualisierung bei Push).
    - Bei Webhook: die von Portainer angezeigte URL als Webhook im GitHub-Repo unter **Settings -> Webhooks** eintragen.
 7. Unten auf **Deploy the stack** klicken.
-8. Portainer klont das Repository, baut das Image ueber das vorhandene `Dockerfile` und startet die zwei Services `matchtreff_web` (Port 1905) und `matchtreff_bot` gemaess `docker-compose.yml`.
+8. Portainer klont das Repository, baut das Image ueber das vorhandene `Dockerfile` und startet die drei Services `matchtreff_web` (Port 1905), `matchtreff_bot` und `matchtreff_scheduler` gemaess `docker-compose.yml`.
 
 ### Nach dem Deploy
 
 - Web-App erreichbar unter `http://<server-ip>:1905`
 - Admin-Login unter `http://<server-ip>:1905/admin/login` mit dem gesetzten `ADMIN_PASSWORD`
 - Telegram-Bot antwortet automatisch, sobald der Container laeuft (Long Polling, kein oeffentlicher Port noetig)
+- Scheduler-Container uebernimmt den automatischen Reset und die Digest-Benachrichtigungen
 
 ### Stack aktualisieren
 
@@ -418,14 +409,14 @@ Der komplette Stack (Web-App + Telegram-Bot) laesst sich in Portainer direkt aus
 docker build -t haimatchtreffpadel:latest .
 ```
 
-### Stack mit docker-compose (Web + Bot)
+### Stack mit docker-compose (Web + Bot + Scheduler)
 
 ```bash
 docker compose up -d
 # oder: docker-compose up -d
 ```
 
-`docker-compose.yml` definiert zwei Services:
+`docker-compose.yml` definiert drei Services:
 
 ```yaml
 services:
@@ -436,9 +427,9 @@ services:
     ports:
       - "1905:1905"
     environment:
-      - SECRET_KEY=change-me
-      - ADMIN_PASSWORD_ADMIN=change-me
-      - ADMIN_PASSWORD_DANIEL=change-me
+      - SECRET_KEY=${SECRET_KEY}
+      - ADMIN_PASSWORD_ADMIN=${ADMIN_PASSWORD_ADMIN}
+      - ADMIN_PASSWORD_DANIEL=${ADMIN_PASSWORD_DANIEL}
     volumes:
       - matchtreff_data:/app/instance
     restart: unless-stopped
@@ -448,8 +439,18 @@ services:
     container_name: matchtreff_padel_bot
     command: python telegram_bot.py
     environment:
-      - TELEGRAM_BOT_TOKEN=change-me
-      - ADMIN_TELEGRAM_IDS=123456789
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
+    volumes:
+      - matchtreff_data:/app/instance
+    restart: unless-stopped
+    depends_on:
+      - matchtreff_web
+
+  matchtreff_scheduler:
+    build: .
+    container_name: matchtreff_padel_scheduler
+    command: python scheduler.py
     volumes:
       - matchtreff_data:/app/instance
     restart: unless-stopped
@@ -462,20 +463,21 @@ volumes:
 
 - Web-App: erreichbar auf Port 1905
 - Bot: laeuft im Hintergrund via Long Polling
-- Beide Container teilen sich das Volume `matchtreff_data` (gleiche SQLite-Datenbank)
+- Scheduler: uebernimmt automatischen Reset und Digest-Benachrichtigungen
+- Alle Container teilen sich das Volume `matchtreff_data` (gleiche SQLite-Datenbank)
 
 ### Einsatz in Portainer
 
 1. In Portainer unter **Stacks -> Add stack** gehen.
 2. Inhalt der `docker-compose.yml` einfuegen.
-3. `SECRET_KEY`, `ADMIN_PASSWORD`, `TELEGRAM_BOT_TOKEN` und `ADMIN_TELEGRAM_IDS` auf echte Werte setzen.
+3. `SECRET_KEY`, `ADMIN_PASSWORD_*`, `TELEGRAM_BOT_TOKEN` und `ADMIN_TELEGRAM_IDS` auf echte Werte setzen.
 4. Stack deployen.
 
 ## Sicherheit / Betrieb
 
-- In Produktion immer einen starken `SECRET_KEY`, ein sicheres `ADMIN_PASSWORD` und einen geheimen `TELEGRAM_BOT_TOKEN` verwenden.
+- In Produktion immer einen starken `SECRET_KEY`, sichere `ADMIN_PASSWORD_*`-Variablen und einen geheimen `TELEGRAM_BOT_TOKEN` verwenden.
 - Zugriff auf die Web-App ueber einen Reverse Proxy (nginx, Traefik, Cloudflare Tunnel) absichern.
-- Volume `matchtreff_data` regelmaessig sichern (Backups).
+- Volume `matchtreff_data` regelmaessig sichern (Backups) - alternativ den Backup-Button im Admin-Dashboard nutzen.
 - `ADMIN_TELEGRAM_IDS` nur mit den tatsaechlichen Telegram-User-IDs der Organisatoren befuellen.
 
 ## Admin-Funktionen (Web + Telegram)
@@ -484,9 +486,12 @@ volumes:
 |---|---|---|
 | Slot-Belegung ansehen | Startseite | `/slots`, `/admin_liste` |
 | Anmelden | Formular mit Name + Slot-Auswahl | `/eintragen <Name> <a\|b\|beide>` |
+| Eintrag bearbeiten | Admin-Dashboard (Bearbeiten-Link) | - |
 | Max. Plaetze pro Slot setzen | Admin-Dashboard | `/admin_max <a\|b> <zahl>` |
 | Anmeldung loeschen | Admin-Dashboard | `/admin_loeschen <id>` |
 | Alle Anmeldungen zuruecksetzen | Admin-Dashboard | `/admin_reset` |
+| Automatik (Reset + Digest) | Admin-Dashboard | - |
+| Backup herunterladen | Admin-Dashboard | - |
 | Duplikatsschutz | DB-Unique + Cookie pro Slot | DB-Unique + Telegram-User-ID pro Slot |
 | Warteliste (max. 4 pro Slot) | Ja, mit Auto-Nachruecken | Ja, mit Auto-Nachruecken |
 
