@@ -12,7 +12,9 @@ DEFAULT_THEME = "dark"
 DEFAULT_BG_STYLE = "bubbles"
 DEFAULT_CUSTOM_IMAGE = "wappen.png"
 DEFAULT_INTRO_TEXT = "Melde dich hier für den nächsten Matchtreff am Donnerstag ({next_thursday}) an und stelle sicher, dass du einen Platz bekommst!"
-WAITLIST_LIMIT = 4
+DEFAULT_WAITLIST_LIMIT = 4
+DEFAULT_SLOT_SELECTION = "both"  # "one" oder "both"
+DEFAULT_WAITLIST_MODE = "with_waitlist"  # "with_waitlist", "open_for_all", "no_waitlist", "guests_only"
 ORGA_TEAM = {"daniel", "cosme", "sascha", "patrick"}
 
 
@@ -157,7 +159,9 @@ def create_app():
             "admin_dashboard.html",
             slots=slots,
             signups_by_slot=signups_by_slot,
-            waitlist_limit=WAITLIST_LIMIT,
+            waitlist_limit=get_waitlist_limit(),
+            slot_selection=get_slot_selection(),
+            waitlist_mode=get_waitlist_mode(),
             gallery_images=GALLERY_IMAGES,
             current_custom_image=get_custom_bg_image(),
             raw_intro_text=get_raw_intro_text(),
@@ -265,6 +269,37 @@ def create_app():
         )
         db.commit()
         flash("Intro-Text gespeichert.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/waitlist-settings", methods=["POST"])
+    @admin_required
+    def admin_update_waitlist_settings():
+        waitlist_limit = request.form.get("waitlist_limit", "").strip()
+        slot_selection = request.form.get("slot_selection", "").strip()
+        waitlist_mode = request.form.get("waitlist_mode", "").strip()
+
+        if not waitlist_limit.isdigit() or int(waitlist_limit) < 0:
+            flash("Bitte eine gueltige Wartelisten-Groesse angeben.", "error")
+            return redirect(url_for("admin_dashboard"))
+
+        if slot_selection not in ["one", "both"]:
+            slot_selection = DEFAULT_SLOT_SELECTION
+
+        if waitlist_mode not in ["with_waitlist", "open_for_all", "no_waitlist", "guests_only"]:
+            waitlist_mode = DEFAULT_WAITLIST_MODE
+
+        db = get_db()
+        for key, value in [
+            ("waitlist_limit", waitlist_limit),
+            ("slot_selection", slot_selection),
+            ("waitlist_mode", waitlist_mode),
+        ]:
+            db.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+                (key, value),
+            )
+        db.commit()
+        flash("Wartelisten-Einstellungen gespeichert.", "success")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/signup/<int:signup_id>/delete", methods=["POST"])
@@ -422,7 +457,7 @@ def get_slots_with_counts():
                 "count": count,
                 "waitlist_count": waitlist_count,
                 "full": count >= slot["max_players"],
-                "waitlist_full": waitlist_count >= WAITLIST_LIMIT,
+                "waitlist_full": waitlist_count >= get_waitlist_limit(),
             }
         )
     return result
@@ -466,7 +501,7 @@ def get_status_for_slot(slot_id, week_date):
         """,
         (slot_id, week_date),
     ).fetchone()["c"]
-    if waitlist < WAITLIST_LIMIT:
+    if waitlist < get_waitlist_limit():
         return "waitlist"
     return "waitlist_full"
 
@@ -504,6 +539,24 @@ def get_raw_intro_text():
     db = get_db()
     row = db.execute("SELECT value FROM settings WHERE key = 'intro_text'").fetchone()
     return row["value"] if row else DEFAULT_INTRO_TEXT
+
+
+def get_waitlist_limit():
+    db = get_db()
+    row = db.execute("SELECT value FROM settings WHERE key = 'waitlist_limit'").fetchone()
+    return int(row["value"]) if row and row["value"].isdigit() else DEFAULT_WAITLIST_LIMIT
+
+
+def get_slot_selection():
+    db = get_db()
+    row = db.execute("SELECT value FROM settings WHERE key = 'slot_selection'").fetchone()
+    return row["value"] if row else DEFAULT_SLOT_SELECTION
+
+
+def get_waitlist_mode():
+    db = get_db()
+    row = db.execute("SELECT value FROM settings WHERE key = 'waitlist_mode'").fetchone()
+    return row["value"] if row else DEFAULT_WAITLIST_MODE
 
 
 def next_thursday():
@@ -675,6 +728,18 @@ def init_db():
     existing_intro = db.execute("SELECT value FROM settings WHERE key = 'intro_text'").fetchone()
     if not existing_intro:
         db.execute("INSERT INTO settings (key, value) VALUES ('intro_text', ?)", (DEFAULT_INTRO_TEXT,))
+
+    existing_wl = db.execute("SELECT value FROM settings WHERE key = 'waitlist_limit'").fetchone()
+    if not existing_wl:
+        db.execute("INSERT INTO settings (key, value) VALUES ('waitlist_limit', ?)", (str(DEFAULT_WAITLIST_LIMIT),))
+
+    existing_slot_sel = db.execute("SELECT value FROM settings WHERE key = 'slot_selection'").fetchone()
+    if not existing_slot_sel:
+        db.execute("INSERT INTO settings (key, value) VALUES ('slot_selection', ?)", (DEFAULT_SLOT_SELECTION,))
+
+    existing_wl_mode = db.execute("SELECT value FROM settings WHERE key = 'waitlist_mode'").fetchone()
+    if not existing_wl_mode:
+        db.execute("INSERT INTO settings (key, value) VALUES ('waitlist_mode', ?)", (DEFAULT_WAITLIST_MODE,))
 
     existing_admin = db.execute("SELECT id FROM admin_users WHERE username = 'admin'").fetchone()
     if not existing_admin:
