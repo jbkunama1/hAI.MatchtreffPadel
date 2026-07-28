@@ -1,142 +1,350 @@
 {% extends "base.html" %}
 {% block title %}Admin-Dashboard{% endblock %}
+
 {% block content %}
+
+<style>
+  .admin-tabs {
+    margin-top: 1rem;
+  }
+
+  .admin-tablist {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    padding-bottom: 0.35rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .admin-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+    border: 1px solid rgba(255,255,255,0.18);
+    background: rgba(255,255,255,0.08);
+    color: inherit;
+    border-radius: 999px;
+    padding: 0.65rem 1rem;
+    cursor: pointer;
+  }
+
+  .admin-tab.is-active {
+    background: rgba(255,255,255,0.18);
+    border-color: rgba(255,255,255,0.28);
+  }
+
+  .admin-tabpanel[hidden] {
+    display: none !important;
+  }
+
+  .admin-stack {
+    display: grid;
+    gap: 1rem;
+  }
+
+  .admin-card {
+    padding: 1rem;
+    border-radius: 1rem;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+  }
+
+  .admin-card h2,
+  .admin-card h3 {
+    margin-top: 0;
+  }
+
+  .signup-list {
+    padding-left: 1.1rem;
+    margin-bottom: 0;
+  }
+
+  .signup-item {
+    margin-bottom: 0.55rem;
+  }
+
+  .inline-form {
+    display: inline;
+  }
+
+  .gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 768px) {
+    .admin-tablist {
+      margin-inline: -0.125rem;
+      padding-inline: 0.125rem;
+    }
+
+    .admin-tab {
+      padding: 0.6rem 0.9rem;
+      font-size: 0.95rem;
+    }
+  }
+</style>
+
 <h1>Admin-Dashboard</h1>
-<p>Hier legst du die maximale Anzahl pro Slot fest und verwaltest die Anmeldungen. Warteliste ist auf {{ waitlist_limit }} Eintraege pro Slot begrenzt.</p>
+<p>
+  Hier legst du die maximale Anzahl pro Slot fest und verwaltest die Anmeldungen.
+  Warteliste ist auf {{ waitlist_limit }} Eintraege pro Slot begrenzt.
+</p>
 
-{% for slot in slots %}
-    <div class="slot-card {% if slot.full %}full{% endif %}">
-        <div class="slot-title">{{ slot.label }}</div>
-        <div class="slot-meta">
-            {{ slot.count }} von {{ slot.max_players }} Plaetzen belegt{% if slot.full %} - Slot ist voll{% endif %}
-            | Warteliste: {{ slot.waitlist_count }}/{{ waitlist_limit }}
-        </div>
+<div class="admin-tabs">
+  <div class="admin-tablist" role="tablist" aria-label="Admin-Bereiche">
+    <button class="admin-tab is-active" role="tab" aria-selected="true" aria-controls="tab-anmeldung" id="btn-anmeldung" data-tab="anmeldung">Anmeldung</button>
+    <button class="admin-tab" role="tab" aria-selected="false" aria-controls="tab-aussehen" id="btn-aussehen" data-tab="aussehen">Aussehen</button>
+    <button class="admin-tab" role="tab" aria-selected="false" aria-controls="tab-admins" id="btn-admins" data-tab="admins">Admins</button>
+    <button class="admin-tab" role="tab" aria-selected="false" aria-controls="tab-system" id="btn-system" data-tab="system">System</button>
+  </div>
 
-        <form action="{{ url_for('admin_update_slot', slot_id=slot.id) }}" method="post" style="display:flex; gap:0.5rem; align-items:flex-end; flex-wrap:wrap;">
-            <div class="form-group" style="margin-top:0.5rem; flex:1 1 220px;">
-                <label for="label_{{ slot.id }}">Slot-Bezeichnung</label>
-                <input class="form-control" type="text" id="label_{{ slot.id }}" name="label" value="{{ slot.label }}">
-            </div>
-            <div class="form-group" style="margin-top:0.5rem;">
-                <label for="max_players_{{ slot.id }}">Max. Plaetze</label>
-                <input class="form-control" type="number" min="1" id="max_players_{{ slot.id }}" name="max_players" value="{{ slot.max_players }}">
-            </div>
-            <button class="btn-soft" type="submit">Speichern</button>
+  <!-- Tab: Anmeldung -->
+  <section class="admin-tabpanel" id="tab-anmeldung" role="tabpanel" aria-labelledby="btn-anmeldung">
+    <div class="admin-stack">
+      {% for slot in slots %}
+      <div class="admin-card">
+        <h2>{{ slot.label }}</h2>
+        <p>
+          {{ slot.count }} von {{ slot.max_players }} Plaetzen belegt
+          {% if slot.full %} - Slot ist voll{% endif %}
+          | Warteliste: {{ slot.waitlist_count }}/{{ waitlist_limit }}
+        </p>
+
+        <form method="post" action="{{ url_for('admin_update_slot', slot_id=slot.id) }}">
+          <p>
+            <label for="label_{{ slot.id }}">Slot-Bezeichnung</label><br>
+            <input class="form-control" type="text" id="label_{{ slot.id }}" name="label" value="{{ slot.label }}">
+          </p>
+
+          <p>
+            <label for="max_players_{{ slot.id }}">Max. Plaetze</label><br>
+            <input class="form-control" type="number" min="1" id="max_players_{{ slot.id }}" name="max_players" value="{{ slot.max_players }}">
+          </p>
+
+          <p>
+            <button type="submit">Speichern</button>
+          </p>
         </form>
 
-        <div class="stack-label" style="margin-top:0.75rem;">Bestaetigt</div>
-        <ul class="player-list">
-            {% for signup in signups_by_slot[slot.id].confirmed %}
-                <li>
-                    <span>
-                        {% if signup.name_normalized in orga_team_normalized %}
-                            <strong>{{ signup.name }} &#9733;</strong>
-                        {% else %}
-                            {{ signup.name }}
-                        {% endif %}
-                        {% if signup.is_member %}
-                            <span class="badge-member">Mitglied</span>
-                        {% else %}
-                            <span class="badge-guest">Gast</span>
-                        {% endif %}
-                    </span>
-                    <form action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}" method="post" style="margin:0;">
-                        <button class="btn-danger" type="submit">Loeschen</button>
-                    </form>
-                </li>
-            {% else %}
-                <li>Noch niemand angemeldet.</li>
+        <div class="admin-stack" style="margin-top: 1rem;">
+          <div>
+            <h3>Bestaetigt</h3>
+            <ul class="signup-list">
+              {% for signup in signups_by_slot[slot.id].confirmed %}
+              <li class="signup-item">
+                {% if signup.name_normalized in orga_team_normalized %}
+                  <strong>{{ signup.name }} ★</strong>
+                {% else %}
+                  {{ signup.name }}
+                {% endif %}
+                {% if signup.is_member %}
+                  <span>Mitglied</span>
+                {% else %}
+                  <span>Gast</span>
+                {% endif %}
+
+                <form class="inline-form" method="post" action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}">
+                  <button type="submit">Loeschen</button>
+                </form>
+              </li>
+              {% else %}
+              <li>Noch niemand angemeldet.</li>
+              {% endfor %}
+            </ul>
+          </div>
+
+          <div>
+            <h3>Warteliste ({{ signups_by_slot[slot.id].waitlist|length }}/{{ waitlist_limit }})</h3>
+            <ul class="signup-list">
+              {% for signup in signups_by_slot[slot.id].waitlist %}
+              <li class="signup-item">
+                {% if signup.name_normalized in orga_team_normalized %}
+                  <strong>{{ signup.name }} ★</strong>
+                {% else %}
+                  {{ signup.name }}
+                {% endif %}
+                {% if signup.is_member %}
+                  <span>Mitglied</span>
+                {% else %}
+                  <span>Gast</span>
+                {% endif %}
+
+                <form class="inline-form" method="post" action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}">
+                  <button type="submit">Loeschen</button>
+                </form>
+              </li>
+              {% else %}
+              <li>Warteliste leer.</li>
+              {% endfor %}
+            </ul>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <!-- Tab: Aussehen -->
+  <section class="admin-tabpanel" id="tab-aussehen" role="tabpanel" aria-labelledby="btn-aussehen" hidden>
+    <div class="admin-stack">
+      <div class="admin-card">
+        <h2>Design / Hintergrund</h2>
+        <p>Waehle einen von mehreren vordefinierten Hintergruenden und Akzentfarben fuer die Web-App.</p>
+
+        <form method="post" action="{{ url_for('admin_update_theme') }}">
+          <p>
+            <strong>Aktuelles Design:</strong> {{ current_theme.label }}
+          </p>
+          <p>
+            <label for="theme">Design</label><br>
+            <select class="form-control" id="theme" name="theme">
+              {% for key, theme in themes.items() %}
+              <option value="{{ key }}" {% if key == current_theme_key %}selected{% endif %}>{{ theme.label }}</option>
+              {% endfor %}
+            </select>
+          </p>
+          <p><button type="submit">Design uebernehmen</button></p>
+        </form>
+      </div>
+
+      <div class="admin-card">
+        <h2>Eigenes Hintergrundbild waehlen</h2>
+        <p>
+          Waehle eines der Bilder aus dem pictures-Verzeichnis als Hintergrund.
+          Aktivierung setzt automatisch das Design auf "Eigenes Bild (Galerie)".
+        </p>
+
+        <p><strong>Aktuelles Bild:</strong> {{ current_custom_image }}</p>
+
+        <form method="post" action="{{ url_for('admin_update_custom_image') }}">
+          <p>
+            {% for img in gallery_images %}
+              <input
+                type="radio"
+                name="custom_image"
+                value="{{ img }}"
+                id="custom_image_{{ loop.index }}"
+                {% if img == current_custom_image %}checked{% endif %}
+                style="width:18px; height:18px; margin-right:0.4rem;"
+              >
+              <label for="custom_image_{{ loop.index }}">{{ img }}</label><br>
             {% endfor %}
-        </ul>
+          </p>
+          <p><button type="submit">Bild als Hintergrund uebernehmen</button></p>
+        </form>
+      </div>
 
-        <div class="stack-label" style="margin-top:0.75rem;">Warteliste ({{ signups_by_slot[slot.id].waitlist|length }}/{{ waitlist_limit }})</div>
-        <ul class="player-list">
-            {% for signup in signups_by_slot[slot.id].waitlist %}
-                <li>
-                    <span>
-                        {% if signup.name_normalized in orga_team_normalized %}
-                            <strong>{{ signup.name }} &#9733;</strong>
-                        {% else %}
-                            {{ signup.name }}
-                        {% endif %}
-                        {% if signup.is_member %}
-                            <span class="badge-member">Mitglied</span>
-                        {% else %}
-                            <span class="badge-guest">Gast</span>
-                        {% endif %}
-                    </span>
-                    <form action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}" method="post" style="margin:0;">
-                        <button class="btn-danger" type="submit">Loeschen</button>
-                    </form>
-                </li>
-            {% else %}
-                <li>Warteliste leer.</li>
-            {% endfor %}
-        </ul>
+      <div class="admin-card">
+        <h2>Schwebe-Effekt im Hintergrund</h2>
+        <p>
+          Waehle, ob im Hintergrund farbige Blasen oder Padel-Ball-Icons nach oben schweben
+          (Icons werden gross angezeigt).
+        </p>
+
+        <form method="post" action="{{ url_for('admin_update_bg_style') }}">
+          <p><strong>Aktueller Effekt:</strong> {{ bg_styles[current_bg_style] }}</p>
+          <p>
+            <label for="bg_style">Effekt</label><br>
+            <select class="form-control" id="bg_style" name="bg_style">
+              {% for key, label in bg_styles.items() %}
+              <option value="{{ key }}" {% if key == current_bg_style %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </p>
+          <p><button type="submit">Effekt uebernehmen</button></p>
+        </form>
+      </div>
+
+      <div class="admin-card">
+        <h2>Einleitungstext auf der Startseite</h2>
+        <p>
+          Passe den Text an, der ganz oben auf der Anmeldeseite unter dem Titel angezeigt wird.
+          Verwende <code>{next_thursday}</code> als Platzhalter - er wird automatisch durch das
+          Datum des naechsten Donnerstags ersetzt und aktualisiert sich jede Woche von selbst.
+          Leer lassen und speichern setzt den Standardtext zurueck.
+        </p>
+
+        <form method="post" action="{{ url_for('admin_update_intro_text') }}">
+          <p>
+            <label for="intro_text">Text (Vorlage mit Platzhalter)</label><br>
+            <textarea class="form-control" id="intro_text" name="intro_text" rows="3">{{ raw_intro_text }}</textarea>
+          </p>
+          <p><button type="submit">Text speichern</button></p>
+        </form>
+      </div>
     </div>
-{% endfor %}
+  </section>
 
-
-<div class="stack-label">Design / Hintergrund</div>
-<p>Waehle einen von mehreren vordefinierten Hintergruenden und Akzentfarben fuer die Web-App.</p>
-<form action="{{ url_for('admin_update_theme') }}" method="post" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
-    <div class="form-group" style="margin-top:0;">
-        <label for="theme">Aktuelles Design: {{ current_theme.label }}</label>
-        <select class="form-control" id="theme" name="theme">
-            {% for key, theme in themes.items() %}
-                <option value="{{ key }}" {% if key == current_theme_key %}selected{% endif %}>{{ theme.label }}</option>
-            {% endfor %}
-        </select>
+  <!-- Tab: Admins -->
+  <section class="admin-tabpanel" id="tab-admins" role="tabpanel" aria-labelledby="btn-admins" hidden>
+    <div class="admin-stack">
+      <div class="admin-card">
+        <h2>Admins</h2>
+        <p>Hier verwaltest du die Admin-Namen und weitere Rollen.</p>
+        <p><a href="{{ url_for('admin_users_list') }}">Admins verwalten</a></p>
+      </div>
     </div>
-    <button class="btn-accent" type="submit">Design uebernehmen</button>
-</form>
+  </section>
 
-<div class="stack-label" style="margin-top:1.5rem;">Eigenes Hintergrundbild waehlen</div>
-<p>Waehle eines der Bilder aus dem pictures-Verzeichnis als Hintergrund. Aktivierung setzt automatisch das Design auf "Eigenes Bild (Galerie)".</p>
-<form action="{{ url_for('admin_update_custom_image') }}" method="post">
-    <div class="form-group" style="margin-top:0.5rem;">
-        <label>Aktuelles Bild: <span class="code-inline">{{ current_custom_image }}</span></label>
+  <!-- Tab: System / Automatik -->
+  <section class="admin-tabpanel" id="tab-system" role="tabpanel" aria-labelledby="btn-system" hidden>
+    <div class="admin-stack">
+      <div class="admin-card">
+        <h2>Automatik / Scheduler</h2>
+        <p>
+          Dieser Bereich ist fuer Reset-, Zeit- und Digest-Einstellungen gedacht.
+          Im aktuellen Stand werden die Werte noch nicht aus der Datenbank geladen.
+        </p>
+        <p>
+          Sobald die Scheduler-Einstellungen in <code>settings</code> abgelegt werden
+          (z.B. <code>scheduler_enabled</code>, <code>scheduler_weekday</code>, <code>scheduler_time</code>),
+          kann dieser Block mit Formularen befuellt werden.
+        </p>
+      </div>
+
+      <div class="admin-card">
+        <h2>Gefahrenzone</h2>
+        <form method="post" action="{{ url_for('admin_clear_signups') }}">
+          <p>
+            <button type="submit">Alle Anmeldungen zuruecksetzen</button>
+          </p>
+        </form>
+      </div>
     </div>
-    <div style="display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 1fr)); gap:0.75rem; margin-top:0.5rem;">
-        {% for img in gallery_images %}
-            <label style="cursor:pointer; display:block; border-radius:0.75rem; overflow:hidden; border:3px solid {% if img == current_custom_image %}var(--accent, #2563eb){% else %}transparent{% endif %}; position:relative;">
-                <input type="radio" name="custom_image" value="{{ img }}" {% if img == current_custom_image %}checked{% endif %} style="position:absolute; top:0.35rem; left:0.35rem; width:18px; height:18px; z-index:2;">
-                <img src="{{ url_for('static', filename='pictures/' + img) }}" alt="{{ img }}" style="width:100%; height:90px; object-fit:cover; display:block;">
-            </label>
-        {% endfor %}
-    </div>
-    <button class="btn-accent" type="submit" style="margin-top:1rem;">Bild als Hintergrund uebernehmen</button>
-</form>
+  </section>
+</div>
 
-<div class="stack-label" style="margin-top:1.5rem;">Schwebe-Effekt im Hintergrund</div>
-<p>Waehle, ob im Hintergrund farbige Blasen oder Padel-Ball-Icons nach oben schweben (Icons werden gross angezeigt).</p>
-<form action="{{ url_for('admin_update_bg_style') }}" method="post" style="display:flex; gap:0.75rem; align-items:flex-end; flex-wrap:wrap;">
-    <div class="form-group" style="margin-top:0;">
-        <label for="bg_style">Aktueller Effekt: {{ bg_styles[current_bg_style] }}</label>
-        <select class="form-control" id="bg_style" name="bg_style">
-            {% for key, label in bg_styles.items() %}
-                <option value="{{ key }}" {% if key == current_bg_style %}selected{% endif %}>{{ label }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <button class="btn-accent" type="submit">Effekt uebernehmen</button>
-</form>
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const tabs = document.querySelectorAll(".admin-tab");
+  const panels = document.querySelectorAll(".admin-tabpanel");
 
-<div class="stack-label">Einleitungstext auf der Startseite</div>
-<p>Passe den Text an, der ganz oben auf der Anmeldeseite unter dem Titel angezeigt wird. Verwende <span class="code-inline">{next_thursday}</span> als Platzhalter - er wird automatisch durch das Datum des naechsten Donnerstags ersetzt und aktualisiert sich jede Woche von selbst. Leer lassen und speichern setzt den Standardtext zurueck.</p>
-<form action="{{ url_for('admin_update_intro_text') }}" method="post">
-    <div class="form-group" style="margin-top:0;">
-        <label for="intro_text">Text (Vorlage mit Platzhalter)</label>
-        <textarea class="form-control" id="intro_text" name="intro_text" rows="3">{{ raw_intro_text }}</textarea>
-    </div>
-    <button class="btn-accent" type="submit">Text speichern</button>
-</form>
+  tabs.forEach((tab) => {
+    tab.addEventListener("click", () => {
+      const target = tab.dataset.tab;
 
-<div class="stack-label">Admins</div>
-<a class="btn-soft" href="{{ url_for('admin_users_list') }}">Admins verwalten</a>
+      tabs.forEach((btn) => {
+        btn.classList.remove("is-active");
+        btn.setAttribute("aria-selected", "false");
+      });
 
-<div class="stack-label">Gefahrenzone</div>
-<form action="{{ url_for('admin_clear_signups') }}" method="post" onsubmit="return confirm('Wirklich alle Anmeldungen loeschen?');">
-    <button class="btn-danger" type="submit">Alle Anmeldungen zuruecksetzen</button>
-</form>
+      panels.forEach((panel) => {
+        panel.hidden = true;
+      });
+
+      tab.classList.add("is-active");
+      tab.setAttribute("aria-selected", "true");
+
+      const activePanel = document.getElementById("tab-" + target);
+      if (activePanel) {
+        activePanel.hidden = false;
+      }
+    });
+  });
+});
+</script>
+
 {% endblock %}
