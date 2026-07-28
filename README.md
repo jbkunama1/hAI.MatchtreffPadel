@@ -93,7 +93,6 @@ Der Admin kann im Admin-Dashboard zwischen mehreren vordefinierten Hintergruende
 
 Das gewaehlte Theme wird in der Datenbank gespeichert (`settings`-Tabelle) und gilt fuer alle Besucher der Web-App, bis der Admin es aendert. Neue Themes lassen sich einfach im Dictionary `THEMES` in `app.py` ergaenzen (Label, Hintergrund-Verlauf, zwei Akzentfarben).
 
-
 ### Themes mit eigenen Hintergrundbildern
 
 Zusaetzlich zu den Farbverlauf-Themes gibt es Themes, die eigene Hintergrundbilder aus dem `pictures/`-Verzeichnis nutzen (z. B. `Racketfire.png`, `Racketsplash.png`). Fuer die Web-App muessen diese Bilder zusaetzlich nach `static/backgrounds/` kopiert werden, da Flask statische Dateien nur aus `static/` ausliefert:
@@ -153,6 +152,148 @@ Admins werden ueber die Telegram-User-ID in `ADMIN_TELEGRAM_IDS` festgelegt (kom
 
 Genau wie in der Web-App gilt: **nur Admins duerfen Anmeldungen aendern oder loeschen.**
 
+## Neue Features (v2): Automatik, Backup, Bearbeiten
+
+Dieses Update ergaenzt ausschliesslich neue Funktionen. Das Design/Layout bleibt unveraendert - alle bestehenden Funktionen (Anmeldung, Warteliste, Admin-Login, Themes, Telegram-Gast-Benachrichtigung) funktionieren exakt wie vorher.
+
+### 1. Automatischer woechentlicher Reset
+
+- Standard: jeden Freitag 06:00 Uhr, loescht ALLE Anmeldungen komplett (neue Woche, neuer Anfang).
+- Konfigurierbar direkt im Admin-Dashboard unter **„Automatik"** - kein Umgebungsvariablen-Frickeln noetig.
+
+### 2. 60-Minuten-Digest
+
+- Sammelt neue Anmeldungen und schickt alle 60 Minuten (konfigurierbar) EINE Zusammenfassung an die Telegram-Admins (`ADMIN_TELEGRAM_IDS`).
+- Geht **nicht** an E-Mail, nur an Telegram-Admins.
+- Gaeste bekommen weiterhin sofort ihre eigene Nachricht wie bisher.
+
+### 3. Backup-Download
+
+- Neuer Button im Admin-Dashboard: **„Backup herunterladen"**.
+- Erstellt ueber die SQLite-Online-Backup-API eine konsistente Kopie der Datenbank, auch bei laufendem Schreibzugriff.
+
+### 4. Eintraege bearbeiten
+
+- Neuer **„Bearbeiten"**-Link bei jedem Signup (Bestaetigt + Warteliste) im Admin-Dashboard.
+- Name, Mitglied/Gast-Status, Slot und Status (bestaetigt/Warteliste) koennen angepasst werden, inkl. Duplikaten- und Kapazitaetspruefung.
+
+### 5. Erklaervideo auf der Info-Seite
+
+- Auf der Seite `/info` wird das Video `Matchtreff_Silber.mp4` direkt abspielbar eingebunden (HTML5 `<video>`-Player).
+
+### Deployment nach dem Update
+
+Nach dem Einspielen der neuen Dateien laufen drei Container:
+
+| Container | Funktion |
+|---|---|
+| `matchtreff_padel_web` | Flask-Web-App |
+| `matchtreff_padel_bot` | Telegram-Bot |
+| `matchtreff_padel_scheduler` | NEU: Automatik-Reset & Digest |
+
+```bash
+# Video fuer Flask-Auslieferung bereitstellen
+cp pictures/Matchtreff_Silber.mp4 static/Matchtreff_Silber.mp4
+```
+
+In Portainer danach: **Pull and redeploy**.
+
+## Admin-Dashboard manuell erweitern
+
+> Diese Aenderungen betreffen ausschliesslich `templates/admin_dashboard.html`. Es wird kein neues CSS benoetigt - alle Klassen (`btn`, `btn-accent`, `form-control`, `card`, ...) sind bereits im Projekt vorhanden.
+
+### 1. „Bearbeiten"-Link bei jedem Signup einfuegen
+
+Direkt **vor** dem bestehenden „Loeschen"-Button bei Bestaetigt- und Warteliste-Eintraegen einfuegen:
+
+```html
+<a href="{{ url_for('admin_edit_signup', signup_id=signup.id) }}" class="btn btn-sm btn-outline-secondary">
+    Bearbeiten
+</a>
+```
+
+Gilt fuer den Block `signups_by_slot[slot.id].confirmed` **und** den Block `signups_by_slot[slot.id].waitlist`.
+
+### 2. Abschnitt „Automatik" einfuegen
+
+Nach dem Abschnitt **„Einleitungstext auf der Startseite"** und vor **„Admins"** einfuegen:
+
+```html
+<div class="card mb-4">
+  <div class="card-body">
+    <h2 class="h5">Automatik (Reset + Benachrichtigungen)</h2>
+    <p class="text-muted">
+      Der automatische Reset loescht JEDE WOCHE alle Anmeldungen komplett
+      (neue Woche, neuer Anfang). Die Benachrichtigungs-Digests gehen nur
+      an Telegram-Admins.
+    </p>
+    <form method="post" action="{{ url_for('admin_update_automation') }}">
+      <div class="mb-3 form-check">
+        <input class="form-check-input" type="checkbox" id="reset_enabled" name="reset_enabled"
+               {% if automation.reset_enabled %}checked{% endif %}>
+        <label class="form-check-label" for="reset_enabled">Automatischen Reset aktivieren</label>
+      </div>
+      <div class="row g-3 mb-3">
+        <div class="col-auto">
+          <label class="form-label" for="reset_weekday">Wochentag</label>
+          <select class="form-control" id="reset_weekday" name="reset_weekday">
+            {% for num, label in weekday_labels.items() %}
+            <option value="{{ num }}" {% if num == automation.reset_weekday %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-auto">
+          <label class="form-label" for="reset_hour">Stunde</label>
+          <input class="form-control" type="number" min="0" max="23" id="reset_hour" name="reset_hour"
+                 value="{{ automation.reset_hour }}">
+        </div>
+        <div class="col-auto">
+          <label class="form-label" for="reset_minute">Minute</label>
+          <input class="form-control" type="number" min="0" max="59" id="reset_minute" name="reset_minute"
+                 value="{{ automation.reset_minute }}">
+        </div>
+        <div class="col-auto">
+          <label class="form-label" for="notify_interval_minutes">Digest-Intervall (Minuten)</label>
+          <input class="form-control" type="number" min="1" id="notify_interval_minutes"
+                 name="notify_interval_minutes" value="{{ automation.notify_interval_minutes }}">
+        </div>
+      </div>
+      {% if automation.last_auto_reset_at %}
+      <p class="small text-muted">Letzter automatischer Reset: {{ automation.last_auto_reset_at }}</p>
+      {% endif %}
+      {% if automation.digest_last_sent_at %}
+      <p class="small text-muted">Letzter Digest gesendet bis: {{ automation.digest_last_sent_at }}</p>
+      {% endif %}
+      <button type="submit" class="btn btn-accent">Automatik-Einstellungen speichern</button>
+    </form>
+    <p class="small text-muted mt-2">
+      Hinweis: Aenderungen an Wochentag/Uhrzeit/Intervall werden vom
+      scheduler-Container erst nach einem Neustart (z.B. „Redeploy" in
+      Portainer) uebernommen. Das Ein-/Ausschalten (reset_enabled) wirkt
+      sofort beim naechsten geplanten Lauf.
+    </p>
+  </div>
+</div>
+```
+
+### 3. Backup-Button einfuegen
+
+Direkt **oberhalb** der „Gefahrenzone" einfuegen:
+
+```html
+<div class="card mb-4">
+  <div class="card-body">
+    <h2 class="h5">Backup</h2>
+    <p class="text-muted">
+      Laedt eine konsistente Kopie der Datenbank (SQLite-Datei) herunter.
+    </p>
+    <a href="{{ url_for('admin_backup_download') }}" class="btn btn-accent">
+      Backup herunterladen
+    </a>
+  </div>
+</div>
+```
+
 ## Lokale Installation (ohne Docker)
 
 Voraussetzungen: Python 3.11+
@@ -187,11 +328,11 @@ python telegram_bot.py
 
 ## Umbenennung: Zeitraum FRUEH/SPAET zu Temprano/Tarde
 
-Die Zeitraum-Bezeichnungen wurden erneut umbenannt: "Zeitraum FRUEH" heisst jetzt "Temprano" und "Zeitraum SPAET" heisst jetzt "Tarde" (jeweils mit den bekannten Uhrzeiten 18:00-20:00 bzw. 20:00-22:00 Uhr). Die Aenderung gilt sowohl in der Web-App als auch im Telegram-Bot; die internen Datenbank-Schluessel (`slot_a`, `slot_b`) bleiben unveraendert, sodass bestehende Anmeldungen erhalten bleiben.
+Die Zeitraum-Bezeichnungen wurden erneut umbenannt: „Zeitraum FRUEH" heisst jetzt „Temprano" und „Zeitraum SPAET" heisst jetzt „Tarde" (jeweils mit den bekannten Uhrzeiten 18:00-20:00 bzw. 20:00-22:00 Uhr). Die Aenderung gilt sowohl in der Web-App als auch im Telegram-Bot; die internen Datenbank-Schluessel (`slot_a`, `slot_b`) bleiben unveraendert, sodass bestehende Anmeldungen erhalten bleiben.
 
 ## Max. Teilnehmer 14 + editierbarer Einleitungstext
 
-Der Standardwert fuer die maximale Teilnehmerzahl pro Zeitraum wurde von 8 auf 14 erhoeht (gilt fuer neu angelegte Datenbanken; bestehende Slots kannst du im Admin-Dashboard weiterhin individuell anpassen). Zusaetzlich kannst du jetzt im Admin-Dashboard unter "Einleitungstext auf der Startseite" den Text, der ganz oben auf der Anmeldeseite unter dem Titel steht, frei bearbeiten und speichern. Leeres Feld speichern setzt den Text wieder auf den Standard zurueck.
+Der Standardwert fuer die maximale Teilnehmerzahl pro Zeitraum wurde von 8 auf 14 erhoeht (gilt fuer neu angelegte Datenbanken; bestehende Slots kannst du im Admin-Dashboard weiterhin individuell anpassen). Zusaetzlich kannst du jetzt im Admin-Dashboard unter „Einleitungstext auf der Startseite" den Text, der ganz oben auf der Anmeldeseite unter dem Titel steht, frei bearbeiten und speichern. Leeres Feld speichern setzt den Text wieder auf den Standard zurueck.
 
 ## Banner oben und groesseres Logo
 
@@ -199,15 +340,15 @@ Oben auf der Seite wird jetzt das Banner (`static/Logo_II_Banner.png`) angezeigt
 
 ## Umbenennung: Slot A/B zu Zeitraum FRUEH/SPAET
 
-Die Slot-Bezeichnungen wurden von "Slot A" / "Slot B" auf "Zeitraum FRUEH" (18:00-20:00 Uhr) und "Zeitraum SPAET" (20:00-22:00 Uhr) umbenannt. Die internen Datenbank-Schluessel (`slot_a`, `slot_b`) bleiben unveraendert, sodass bestehende Anmeldungen und der Telegram-Bot (inkl. der Kurzbefehle `a`/`b`/`18`/`20`) weiterhin funktionieren - nur die sichtbaren Bezeichnungen in Web-App und Telegram-Bot wurden geaendert.
+Die Slot-Bezeichnungen wurden von „Slot A" / „Slot B" auf „Zeitraum FRUEH" (18:00-20:00 Uhr) und „Zeitraum SPAET" (20:00-22:00 Uhr) umbenannt. Die internen Datenbank-Schluessel (`slot_a`, `slot_b`) bleiben unveraendert, sodass bestehende Anmeldungen und der Telegram-Bot (inkl. der Kurzbefehle `a`/`b`/`18`/`20`) weiterhin funktionieren - nur die sichtbaren Bezeichnungen in Web-App und Telegram-Bot wurden geaendert.
 
 ## Dark Mode als Standard + Padel-Ball-Hintergrund-Effekt
 
-Die App startet jetzt standardmaessig im dunklen Design (Theme "Night"), statt im hellen Standard-Design. Zusaetzlich gibt es im Admin-Dashboard unter "Schwebe-Effekt im Hintergrund" einen Umschalter zwischen den bisherigen farbigen Blasen und Padel-Ball-Icons (`static/padel_ball.png`), die sich exakt gleich verhalten (gleiche Animation, Positionen, Geschwindigkeit), aber statt Kreisen dein Padel-Ball-Icon nach oben schweben und dabei leicht rotieren lassen. Beide Einstellungen (Design-Theme und Hintergrund-Effekt) werden in der Datenbank gespeichert und gelten fuer alle Besucher der Seite, bis ein Admin sie erneut aendert.
+Die App startet jetzt standardmaessig im dunklen Design (Theme „Night"), statt im hellen Standard-Design. Zusaetzlich gibt es im Admin-Dashboard unter „Schwebe-Effekt im Hintergrund" einen Umschalter zwischen den bisherigen farbigen Blasen und Padel-Ball-Icons (`static/padel_ball.png`), die sich exakt gleich verhalten (gleiche Animation, Positionen, Geschwindigkeit), aber statt Kreisen dein Padel-Ball-Icon nach oben schweben und dabei leicht rotieren lassen. Beide Einstellungen (Design-Theme und Hintergrund-Effekt) werden in der Datenbank gespeichert und gelten fuer alle Besucher der Seite, bis ein Admin sie erneut aendert.
 
 ## Troubleshooting: Umgebungsvariablen aus Portainer werden ignoriert
 
-Falls du im Portainer Stack-Editor z.B. `TELEGRAM_BOT_TOKEN` gesetzt hast, der Bot aber trotzdem mit `change-me` startet: Das liegt daran, dass in `docker-compose.yml` frueher feste Platzhalterwerte wie `TELEGRAM_BOT_TOKEN=change-me` standen, die deine echten Werte ueberschrieben haben. Das ist jetzt behoben - die Compose-Datei nutzt jetzt `${VARIABLE_NAME}`-Platzhalter, die automatisch durch die Environment-Variablen ersetzt werden, die du im Portainer Stack-Editor unter "Environment variables" einträgst.
+Falls du im Portainer Stack-Editor z.B. `TELEGRAM_BOT_TOKEN` gesetzt hast, der Bot aber trotzdem mit `change-me` startet: Das liegt daran, dass in `docker-compose.yml` frueher feste Platzhalterwerte wie `TELEGRAM_BOT_TOKEN=change-me` standen, die deine echten Werte ueberschrieben haben. Das ist jetzt behoben - die Compose-Datei nutzt jetzt `${VARIABLE_NAME}`-Platzhalter, die automatisch durch die Environment-Variablen ersetzt werden, die du im Portainer Stack-Editor unter „Environment variables" eintraegst.
 
 Wichtig beim Eintragen im Stack-Editor:
 
@@ -240,7 +381,7 @@ Der komplette Stack (Web-App + Telegram-Bot) laesst sich in Portainer direkt aus
 
 1. In Portainer links im Menu auf **Stacks** klicken, dann oben rechts auf **+ Add stack**.
 2. Einen Namen fuer den Stack vergeben, z. B. `matchtreff-padel`.
-3. Unter **Build method** die Option **Repository** auswaehlen (nicht "Web editor", nicht "Upload").
+3. Unter **Build method** die Option **Repository** auswaehlen (nicht „Web editor", nicht „Upload").
 4. Folgende Felder ausfuellen:
    - **Repository URL:** `https://github.com/jbkunama1/hAI.MatchtreffPadel`
    - **Repository reference:** `refs/heads/main`
