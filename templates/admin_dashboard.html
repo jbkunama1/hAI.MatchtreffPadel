@@ -27,6 +27,9 @@
     padding: 0.65rem 1rem;
     cursor: pointer;
     text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
   }
 
   .admin-tab.is-active {
@@ -97,6 +100,15 @@
     opacity: 0.9;
   }
 
+  .info-box {
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    font-size: 0.95rem;
+    margin-bottom: 1rem;
+  }
+
   @media (max-width: 768px) {
     .admin-tablist {
       margin-inline: -0.125rem;
@@ -118,13 +130,13 @@
 
 <div class="admin-tabs">
   <div class="admin-tablist" role="tablist" aria-label="Admin-Bereiche">
-    <button class="admin-tab is-active" role="tab" aria-selected="true" aria-controls="tab-uebersicht" id="btn-uebersicht" data-tab="uebersicht">Übersicht</button>
-    <a class="admin-tab" role="tab" href="{{ url_for('admin_edit_signup') }}">Anmeldung</a>
-    <a class="admin-tab" role="tab" href="{{ url_for('admin_stats') }}">Statistik</a>
-    <a class="admin-tab" role="tab" href="{{ url_for('admin_qrcode') }}">QR-Code</a>
-    <a class="admin-tab" role="tab" href="{{ url_for('admin_events') }}">Events</a>
-    <a class="admin-tab" role="tab" href="{{ url_for('admin_users_list') }}">Admins</a>
-    <a class="admin-tab" role="tab" href="{{ url_for('admin_system') }}">System</a>
+    <button class="admin-tab is-active" role="tab" aria-selected="true" aria-controls="tab-uebersicht" id="btn-uebersicht" data-tab="uebersicht">📊 Übersicht</button>
+    <a class="admin-tab" role="tab" href="{{ url_for('admin_edit_signup') }}">✏️ Anmeldung</a>
+    <a class="admin-tab" role="tab" href="{{ url_for('admin_stats') }}">📈 Statistik</a>
+    <a class="admin-tab" role="tab" href="{{ url_for('admin_qrcode') }}">📱 QR-Code</a>
+    <a class="admin-tab" role="tab" href="{{ url_for('admin_events') }}">📋 Events</a>
+    <a class="admin-tab" role="tab" href="{{ url_for('admin_users_list') }}">👥 Admins</a>
+    <a class="admin-tab" role="tab" href="{{ url_for('admin_system') }}">⚙️ System</a>
   </div>
 
   <section class="admin-tabpanel" id="tab-uebersicht" role="tabpanel" aria-labelledby="btn-uebersicht">
@@ -307,6 +319,54 @@
           </p>
           <div class="settings-actions">
             <button type="submit">Text speichern</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <section class="admin-tabpanel" id="tab-warteliste" role="tabpanel" aria-labelledby="btn-warteliste" hidden>
+    <div class="admin-stack">
+      <div class="admin-card">
+        <h2>Wartelisten-Einstellungen</h2>
+        <div class="info-box">
+          <strong>Was du hier einstellen kannst:</strong><br>
+          - <strong>Wartelisten-Groesse:</strong> Wie viele Plaetze auf der Warteliste pro Slot maximal vergeben werden (Standard: 4).<br>
+          - <strong>Slot-Auswahl:</strong> Ob nur ein Slot oder beide Slots angeboten werden (Standard: beide).<br>
+          - <strong>Wartelisten-Modus:</strong> Wie die Warteliste funktioniert (siehe Optionen unten).<br><br>
+          <strong>Wartelisten-Modi:</strong><br>
+          - <strong>Mit Warteliste:</strong> Wenn ein Slot voll ist, kommen neue Anmeldungen auf die Warteliste.<br>
+          - <strong>Fuer alle offen:</strong> Kein Limit, alle werden bestaetigt (Warteliste deaktiviert).<br>
+          - <strong>Ohne Warteliste:</strong> Wenn ein Slot voll ist, wird abgelehnt (keine Warteliste).<br>
+          - <strong>Warteliste fuer Gaeste:</strong> Gaeste kommen auf die Warteliste und brauchen Freigabe, Mitglieder werden sofort bestaetigt.
+        </div>
+
+        <form method="post" action="{{ url_for('admin_update_waitlist_settings') }}">
+          <p>
+            <label for="waitlist_limit">Wartelisten-Groesse (max. Eintraege pro Slot)</label><br>
+            <input class="form-control" type="number" min="0" id="waitlist_limit" name="waitlist_limit" value="{{ waitlist_limit }}">
+          </p>
+
+          <p>
+            <label for="slot_selection">Slot-Auswahl</label><br>
+            <select class="form-control" id="slot_selection" name="slot_selection">
+              <option value="one" {% if slot_selection == "one" %}selected{% endif %}>Nur ein Slot anbieten</option>
+              <option value="both" {% if slot_selection == "both" %}selected{% endif %}>Beide Slots anbieten (Standard)</option>
+            </select>
+          </p>
+
+          <p>
+            <label for="waitlist_mode">Wartelisten-Modus</label><br>
+            <select class="form-control" id="waitlist_mode" name="waitlist_mode">
+              <option value="with_waitlist" {% if waitlist_mode == "with_waitlist" %}selected{% endif %}>Mit Warteliste (Standard)</option>
+              <option value="open_for_all" {% if waitlist_mode == "open_for_all" %}selected{% endif %}>Fuer alle offen (kein Limit)</option>
+              <option value="no_waitlist" {% if waitlist_mode == "no_waitlist" %}selected{% endif %}>Ohne Warteliste (Ablehnung wenn voll)</option>
+              <option value="guests_only" {% if waitlist_mode == "guests_only" %}selected{% endif %}>Warteliste fuer Gaeste (Freigabe noetig)</option>
+            </select>
+          </p>
+
+          <div class="settings-actions">
+            <button type="submit">Wartelisten-Einstellungen speichern</button>
           </div>
         </form>
       </div>
