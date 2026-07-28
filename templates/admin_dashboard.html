@@ -2,19 +2,6 @@
 {% block title %}Admin-Dashboard{% endblock %}
 {% block content %}
 <h1>Admin-Dashboard</h1>
-{% if event %}
-<div class="slot-card" style="margin-bottom: 1rem; border-left: 4px solid var(--accent, #2563eb);">
-    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
-        <div>
-            <strong style="font-size: 1.1rem;">{{ event.title }}</strong>
-            <span style="opacity: 0.8; margin-left: 0.5rem;">{{ event.event_date }}</span>
-        </div>
-        <div>
-            <a href="{{ url_for('admin_events_list') }}" class="btn-soft" style="font-size: 0.85rem;">Events verwalten</a>
-        </div>
-    </div>
-</div>
-{% endif %}
 <p>Hier legst du die maximale Anzahl pro Slot fest und verwaltest die Anmeldungen. Warteliste ist auf {{ waitlist_limit }} Eintraege pro Slot begrenzt.</p>
 
 {% for slot in slots %}
@@ -147,12 +134,6 @@
 
 <div class="stack-label">Admins</div>
 <a class="btn-soft" href="{{ url_for('admin_users_list') }}">Admins verwalten</a>
-
-<div class="stack-label">Statistiken</div>
-<a class="btn-soft" href="{{ url_for('admin_stats') }}">Statistiken anzeigen</a>
-
-<div class="stack-label">QR-Code</div>
-<a class="btn-soft" href="{{ url_for('admin_qrcode') }}">QR-Code zum Teilen</a>
 
 <div class="stack-label">Gefahrenzone</div>
 <form action="{{ url_for('admin_clear_signups') }}" method="post" onsubmit="return confirm('Wirklich alle Anmeldungen loeschen?');">

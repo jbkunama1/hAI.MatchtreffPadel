@@ -6,7 +6,7 @@ import urllib.request
 from datetime import datetime, timedelta
 from flask import (
     Flask, render_template, request, redirect, url_for,
-    session, g, flash, make_response, send_file
+    session, g, flash, make_response
 )
 from werkzeug.security import generate_password_hash, check_password_hash
 
@@ -150,24 +150,6 @@ BG_STYLES = {
 ORGA_TEAM = ["Daniel", "Cosme", "Sascha", "Patrick"]
 SIGNUP_COOKIE_PREFIX = "mtp_signed_"
 
-# ---------------------------------------------------------------------------
-# NEU: Defaults fuer die Automatik (woechentlicher Reset + Admin-Digest).
-# Diese Werte werden nur beim allerersten Start in die Tabelle 'settings'
-# geschrieben. Danach kann der Admin sie ueber /admin/automation/update
-# jederzeit im Dashboard aendern, ohne den Container neu zu starten.
-# scheduler.py liest diese Werte vor jedem Lauf frisch aus der DB.
-# ---------------------------------------------------------------------------
-DEFAULT_RESET_ENABLED = "1"
-DEFAULT_RESET_WEEKDAY = "4"   # 0=Montag ... 4=Freitag ... 6=Sonntag
-DEFAULT_RESET_HOUR = "6"
-DEFAULT_RESET_MINUTE = "0"
-DEFAULT_NOTIFY_INTERVAL_MINUTES = "60"
-
-WEEKDAY_LABELS = {
-    0: "Montag", 1: "Dienstag", 2: "Mittwoch", 3: "Donnerstag",
-    4: "Freitag", 5: "Samstag", 6: "Sonntag",
-}
-
 
 def normalize_name(name: str) -> str:
     return " ".join(name.strip().split()).lower()
@@ -283,66 +265,35 @@ def create_app(test_config=None):
                 created_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
-
-            CREATE TABLE IF NOT EXISTS signup_comments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                name_normalized TEXT NOT NULL,
-                comment TEXT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
             """
         )
         cols = [r[1] for r in db.execute("PRAGMA table_info(signups)").fetchall()]
         if "is_member" not in cols:
             db.execute("ALTER TABLE signups ADD COLUMN is_member INTEGER NOT NULL DEFAULT 1")
 
-        # Hinweis: Gunicorn startet mehrere Worker parallel, die alle beim Boot
-        # init_db() aufrufen. "SELECT dann INSERT" ist dabei nicht race-sicher
-        # (zwei Worker koennen gleichzeitig "existiert nicht" sehen). Deshalb
-        # ausschliesslich atomare INSERT OR IGNORE-Statements verwenden.
-        db.execute(
-            "INSERT OR IGNORE INTO settings (key, value) VALUES ('theme', ?)",
-            (DEFAULT_THEME,),
-        )
-        db.commit()
-        db.execute(
-            "INSERT OR IGNORE INTO settings (key, value) VALUES ('custom_bg_image', ?)",
-            (DEFAULT_CUSTOM_IMAGE,),
-        )
-        db.commit()
-
-        # --- NEU: Automatik-Einstellungen (Reset + Digest) -------------------
-        # Werden nur einmalig mit Defaults angelegt, falls noch nicht vorhanden.
-        # INSERT OR IGNORE ist atomar -> keine Race Condition zwischen Workern.
-        automation_defaults = {
-            "reset_enabled": DEFAULT_RESET_ENABLED,
-            "reset_weekday": DEFAULT_RESET_WEEKDAY,
-            "reset_hour": DEFAULT_RESET_HOUR,
-            "reset_minute": DEFAULT_RESET_MINUTE,
-            "notify_interval_minutes": DEFAULT_NOTIFY_INTERVAL_MINUTES,
-        }
-        for key, value in automation_defaults.items():
-            db.execute(
-                "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
-                (key, value),
-            )
-            db.commit()
+        existing_theme = db.execute("SELECT value FROM settings WHERE key = 'theme'").fetchone()
+        if not existing_theme:
+            db.execute("INSERT INTO settings (key, value) VALUES ('theme', ?)", (DEFAULT_THEME,))
+        existing_custom_img = db.execute("SELECT value FROM settings WHERE key = 'custom_bg_image'").fetchone()
+        if not existing_custom_img:
+            db.execute("INSERT INTO settings (key, value) VALUES ('custom_bg_image', ?)", (DEFAULT_CUSTOM_IMAGE,))
 
         for seed_name, seed_password in SEED_ADMIN_USERS.items():
             if not seed_password:
                 continue
-            db.execute(
-                "INSERT OR IGNORE INTO admin_users (username, password_hash, created_by) VALUES (?, ?, ?)",
-                (seed_name, generate_password_hash(seed_password), "system"),
-            )
-            db.commit()
+            existing_admin = db.execute("SELECT id FROM admin_users WHERE username = ?", (seed_name,)).fetchone()
+            if not existing_admin:
+                db.execute(
+                    "INSERT INTO admin_users (username, password_hash, created_by) VALUES (?, ?, ?)",
+                    (seed_name, generate_password_hash(seed_password), "system"),
+                )
         for s in SLOT_DEFINITIONS:
-            db.execute(
-                "INSERT OR IGNORE INTO slots (slot_key, label, max_players) VALUES (?, ?, ?)",
-                (s["key"], s["label"], DEFAULT_MAX_PLAYERS),
-            )
-            db.commit()
+            existing = db.execute("SELECT id FROM slots WHERE slot_key = ?", (s["key"],)).fetchone()
+            if not existing:
+                db.execute(
+                    "INSERT INTO slots (slot_key, label, max_players) VALUES (?, ?, ?)",
+                    (s["key"], s["label"], DEFAULT_MAX_PLAYERS),
+                )
 
         # Migration: alte, individuell nicht mehr gewuenschte Labels (z.B. "FRUEH"/"SPAET")
         # aus frueheren Versionen automatisch auf die aktuellen Standard-Labels anheben,
@@ -447,25 +398,6 @@ def create_app(test_config=None):
             return row["value"]
         return DEFAULT_INTRO_TEXT
 
-    # --- NEU: kleine Helfer fuer generische Settings-Zugriffe -----------------
-    def get_setting(key, default=None):
-        db = get_db()
-        row = db.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
-        return row["value"] if row else default
-
-    def get_automation_settings():
-        """Liest die aktuellen Automatik-Einstellungen (Reset + Digest) aus
-        der Datenbank fuer die Anzeige im Admin-Dashboard."""
-        return {
-            "reset_enabled": get_setting("reset_enabled", DEFAULT_RESET_ENABLED) == "1",
-            "reset_weekday": int(get_setting("reset_weekday", DEFAULT_RESET_WEEKDAY)),
-            "reset_hour": int(get_setting("reset_hour", DEFAULT_RESET_HOUR)),
-            "reset_minute": int(get_setting("reset_minute", DEFAULT_RESET_MINUTE)),
-            "notify_interval_minutes": int(get_setting("notify_interval_minutes", DEFAULT_NOTIFY_INTERVAL_MINUTES)),
-            "last_auto_reset_at": get_setting("last_auto_reset_at", None),
-            "digest_last_sent_at": get_setting("digest_last_sent_at", None),
-        }
-
     @app.context_processor
     def inject_globals():
         theme_key = get_current_theme_key()
@@ -500,8 +432,6 @@ def create_app(test_config=None):
 
     @app.route("/info")
     def info_page():
-        # NEU: info.html bindet zusaetzlich das Erklaervideo
-        # static/Matchtreff_Silber.mp4 per <video>-Tag ein (siehe Vorlage).
         return render_template("info.html", info_text=INFO_PAGE_TEXT)
 
     @app.route("/eintragen", methods=["POST"])
@@ -587,36 +517,6 @@ def create_app(test_config=None):
             resp.set_cookie(SIGNUP_COOKIE_PREFIX + slot_key, "1", max_age=max_age, httponly=True, samesite="Lax")
         return resp
 
-    # --- NEU: Fehlende Route fuer das bereits im Template vorhandene
-    # Kommentarformular (index.html ruft url_for('add_comment') auf).
-    # Nur bereits angemeldete Spieler (Name muss exakt passen) koennen
-    # einen kurzen Kommentar hinterlassen.
-    @app.route("/add_comment", methods=["POST"])
-    def add_comment():
-        name = request.form.get("name", "").strip()
-        comment = request.form.get("comment", "").strip()
-
-        if not name or not comment:
-            flash("Bitte Namen und Kommentar ausfuellen.", "danger")
-            return redirect(url_for("index"))
-
-        name_norm = normalize_name(name)
-        db = get_db()
-        existing_signup = db.execute(
-            "SELECT id FROM signups WHERE name_normalized = ?", (name_norm,)
-        ).fetchone()
-        if not existing_signup:
-            flash("Kein passender angemeldeter Spieler mit diesem Namen gefunden.", "danger")
-            return redirect(url_for("index"))
-
-        db.execute(
-            "INSERT INTO signup_comments (name, name_normalized, comment) VALUES (?, ?, ?)",
-            (name, name_norm, comment[:200]),
-        )
-        db.commit()
-        flash("Kommentar hinzugefuegt.", "success")
-        return redirect(url_for("index"))
-
     @app.route("/admin/login", methods=["GET", "POST"])
     def admin_login():
         if request.method == "POST":
@@ -651,8 +551,6 @@ def create_app(test_config=None):
             "admin_dashboard.html", slots=slots, signups_by_slot=signups_by_slot,
             waitlist_limit=WAITLIST_LIMIT, gallery_images=GALLERY_IMAGES,
             current_custom_image=get_custom_bg_image(), raw_intro_text=get_raw_intro_text(),
-            # NEU: Automatik-Einstellungen fuer den neuen Dashboard-Bereich
-            automation=get_automation_settings(), weekday_labels=WEEKDAY_LABELS,
         )
 
     @app.route("/admin/slot/<int:slot_id>/update", methods=["POST"])
@@ -728,84 +626,6 @@ def create_app(test_config=None):
 
         flash("Anmeldung geloescht.", "info")
         return redirect(url_for("admin_dashboard"))
-
-    # ------------------------------------------------------------------
-    # NEU: Eintraege bearbeiten (Name, Mitglied/Gast, Slot, Status)
-    # ------------------------------------------------------------------
-    @app.route("/admin/signup/<int:signup_id>/edit", methods=["GET", "POST"])
-    @admin_required
-    def admin_edit_signup(signup_id):
-        """Ermoeglicht dem Admin, eine bestehende Anmeldung zu bearbeiten:
-        Name aendern, Mitglied/Gast-Status aendern oder in einen anderen
-        Slot verschieben (inkl. erneuter Kapazitaets- und Dubletten-Pruefung).
-        """
-        db = get_db()
-        row = db.execute("SELECT * FROM signups WHERE id = ?", (signup_id,)).fetchone()
-        if row is None:
-            flash("Anmeldung nicht gefunden.", "danger")
-            return redirect(url_for("admin_dashboard"))
-
-        if request.method == "POST":
-            new_name = request.form.get("name", "").strip()
-            new_is_member = 1 if request.form.get("is_member") else 0
-            new_slot_id_raw = request.form.get("slot_id", str(row["slot_id"]))
-            new_status = request.form.get("status", row["status"])
-
-            if not new_name:
-                flash("Bitte einen Namen eingeben.", "danger")
-                return redirect(url_for("admin_edit_signup", signup_id=signup_id))
-
-            try:
-                new_slot_id = int(new_slot_id_raw)
-            except ValueError:
-                new_slot_id = row["slot_id"]
-
-            if new_status not in ("confirmed", "waitlist"):
-                new_status = row["status"]
-
-            new_slot_row = db.execute("SELECT * FROM slots WHERE id = ?", (new_slot_id,)).fetchone()
-            if new_slot_row is None:
-                flash("Ungueltiger Slot.", "danger")
-                return redirect(url_for("admin_edit_signup", signup_id=signup_id))
-
-            new_name_norm = normalize_name(new_name)
-
-            # Wenn Name oder Slot geaendert wurde, pruefen wir auf Dubletten
-            # im Ziel-Slot (Unique-Constraint (slot_id, name_normalized)).
-            duplicate = db.execute(
-                "SELECT id FROM signups WHERE slot_id = ? AND name_normalized = ? AND id != ?",
-                (new_slot_id, new_name_norm, signup_id),
-            ).fetchone()
-            if duplicate:
-                flash("In diesem Slot ist dieser Name bereits eingetragen.", "danger")
-                return redirect(url_for("admin_edit_signup", signup_id=signup_id))
-
-            # Wenn auf 'confirmed' gesetzt wird und der Slot dadurch das Limit
-            # ueberschreiten wuerde, weisen wir den Admin darauf hin, lassen es
-            # aber zu (der Admin hat hier bewusst die volle Kontrolle).
-            if new_status == "confirmed":
-                confirmed_count = db.execute(
-                    "SELECT COUNT(*) AS c FROM signups WHERE slot_id = ? AND status = 'confirmed' AND id != ?",
-                    (new_slot_id, signup_id),
-                ).fetchone()["c"]
-                if confirmed_count >= new_slot_row["max_players"]:
-                    flash(
-                        f"Hinweis: Der Slot '{new_slot_row['label']}' ist eigentlich bereits voll "
-                        f"({confirmed_count}/{new_slot_row['max_players']}). Eintrag wurde trotzdem gespeichert.",
-                        "warning",
-                    )
-
-            db.execute(
-                "UPDATE signups SET name = ?, name_normalized = ?, is_member = ?, slot_id = ?, status = ? "
-                "WHERE id = ?",
-                (new_name, new_name_norm, new_is_member, new_slot_id, new_status, signup_id),
-            )
-            db.commit()
-            flash("Anmeldung wurde aktualisiert.", "success")
-            return redirect(url_for("admin_dashboard"))
-
-        slots = get_slots_with_counts()
-        return render_template("admin_edit_signup.html", signup=row, slots=slots)
 
     @app.route("/admin/users", methods=["GET"])
     @admin_required
@@ -932,84 +752,6 @@ def create_app(test_config=None):
             flash("Einleitungstext wurde auf Standard zurueckgesetzt.", "info")
         db.commit()
         return redirect(url_for("admin_dashboard"))
-
-    # ------------------------------------------------------------------
-    # NEU: Automatik-Einstellungen (Reset + Digest) direkt im Dashboard
-    # konfigurierbar machen, statt nur ueber Umgebungsvariablen.
-    # ------------------------------------------------------------------
-    @app.route("/admin/automation/update", methods=["POST"])
-    @admin_required
-    def admin_update_automation():
-        """Speichert die Automatik-Einstellungen (Reset + Digest) direkt in
-        der Datenbank. scheduler.py liest diese Werte vor jedem Lauf neu ein,
-        Aenderungen wirken also ohne Container-Neustart."""
-        reset_enabled = "1" if request.form.get("reset_enabled") else "0"
-        reset_weekday_raw = request.form.get("reset_weekday", DEFAULT_RESET_WEEKDAY).strip()
-        reset_hour_raw = request.form.get("reset_hour", DEFAULT_RESET_HOUR).strip()
-        reset_minute_raw = request.form.get("reset_minute", DEFAULT_RESET_MINUTE).strip()
-        notify_interval_raw = request.form.get("notify_interval_minutes", DEFAULT_NOTIFY_INTERVAL_MINUTES).strip()
-
-        try:
-            weekday = int(reset_weekday_raw)
-            hour = int(reset_hour_raw)
-            minute = int(reset_minute_raw)
-            interval = int(notify_interval_raw)
-        except ValueError:
-            flash("Bitte nur gueltige Zahlen fuer die Automatik-Einstellungen eingeben.", "danger")
-            return redirect(url_for("admin_dashboard"))
-
-        if not (0 <= weekday <= 6):
-            flash("Wochentag muss zwischen 0 (Montag) und 6 (Sonntag) liegen.", "danger")
-            return redirect(url_for("admin_dashboard"))
-        if not (0 <= hour <= 23) or not (0 <= minute <= 59):
-            flash("Bitte eine gueltige Uhrzeit angeben (Stunde 0-23, Minute 0-59).", "danger")
-            return redirect(url_for("admin_dashboard"))
-        if interval < 1:
-            flash("Das Benachrichtigungsintervall muss mindestens 1 Minute betragen.", "danger")
-            return redirect(url_for("admin_dashboard"))
-
-        db = get_db()
-        for key, value in {
-            "reset_enabled": reset_enabled,
-            "reset_weekday": str(weekday),
-            "reset_hour": str(hour),
-            "reset_minute": str(minute),
-            "notify_interval_minutes": str(interval),
-        }.items():
-            db.execute(
-                "INSERT INTO settings (key, value) VALUES (?, ?) "
-                "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-                (key, value),
-            )
-        db.commit()
-        flash("Automatik-Einstellungen (Reset + Benachrichtigungen) wurden gespeichert.", "success")
-        return redirect(url_for("admin_dashboard"))
-
-    # ------------------------------------------------------------------
-    # NEU: Backup-Download ueber die SQLite-Online-Backup-API (konsistent,
-    # auch bei laufendem Schreibzugriff durch Web-App und Bot).
-    # ------------------------------------------------------------------
-    @app.route("/admin/backup/download")
-    @admin_required
-    def admin_backup_download():
-        import tempfile
-
-        src_conn = get_db()
-        fd, tmp_path = tempfile.mkstemp(suffix=".sqlite3")
-        os.close(fd)
-        dest_conn = sqlite3.connect(tmp_path)
-        with dest_conn:
-            src_conn.backup(dest_conn)
-        dest_conn.close()
-
-        timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        download_name = f"matchtreff_backup_{timestamp}.sqlite3"
-        return send_file(
-            tmp_path,
-            as_attachment=True,
-            download_name=download_name,
-            mimetype="application/x-sqlite3",
-        )
 
     @app.route("/admin/signups/clear", methods=["POST"])
     @admin_required
