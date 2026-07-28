@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Anmeldung bearbeiten{% endblock %}
+{% block content %}
+<h1>Anmeldung bearbeiten</h1>
+
+<form method="post" action="{{ url_for('admin_edit_signup', signup_id=signup.id) }}" class="mb-4">
+    <div class="mb-3">
+        <label class="form-label" for="name">Name</label>
+        <input class="form-control" type="text" id="name" name="name" value="{{ signup.name }}" required>
+    </div>
+
+    <div class="mb-3 form-check">
+        <input class="form-check-input" type="checkbox" id="is_member" name="is_member" {% if signup.is_member %}checked{% endif %}>
+        <label class="form-check-label" for="is_member">Ist TCG-Mitglied</label>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="slot_id">Slot</label>
+        <select class="form-control" id="slot_id" name="slot_id">
+            {% for slot in slots %}
+            <option value="{{ slot.id }}" {% if slot.id == signup.slot_id %}selected{% endif %}>{{ slot.label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="mb-3">
+        <label class="form-label" for="status">Status</label>
+        <select class="form-control" id="status" name="status">
+            <option value="confirmed" {% if signup.status == "confirmed" %}selected{% endif %}>Bestaetigt</option>
+            <option value="waitlist" {% if signup.status == "waitlist" %}selected{% endif %}>Warteliste</option>
+        </select>
+    </div>
+
+    <button type="submit" class="btn btn-accent">Speichern</button>
+    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-secondary">Abbrechen</a>
+</form>
+{% endblock %}

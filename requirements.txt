@@ -1,4 +1,4 @@
-Flask
-gunicorn
-python-telegram-bot
-qrcode[pil]
+Flask>=2.3
+gunicorn>=21.2
+python-telegram-bot>=20.7
+APScheduler>=3.10

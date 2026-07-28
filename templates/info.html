@@ -2,8 +2,17 @@
 {% block title %}MATCHTREFF Silber - Infos{% endblock %}
 {% block content %}
 <h1>MATCHTREFF Silber - Alle Infos</h1>
-<div class="info-text">{{ info_text }}</div>
-<p style="margin-top:1rem;">
-    Mail direkt schreiben: <a href="mailto:daniel@will-padel-spielen.de">daniel@will-padel-spielen.de</a>
-</p>
+
+<pre style="white-space: pre-wrap; font-family: inherit;">{{ info_text }}</pre>
+
+<!-- NEU: Erklaervideo direkt auf der Info-Seite abspielbar einbinden.
+     Die Datei Matchtreff_Silber.mp4 liegt unter static/, damit Flask sie
+     wie die anderen statischen Assets (Bilder etc.) ausliefern kann. -->
+<h2>Video: MATCHTREFF Silber</h2>
+<video controls preload="metadata" style="width:100%; max-width:900px; border-radius:8px;">
+    <source src="{{ url_for('static', filename='Matchtreff_Silber.mp4') }}" type="video/mp4">
+    Dein Browser unterstuetzt dieses Video-Format leider nicht.
+</video>
+
+<p>Mail direkt schreiben: <a href="mailto:daniel@will-padel-spielen.de">daniel@will-padel-spielen.de</a></p>
 {% endblock %}

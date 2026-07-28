@@ -1,44 +1,99 @@
-# Matchtreff Padel - Update
+# hAI.MatchtreffPadel – Update-Paket (Reset, Digest, Backup, Edit, Video)
 
-Aenderungen in diesem Stand gegenueber GitHub:
+Dieses Paket enthält NUR die besprochenen Erweiterungen. Das Design/Layout
+bleibt unverändert – alle bestehenden Funktionen (Anmeldung, Warteliste,
+Admin-Login, Themes, Telegram-Gast-Benachrichtigung) funktionieren exakt
+wie vorher.
 
-1. Gast-Anmeldung ohne Pending: Jede Anmeldung (Mitglied oder Gast) wird sofort
-   eingetragen (confirmed/waitlist wie gehabt), es gibt keinen Pending-Status mehr.
-   Ueber die Checkbox "Ich bin TPCG-Mitglied" (standardmaessig angehakt, abwaehlbar)
-   wird zwischen Mitglied und Gast unterschieden; entsprechend erscheint ein
-   "Mitglied"- oder "Gast"-Badge in der Anmeldeliste.
+## Was ist neu?
 
-2. Telegram-Benachrichtigung bei Gast-Anmeldung: Meldet sich jemand OHNE Haken bei
-   "Ich bin TPCG-Mitglied" an, bekommen alle in ADMIN_TELEGRAM_IDS hinterlegten
-   Chat-IDs sofort eine Telegram-Nachricht mit Name, Slot und Status, plus zwei
-   Inline-Buttons ("Bestaetigen" / "Entfernen"). Admins koennen die Anmeldung
-   jederzeit im Admin-Dashboard oder direkt per Telegram-Button entfernen; die
-   Anmeldung selbst war aber sofort gueltig und im System.
-   Fuer die Inline-Buttons zusaetzlich telegram_bot.py starten (gleiche
-   instance/-Datenbank per Volume mounten).
+1. **Automatischer wöchentlicher Reset**
+   - Standard: jeden Freitag 06:00 Uhr, löscht ALLE Anmeldungen komplett
+     (neue Woche, neuer Anfang).
+   - Konfigurierbar direkt im Admin-Dashboard unter "Automatik" (kein
+     Umgebungsvariablen-Frickeln mehr nötig).
 
-3. Admin-Panel: "Design mit Bild" repariert und Bildergalerie ergaenzt: Alle
-   Bilder aus dem pictures-Verzeichnis werden im Admin-Dashboard als Auswahl-
-   Kacheln angezeigt. Auswahl + "Bild als Hintergrund uebernehmen" setzt das
-   Bild als Hintergrund und aktiviert automatisch das Design "Eigenes Bild
-   (Galerie)".
+2. **60-Minuten-Digest**
+   - Sammelt neue Anmeldungen und schickt alle 60 Minuten (konfigurierbar)
+     EINE Zusammenfassung an die Telegram-Admins (ADMIN_TELEGRAM_IDS).
+   - Geht NICHT an E-Mail, nur an Telegram-Admins.
+   - Gäste bekommen weiterhin sofort ihre eigene Nachricht wie bisher.
 
-4. Hintergrund-Icons 4x groesser: Die schwebenden Padel-Ball-Icons sind jetzt
-   ca. 4x so gross wie zuvor (36-80px statt 9-20px).
+3. **Backup-Download**
+   - Neuer Button im Admin-Dashboard: "Backup herunterladen".
+   - Erstellt über die SQLite-Online-Backup-API eine konsistente Kopie der
+     Datenbank, auch bei laufendem Schreibzugriff.
 
-5. Automatisches Donnerstagsdatum: Der Text "Anmeldung fuer Donnerstag,
-   TT.MM.JJJJ." verwendet den Platzhalter {next_thursday}, der bei jedem
-   Seitenaufruf live durch das Datum des naechsten Donnerstags ersetzt wird.
-   Sobald der Donnerstag vorbei ist, zeigt die Seite automatisch den naechsten
-   Donnerstag - ganz ohne manuelles Eingreifen. Der Text bleibt im Admin-Panel
-   frei editierbar (mit dem Platzhalter im Text).
+4. **Einträge bearbeiten**
+   - Neuer "Bearbeiten"-Link bei jedem Signup (Bestätigt + Warteliste).
+   - Name, Mitglied/Gast-Status, Slot und Status (bestätigt/Warteliste)
+     können angepasst werden, inkl. Dubletten- und Kapazitätsprüfung.
 
-## Setup
+5. **Erklärvideo auf der Info-Seite**
+   - Auf der bereits vorhandenen Seite `/info` ("MATCHTREFF Silber - Alle
+     Infos dazu gibt es hier") wird das Video `Matchtreff_Silber.mp4`
+     zusätzlich direkt abspielbar eingebunden (HTML5 `<video>`-Player).
 
-1. Alle Originalbilder aus dem pictures-Ordner nach static/pictures/ kopieren
-   (Dateinamen 1:1 wie im GitHub-Repo, siehe GALLERY_IMAGES in app.py).
-2. .env nach Vorlage .env.example ausfuellen (SECRET_KEY, Admin-Passwoerter,
-   optional TELEGRAM_BOT_TOKEN + ADMIN_TELEGRAM_IDS).
-3. docker build -t matchtreff-padel . und starten, oder lokal:
-   pip install -r requirements.txt && python app.py
-4. Optional fuer Telegram-Buttons: python telegram_bot.py parallel starten.
+## Was du konkret tun musst
+
+### 1. Dateien ins Repo übernehmen
+
+- `app.py` → ersetzt die bestehende Datei komplett (enthält alle bisherigen
+  Routen unverändert + die neuen Routen für Automatik, Backup, Edit).
+- `requirements.txt` → ersetzt die bestehende Datei (nur `APScheduler`
+  wurde ergänzt).
+- `docker-compose.yml` → ersetzt die bestehende Datei (neuer dritter
+  Service `matchtreff_scheduler`, alles andere unverändert).
+- `scheduler.py` → NEUE Datei im Projekt-Root.
+- `templates/info.html` → ersetzt die bestehende Datei (Video ergänzt).
+- `templates/admin_edit_signup.html` → NEUE Datei.
+
+### 2. Video-Datei bereitstellen
+
+Kopiere `Matchtreff_Silber.mp4` (liegt aktuell im Repo-Root) nach:
+
+```
+static/Matchtreff_Silber.mp4
+```
+
+Damit kann Flask sie wie alle anderen statischen Assets (Bilder, Logos)
+ausliefern.
+
+### 3. admin_dashboard.html von Hand ergänzen
+
+Aus Sicherheitsgründen wurde `admin_dashboard.html` NICHT automatisch
+überschrieben, da diese Datei sehr individuell ist (Themes, Galerie,
+Slot-Verwaltung). Die exakten Ergänzungen (3 Stellen: Bearbeiten-Link,
+Automatik-Bereich, Backup-Button) stehen fertig formuliert in:
+
+```
+ADMIN_DASHBOARD_AENDERUNGEN.txt
+```
+
+Einfach die dort beschriebenen HTML-Blöcke an den passenden Stellen in
+deine bestehende `templates/admin_dashboard.html` einfügen. Es wird kein
+neues CSS benötigt, nur bereits im Projekt vorhandene Bootstrap-Klassen.
+
+### 4. Deployment
+
+1. Alle Dateien committen und pushen.
+2. In Portainer: Stack "Pull and redeploy".
+3. Danach sollten drei Container laufen:
+   - `matchtreff_padel_web`
+   - `matchtreff_padel_bot`
+   - `matchtreff_padel_scheduler` (NEU)
+
+Die Automatik-Einstellungen (Wochentag/Uhrzeit/Intervall) kannst du danach
+direkt im Admin-Dashboard einstellen. Der Scheduler-Container liest sie beim
+Start; Änderungen an Wochentag/Uhrzeit/Intervall werden erst nach einem
+Neustart des `matchtreff_padel_scheduler`-Containers aktiv (einfach in
+Portainer neu deployen). Das Ein-/Ausschalten des Resets (Checkbox) wirkt
+sofort beim nächsten geplanten Lauf, ohne Neustart.
+
+## Was bewusst NICHT verändert wurde
+
+- Kein neues Design, keine neuen Farben/Fonts.
+- Keine Änderung an bestehenden Routen-Signaturen oder URLs.
+- Keine Änderung am Cookie-/Warteliste-/Mitglieder-Verhalten.
+- Kein E-Mail-Versand – Digests bleiben ausschließlich auf Telegram-Admins
+  beschränkt, wie gewünscht.

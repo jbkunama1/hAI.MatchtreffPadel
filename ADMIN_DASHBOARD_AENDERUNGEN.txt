@@ -1,0 +1,105 @@
+ANLEITUNG: Ergaenzungen fuer templates/admin_dashboard.html
+=============================================================
+
+Diese Datei aendert NICHT das Design/Layout. Es werden nur drei
+zusaetzliche Elemente in die bestehende admin_dashboard.html eingefuegt:
+
+1) Bei jedem Signup-Eintrag (Bestaetigt UND Warteliste) zusaetzlich zum
+   bestehenden "Loeschen"-Button einen "Bearbeiten"-Link einfuegen.
+
+   Bestehender Code sieht ungefaehr so aus (vereinfacht):
+
+   {% for signup in signups_by_slot[slot.id].confirmed %}
+     ...
+     <form method="post" action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}" style="display:inline;">
+         <button type="submit" class="btn btn-sm btn-outline-danger">Loeschen</button>
+     </form>
+   {% endfor %}
+
+   NEU direkt davor einfuegen:
+
+     <a href="{{ url_for('admin_edit_signup', signup_id=signup.id) }}" class="btn btn-sm btn-outline-secondary">
+         Bearbeiten
+     </a>
+
+   Das Gleiche fuer den Warteliste-Block (signups_by_slot[slot.id].waitlist).
+
+2) Neuer Abschnitt "Automatik" (Reset + Digest), z.B. nach dem Abschnitt
+   "Einleitungstext auf der Startseite" und vor "Admins" einfuegen:
+
+   <div class="card mb-4">
+     <div class="card-body">
+       <h2 class="h5">Automatik (Reset + Benachrichtigungen)</h2>
+       <p class="text-muted">
+         Der automatische Reset loescht JEDE WOCHE alle Anmeldungen komplett
+         (neue Woche, neuer Anfang). Die Benachrichtigungs-Digests gehen nur
+         an Telegram-Admins.
+       </p>
+       <form method="post" action="{{ url_for('admin_update_automation') }}">
+         <div class="mb-3 form-check">
+           <input class="form-check-input" type="checkbox" id="reset_enabled" name="reset_enabled"
+                  {% if automation.reset_enabled %}checked{% endif %}>
+           <label class="form-check-label" for="reset_enabled">Automatischen Reset aktivieren</label>
+         </div>
+
+         <div class="row g-3 mb-3">
+           <div class="col-auto">
+             <label class="form-label" for="reset_weekday">Wochentag</label>
+             <select class="form-control" id="reset_weekday" name="reset_weekday">
+               {% for num, label in weekday_labels.items() %}
+               <option value="{{ num }}" {% if num == automation.reset_weekday %}selected{% endif %}>{{ label }}</option>
+               {% endfor %}
+             </select>
+           </div>
+           <div class="col-auto">
+             <label class="form-label" for="reset_hour">Stunde</label>
+             <input class="form-control" type="number" min="0" max="23" id="reset_hour" name="reset_hour"
+                    value="{{ automation.reset_hour }}">
+           </div>
+           <div class="col-auto">
+             <label class="form-label" for="reset_minute">Minute</label>
+             <input class="form-control" type="number" min="0" max="59" id="reset_minute" name="reset_minute"
+                    value="{{ automation.reset_minute }}">
+           </div>
+           <div class="col-auto">
+             <label class="form-label" for="notify_interval_minutes">Digest-Intervall (Minuten)</label>
+             <input class="form-control" type="number" min="1" id="notify_interval_minutes"
+                    name="notify_interval_minutes" value="{{ automation.notify_interval_minutes }}">
+           </div>
+         </div>
+
+         {% if automation.last_auto_reset_at %}
+         <p class="small text-muted">Letzter automatischer Reset: {{ automation.last_auto_reset_at }}</p>
+         {% endif %}
+         {% if automation.digest_last_sent_at %}
+         <p class="small text-muted">Letzter Digest gesendet bis: {{ automation.digest_last_sent_at }}</p>
+         {% endif %}
+
+         <button type="submit" class="btn btn-accent">Automatik-Einstellungen speichern</button>
+       </form>
+       <p class="small text-muted mt-2">
+         Hinweis: Aenderungen an Wochentag/Uhrzeit/Intervall werden vom
+         scheduler-Container erst nach einem Neustart (z.B. "Redeploy" in
+         Portainer) uebernommen. Das Ein-/Ausschalten (reset_enabled) wirkt
+         sofort beim naechsten geplanten Lauf.
+       </p>
+     </div>
+   </div>
+
+3) Neuer Backup-Button, z.B. direkt oberhalb der "Gefahrenzone":
+
+   <div class="card mb-4">
+     <div class="card-body">
+       <h2 class="h5">Backup</h2>
+       <p class="text-muted">
+         Laedt eine konsistente Kopie der Datenbank (SQLite-Datei) herunter.
+       </p>
+       <a href="{{ url_for('admin_backup_download') }}" class="btn btn-accent">
+         Backup herunterladen
+       </a>
+     </div>
+   </div>
+
+Alle drei Ergaenzungen nutzen ausschliesslich Bootstrap-Klassen, die im
+Projekt bereits verwendet werden (btn, btn-accent, form-control, card, ...).
+Es wird kein neues CSS und kein neues Farbschema eingefuehrt.
