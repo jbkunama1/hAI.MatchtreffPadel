@@ -1,444 +1,632 @@
 {% extends "base.html" %}
+
 {% block title %}Admin-Dashboard{% endblock %}
 
 {% block content %}
 <style>
-  .admin-tabs {
-    margin-top: 1rem;
-  }
+    .admin-tabs {
+        margin-top: 1rem;
+    }
 
-  .admin-tablist {
-    display: flex;
-    gap: 0.5rem;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: thin;
-    padding-bottom: 0.35rem;
-    margin-bottom: 1.25rem;
-  }
-
-  .admin-tab {
-    flex: 0 0 auto;
-    white-space: nowrap;
-    border: 1px solid rgba(255,255,255,0.18);
-    background: rgba(255,255,255,0.08);
-    color: inherit;
-    border-radius: 999px;
-    padding: 0.65rem 1rem;
-    cursor: pointer;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-  }
-
-  .admin-tab.is-active {
-    background: rgba(255,255,255,0.18);
-    border-color: rgba(255,255,255,0.28);
-  }
-
-  .admin-tabpanel[hidden] {
-    display: none !important;
-  }
-
-  .admin-stack {
-    display: grid;
-    gap: 1rem;
-  }
-
-  .admin-card {
-    padding: 1rem;
-    border-radius: 1rem;
-    background: rgba(255,255,255,0.06);
-    border: 1px solid rgba(255,255,255,0.12);
-  }
-
-  .admin-card h2,
-  .admin-card h3 {
-    margin-top: 0;
-  }
-
-  .signup-list {
-    padding-left: 1.1rem;
-    margin-bottom: 0;
-  }
-
-  .signup-item {
-    margin-bottom: 0.55rem;
-  }
-
-  .inline-form {
-    display: inline;
-  }
-
-  .gallery-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0.75rem;
-  }
-
-  .gallery-option {
-    position: relative;
-    padding: 0.5rem;
-    border-radius: 0.85rem;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.12);
-    min-height: 72px;
-    display: flex;
-    align-items: end;
-  }
-
-  .gallery-option label {
-    display: block;
-    width: 100%;
-    padding-top: 1.6rem;
-    cursor: pointer;
-    word-break: break-word;
-  }
-
-  .meta-text {
-    opacity: 0.9;
-  }
-
-  .info-box {
-    padding: 0.75rem;
-    border-radius: 0.5rem;
-    background: rgba(255,255,255,0.08);
-    border: 1px solid rgba(255,255,255,0.12);
-    font-size: 0.95rem;
-    margin-bottom: 1rem;
-  }
-
-  @media (max-width: 768px) {
     .admin-tablist {
-      margin-inline: -0.125rem;
-      padding-inline: 0.125rem;
+        display: flex;
+        gap: 0.5rem;
+        overflow-x: auto;
+        padding-bottom: 0.35rem;
+        margin-bottom: 1.25rem;
     }
 
     .admin-tab {
-      padding: 0.6rem 0.9rem;
-      font-size: 0.95rem;
+        flex: 0 0 auto;
+        white-space: nowrap;
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        background: rgba(255, 255, 255, 0.08);
+        color: inherit;
+        border-radius: 999px;
+        padding: 0.65rem 1rem;
+        cursor: pointer;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
     }
-  }
+
+    .admin-tab:hover,
+    .admin-tab.is-active {
+        background: rgba(255, 255, 255, 0.18);
+        border-color: rgba(255, 255, 255, 0.28);
+    }
+
+    .admin-tabpanel[hidden] {
+        display: none !important;
+    }
+
+    .admin-stack {
+        display: grid;
+        gap: 1rem;
+    }
+
+    .admin-card {
+        padding: 1rem;
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+
+    .admin-card h2,
+    .admin-card h3 {
+        margin-top: 0;
+    }
+
+    .signup-list {
+        padding-left: 1.1rem;
+        margin-bottom: 0;
+    }
+
+    .signup-item {
+        margin-bottom: 0.55rem;
+    }
+
+    .inline-form {
+        display: inline;
+    }
+
+    .gallery-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        gap: 0.75rem;
+    }
+
+    .gallery-option {
+        position: relative;
+        padding: 0.5rem;
+        border-radius: 0.85rem;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        min-height: 72px;
+        display: flex;
+        align-items: end;
+    }
+
+    .gallery-option label {
+        display: block;
+        width: 100%;
+        padding-top: 1.6rem;
+        cursor: pointer;
+        word-break: break-word;
+    }
+
+    .meta-text {
+        opacity: 0.9;
+    }
+
+    .info-box {
+        padding: 0.75rem;
+        border-radius: 0.5rem;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        font-size: 0.95rem;
+        margin-bottom: 1rem;
+    }
+
+    .danger-actions {
+        margin-top: 1rem;
+    }
+
+    @media (max-width: 768px) {
+        .admin-tab {
+            padding: 0.6rem 0.9rem;
+            font-size: 0.95rem;
+        }
+    }
 </style>
 
 <h1>Admin-Dashboard</h1>
+
 <p>
-  Hier legst du die maximale Anzahl pro Slot fest und verwaltest die Anmeldungen.
-  Warteliste ist auf {{ waitlist_limit }} Eintraege pro Slot begrenzt.
+    Hier legst du die maximale Anzahl pro Slot fest und verwaltest die
+    Anmeldungen. Die Warteliste ist aktuell auf
+    <strong>{{ waitlist_limit }}</strong> Eintraege pro Slot begrenzt.
 </p>
 
 <div class="admin-tabs">
-  <div class="admin-tablist" role="tablist" aria-label="Admin-Bereiche">
-    <button class="admin-tab is-active" role="tab" aria-selected="true" aria-controls="tab-uebersicht" id="btn-uebersicht" data-tab="uebersicht">📊 Übersicht</button>
-    <a class="admin-tab" role="tab" href="{{ url_for('admin_edit_signup') }}">✏️ Anmeldung</a>
-    <a class="admin-tab" role="tab" href="{{ url_for('admin_stats') }}">📈 Statistik</a>
-    <a class="admin-tab" role="tab" href="{{ url_for('admin_qrcode') }}">📱 QR-Code</a>
-    <a class="admin-tab" role="tab" href="{{ url_for('admin_events') }}">📋 Events</a>
-    <a class="admin-tab" role="tab" href="{{ url_for('admin_users_list') }}">👥 Admins</a>
-    <a class="admin-tab" role="tab" href="{{ url_for('admin_system') }}">⚙️ System</a>
-  </div>
+    <div class="admin-tablist" role="tablist" aria-label="Admin-Bereiche">
+        <button
+            class="admin-tab is-active"
+            type="button"
+            role="tab"
+            aria-selected="true"
+            aria-controls="tab-uebersicht"
+            id="btn-uebersicht"
+            data-tab="uebersicht"
+        >
+            Uebersicht
+        </button>
 
-  <section class="admin-tabpanel" id="tab-uebersicht" role="tabpanel" aria-labelledby="btn-uebersicht">
-    <div class="admin-stack">
-      {% for slot in slots %}
-      <div class="admin-card">
-        <h2>{{ slot.label }}</h2>
-        <p class="meta-text">
-          {{ slot.count }} von {{ slot.max_players }} Plaetzen belegt
-          {% if slot.full %} - Slot ist voll{% endif %}
-          | Warteliste: {{ slot.waitlist_count }}/{{ waitlist_limit }}
-        </p>
+        <button
+            class="admin-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-aussehen"
+            id="btn-aussehen"
+            data-tab="aussehen"
+        >
+            Design
+        </button>
 
-        <form method="post" action="{{ url_for('admin_update_slot', slot_id=slot.id) }}">
-          <p>
-            <label for="label_{{ slot.id }}">Slot-Bezeichnung</label><br>
-            <input class="form-control" type="text" id="label_{{ slot.id }}" name="label" value="{{ slot.label }}">
-          </p>
+        <button
+            class="admin-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-warteliste"
+            id="btn-warteliste"
+            data-tab="warteliste"
+        >
+            Warteliste
+        </button>
 
-          <p>
-            <label for="max_players_{{ slot.id }}">Max. Plaetze</label><br>
-            <input class="form-control" type="number" min="1" id="max_players_{{ slot.id }}" name="max_players" value="{{ slot.max_players }}">
-          </p>
+        <a class="admin-tab" href="{{ url_for('admin_users_list') }}">
+            Admins
+        </a>
 
-          <div class="slot-actions">
-            <button type="submit">Speichern</button>
-          </div>
-        </form>
-
-        <div class="admin-stack" style="margin-top: 1rem;">
-          <div>
-            <h3>Bestaetigt</h3>
-            <ul class="signup-list">
-              {% for signup in signups_by_slot[slot.id].confirmed %}
-              <li class="signup-item">
-                {% if signup.name_normalized in orga_team_normalized %}
-                  <strong>{{ signup.name }} ★</strong>
-                {% else %}
-                  {{ signup.name }}
-                {% endif %}
-                {% if signup.is_member %}
-                  <span>Mitglied</span>
-                {% else %}
-                  <span>Gast</span>
-                {% endif %}
-
-                <form class="inline-form" method="post" action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}">
-                  <button type="submit">Loeschen</button>
-                </form>
-              </li>
-              {% else %}
-              <li>Noch niemand angemeldet.</li>
-              {% endfor %}
-            </ul>
-          </div>
-
-          <div>
-            <h3>Warteliste ({{ signups_by_slot[slot.id].waitlist|length }}/{{ waitlist_limit }})</h3>
-            <ul class="signup-list">
-              {% for signup in signups_by_slot[slot.id].waitlist %}
-              <li class="signup-item">
-                {% if signup.name_normalized in orga_team_normalized %}
-                  <strong>{{ signup.name }} ★</strong>
-                {% else %}
-                  {{ signup.name }}
-                {% endif %}
-                {% if signup.is_member %}
-                  <span>Mitglied</span>
-                {% else %}
-                  <span>Gast</span>
-                {% endif %}
-
-                <form class="inline-form" method="post" action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}">
-                  <button type="submit">Loeschen</button>
-                </form>
-              </li>
-              {% else %}
-              <li>Warteliste leer.</li>
-              {% endfor %}
-            </ul>
-          </div>
-        </div>
-      </div>
-      {% endfor %}
+        <button
+            class="admin-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-system"
+            id="btn-system"
+            data-tab="system"
+        >
+            System
+        </button>
     </div>
-  </section>
 
-  <section class="admin-tabpanel" id="tab-aussehen" role="tabpanel" aria-labelledby="btn-aussehen" hidden>
-    <div class="admin-stack">
-      <div class="admin-card">
-        <h2>Design / Hintergrund</h2>
-        <p>Waehle einen von mehreren vordefinierten Hintergruenden und Akzentfarben fuer die Web-App.</p>
+    <section
+        class="admin-tabpanel"
+        id="tab-uebersicht"
+        role="tabpanel"
+        aria-labelledby="btn-uebersicht"
+    >
+        <div class="admin-stack">
+            {% for slot in slots %}
+            <div class="admin-card">
+                <h2>{{ slot.label }}</h2>
 
-        <form method="post" action="{{ url_for('admin_update_theme') }}">
-          <p>
-            <strong>Aktuelles Design:</strong> {{ current_theme.label }}
-          </p>
-          <p>
-            <label for="theme">Design</label><br>
-            <select class="form-control" id="theme" name="theme">
-              {% for key, theme in themes.items() %}
-              <option value="{{ key }}" {% if key == current_theme_key %}selected{% endif %}>{{ theme.label }}</option>
-              {% endfor %}
-            </select>
-          </p>
-          <div class="settings-actions">
-            <button type="submit">Design uebernehmen</button>
-          </div>
-        </form>
-      </div>
+                <p class="meta-text">
+                    {{ slot.count }} von {{ slot.max_players }} Plaetzen belegt
+                    {% if slot.full %}- Slot ist voll{% endif %}
+                    <br>
+                    Warteliste: {{ slot.waitlist_count }}/{{ waitlist_limit }}
+                </p>
 
-      <div class="admin-card">
-        <h2>Eigenes Hintergrundbild waehlen</h2>
-        <p>
-          Waehle eines der Bilder aus dem pictures-Verzeichnis als Hintergrund.
-          Aktivierung setzt automatisch das Design auf "Eigenes Bild (Galerie)".
-        </p>
+                <form
+                    method="post"
+                    action="{{ url_for('admin_update_slot', slot_id=slot.id) }}"
+                >
+                    <p>
+                        <label for="label-{{ slot.id }}">Slot-Bezeichnung</label><br>
+                        <input
+                            class="form-control"
+                            type="text"
+                            id="label-{{ slot.id }}"
+                            name="label"
+                            value="{{ slot.label }}"
+                        >
+                    </p>
 
-        <p><strong>Aktuelles Bild:</strong> {{ current_custom_image }}</p>
+                    <p>
+                        <label for="max-players-{{ slot.id }}">
+                            Max. Plaetze
+                        </label><br>
+                        <input
+                            class="form-control"
+                            type="number"
+                            min="1"
+                            id="max-players-{{ slot.id }}"
+                            name="max_players"
+                            value="{{ slot.max_players }}"
+                        >
+                    </p>
 
-        <form method="post" action="{{ url_for('admin_update_custom_image') }}">
-          <div class="gallery-grid">
-            {% for img in gallery_images %}
-            <div class="gallery-option">
-              <input
-                type="radio"
-                name="custom_image"
-                value="{{ img }}"
-                id="custom_image_{{ loop.index }}"
-                {% if img == current_custom_image %}checked{% endif %}
-                style="position:absolute; top:0.6rem; left:0.6rem; width:18px; height:18px; z-index:2;"
-              >
-              <label for="custom_image_{{ loop.index }}">{{ img }}</label>
+                    <button type="submit">Speichern</button>
+                </form>
+
+                <div class="admin-stack" style="margin-top: 1rem;">
+                    <div>
+                        <h3>Bestaetigt</h3>
+                        <ul class="signup-list">
+                            {% for signup in signups_by_slot[slot.id].confirmed %}
+                            <li class="signup-item">
+                                {% if signup.name_normalized in orga_team_normalized %}
+                                    <strong>{{ signup.name }}</strong>
+                                {% else %}
+                                    {{ signup.name }}
+                                {% endif %}
+
+                                {% if signup.is_member %}
+                                    <span>Mitglied</span>
+                                {% else %}
+                                    <span>Gast</span>
+                                {% endif %}
+
+                                <form
+                                    class="inline-form"
+                                    method="post"
+                                    action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}"
+                                >
+                                    <button type="submit">Loeschen</button>
+                                </form>
+                            </li>
+                            {% else %}
+                            <li>Noch niemand angemeldet.</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
+                    <div>
+                        <h3>
+                            Warteliste
+                            ({{ signups_by_slot[slot.id].waitlist|length }}/{{ waitlist_limit }})
+                        </h3>
+
+                        <ul class="signup-list">
+                            {% for signup in signups_by_slot[slot.id].waitlist %}
+                            <li class="signup-item">
+                                {% if signup.name_normalized in orga_team_normalized %}
+                                    <strong>{{ signup.name }}</strong>
+                                {% else %}
+                                    {{ signup.name }}
+                                {% endif %}
+
+                                {% if signup.is_member %}
+                                    <span>Mitglied</span>
+                                {% else %}
+                                    <span>Gast</span>
+                                {% endif %}
+
+                                <form
+                                    class="inline-form"
+                                    method="post"
+                                    action="{{ url_for('admin_delete_signup', signup_id=signup.id) }}"
+                                >
+                                    <button type="submit">Loeschen</button>
+                                </form>
+                            </li>
+                            {% else %}
+                            <li>Warteliste leer.</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                </div>
             </div>
             {% endfor %}
-          </div>
-
-          <div class="settings-actions">
-            <button type="submit">Bild als Hintergrund uebernehmen</button>
-          </div>
-        </form>
-      </div>
-
-      <div class="admin-card">
-        <h2>Schwebe-Effekt im Hintergrund</h2>
-        <p>
-          Waehle, ob im Hintergrund farbige Blasen oder Padel-Ball-Icons nach oben schweben
-          (Icons werden gross angezeigt).
-        </p>
-
-        <form method="post" action="{{ url_for('admin_update_bg_style') }}">
-          <p><strong>Aktueller Effekt:</strong> {{ bg_styles[current_bg_style] }}</p>
-          <p>
-            <label for="bg_style">Effekt</label><br>
-            <select class="form-control" id="bg_style" name="bg_style">
-              {% for key, label in bg_styles.items() %}
-              <option value="{{ key }}" {% if key == current_bg_style %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </p>
-          <div class="settings-actions">
-            <button type="submit">Effekt uebernehmen</button>
-          </div>
-        </form>
-      </div>
-
-      <div class="admin-card">
-        <h2>Einleitungstext auf der Startseite</h2>
-        <p>
-          Passe den Text an, der ganz oben auf der Anmeldeseite unter dem Titel angezeigt wird.
-          Verwende <code>{next_thursday}</code> als Platzhalter - er wird automatisch durch das
-          Datum des naechsten Donnerstags ersetzt und aktualisiert sich jede Woche von selbst.
-          Leer lassen und speichern setzt den Standardtext zurueck.
-        </p>
-
-        <form method="post" action="{{ url_for('admin_update_intro_text') }}">
-          <p>
-            <label for="intro_text">Text (Vorlage mit Platzhalter)</label><br>
-            <textarea class="form-control" id="intro_text" name="intro_text" rows="4">{{ raw_intro_text }}</textarea>
-          </p>
-          <div class="settings-actions">
-            <button type="submit">Text speichern</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </section>
-
-  <section class="admin-tabpanel" id="tab-warteliste" role="tabpanel" aria-labelledby="btn-warteliste" hidden>
-    <div class="admin-stack">
-      <div class="admin-card">
-        <h2>Wartelisten-Einstellungen</h2>
-        <div class="info-box">
-          <strong>Was du hier einstellen kannst:</strong><br>
-          - <strong>Wartelisten-Groesse:</strong> Wie viele Plaetze auf der Warteliste pro Slot maximal vergeben werden (Standard: 4).<br>
-          - <strong>Slot-Auswahl:</strong> Ob nur ein Slot oder beide Slots angeboten werden (Standard: beide).<br>
-          - <strong>Wartelisten-Modus:</strong> Wie die Warteliste funktioniert (siehe Optionen unten).<br><br>
-          <strong>Wartelisten-Modi:</strong><br>
-          - <strong>Mit Warteliste:</strong> Wenn ein Slot voll ist, kommen neue Anmeldungen auf die Warteliste.<br>
-          - <strong>Fuer alle offen:</strong> Kein Limit, alle werden bestaetigt (Warteliste deaktiviert).<br>
-          - <strong>Ohne Warteliste:</strong> Wenn ein Slot voll ist, wird abgelehnt (keine Warteliste).<br>
-          - <strong>Warteliste fuer Gaeste:</strong> Gaeste kommen auf die Warteliste und brauchen Freigabe, Mitglieder werden sofort bestaetigt.
         </div>
+    </section>
 
-        <form method="post" action="{{ url_for('admin_update_waitlist_settings') }}">
-          <p>
-            <label for="waitlist_limit">Wartelisten-Groesse (max. Eintraege pro Slot)</label><br>
-            <input class="form-control" type="number" min="0" id="waitlist_limit" name="waitlist_limit" value="{{ waitlist_limit }}">
-          </p>
+    <section
+        class="admin-tabpanel"
+        id="tab-aussehen"
+        role="tabpanel"
+        aria-labelledby="btn-aussehen"
+        hidden
+    >
+        <div class="admin-stack">
+            <div class="admin-card">
+                <h2>Design &amp; Hintergrund</h2>
 
-          <p>
-            <label for="slot_selection">Slot-Auswahl</label><br>
-            <select class="form-control" id="slot_selection" name="slot_selection">
-              <option value="one" {% if slot_selection == "one" %}selected{% endif %}>Nur ein Slot anbieten</option>
-              <option value="both" {% if slot_selection == "both" %}selected{% endif %}>Beide Slots anbieten (Standard)</option>
-            </select>
-          </p>
+                <form method="post" action="{{ url_for('admin_update_theme') }}">
+                    <p>
+                        <strong>Aktuelles Design:</strong>
+                        {{ current_theme.label }}
+                    </p>
 
-          <p>
-            <label for="waitlist_mode">Wartelisten-Modus</label><br>
-            <select class="form-control" id="waitlist_mode" name="waitlist_mode">
-              <option value="with_waitlist" {% if waitlist_mode == "with_waitlist" %}selected{% endif %}>Mit Warteliste (Standard)</option>
-              <option value="open_for_all" {% if waitlist_mode == "open_for_all" %}selected{% endif %}>Fuer alle offen (kein Limit)</option>
-              <option value="no_waitlist" {% if waitlist_mode == "no_waitlist" %}selected{% endif %}>Ohne Warteliste (Ablehnung wenn voll)</option>
-              <option value="guests_only" {% if waitlist_mode == "guests_only" %}selected{% endif %}>Warteliste fuer Gaeste (Freigabe noetig)</option>
-            </select>
-          </p>
+                    <label for="theme">Design</label><br>
+                    <select class="form-control" id="theme" name="theme">
+                        {% for key, theme in themes.items() %}
+                        <option
+                            value="{{ key }}"
+                            {% if key == current_theme_key %}selected{% endif %}
+                        >
+                            {{ theme.label }}
+                        </option>
+                        {% endfor %}
+                    </select>
 
-          <div class="settings-actions">
-            <button type="submit">Wartelisten-Einstellungen speichern</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </section>
+                    <p>
+                        <button type="submit">Design uebernehmen</button>
+                    </p>
+                </form>
+            </div>
 
-  <section class="admin-tabpanel" id="tab-admins" role="tabpanel" aria-labelledby="btn-admins" hidden>
-    <div class="admin-stack">
-      <div class="admin-card">
-        <h2>Admins</h2>
-        <p>Hier verwaltest du die Admin-Namen und weitere Rollen.</p>
-        <p><a href="{{ url_for('admin_users_list') }}">Admins verwalten</a></p>
-      </div>
-    </div>
-  </section>
+            <div class="admin-card">
+                <h2>Eigenes Hintergrundbild</h2>
 
-  <section class="admin-tabpanel" id="tab-system" role="tabpanel" aria-labelledby="btn-system" hidden>
-    <div class="admin-stack">
-      <div class="admin-card">
-        <h2>Automatik / Scheduler</h2>
-        <p>
-          Dieser Bereich ist fuer Reset-, Zeit- und Digest-Einstellungen gedacht.
-          Das Projekt sieht diese Konfiguration bereits vor, sie wird hier jetzt sichtbar vorbereitet.
-        </p>
-        <p>
-          Sobald die passenden Scheduler-Felder aus <code>app.py</code> ans Template uebergeben werden,
-          kann dieser Tab direkt die Automatik-Einstellungen bearbeiten.
-        </p>
-      </div>
+                <p>
+                    Waehle ein Bild aus dem pictures-Verzeichnis. Beim Speichern
+                    wird automatisch das Design "Eigenes Bild" aktiviert.
+                </p>
 
-      <div class="admin-card">
-        <h2>Backup & Gefahrenzone</h2>
-        <p>
-          <a href="{{ url_for('admin_backup_download') }}">Datenbank-Backup herunterladen</a>
-        </p>
-        <form method="post" action="{{ url_for('admin_clear_signups') }}">
-          <div class="danger-actions">
-            <button type="submit">Alle Anmeldungen zuruecksetzen</button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </section>
+                <p>
+                    <strong>Aktuelles Bild:</strong> {{ current_custom_image }}
+                </p>
+
+                <form
+                    method="post"
+                    action="{{ url_for('admin_update_custom_image') }}"
+                >
+                    <div class="gallery-grid">
+                        {% for image in gallery_images %}
+                        <div class="gallery-option">
+                            <input
+                                type="radio"
+                                name="custom_image"
+                                value="{{ image }}"
+                                id="custom-image-{{ loop.index }}"
+                                {% if image == current_custom_image %}checked{% endif %}
+                                style="position: absolute; top: 0.6rem; left: 0.6rem;"
+                            >
+
+                            <label for="custom-image-{{ loop.index }}">
+                                {{ image }}
+                            </label>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                    <p>
+                        <button type="submit">
+                            Bild als Hintergrund uebernehmen
+                        </button>
+                    </p>
+                </form>
+            </div>
+
+            <div class="admin-card">
+                <h2>Schwebe-Effekt im Hintergrund</h2>
+
+                <form
+                    method="post"
+                    action="{{ url_for('admin_update_bg_style') }}"
+                >
+                    <p>
+                        <strong>Aktueller Effekt:</strong>
+                        {{ bg_styles[current_bg_style] }}
+                    </p>
+
+                    <label for="bg-style">Effekt</label><br>
+                    <select class="form-control" id="bg-style" name="bg_style">
+                        {% for key, label in bg_styles.items() %}
+                        <option
+                            value="{{ key }}"
+                            {% if key == current_bg_style %}selected{% endif %}
+                        >
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+
+                    <p>
+                        <button type="submit">Effekt uebernehmen</button>
+                    </p>
+                </form>
+            </div>
+
+            <div class="admin-card">
+                <h2>Einleitungstext auf der Startseite</h2>
+
+                <p>
+                    Verwende <code>{next_thursday}</code> als Platzhalter.
+                    Er wird automatisch durch das Datum des naechsten
+                    Donnerstags ersetzt. Ein leerer Text setzt den Standard
+                    wieder her.
+                </p>
+
+                <form
+                    method="post"
+                    action="{{ url_for('admin_update_intro_text') }}"
+                >
+                    <label for="intro-text">Text-Vorlage</label><br>
+                    <textarea
+                        class="form-control"
+                        id="intro-text"
+                        name="intro_text"
+                        rows="5"
+                    >{{ raw_intro_text }}</textarea>
+
+                    <p>
+                        <button type="submit">Text speichern</button>
+                    </p>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <section
+        class="admin-tabpanel"
+        id="tab-warteliste"
+        role="tabpanel"
+        aria-labelledby="btn-warteliste"
+        hidden
+    >
+        <div class="admin-stack">
+            <div class="admin-card">
+                <h2>Wartelisten-Einstellungen</h2>
+
+                <div class="info-box">
+                    <strong>Mit Warteliste:</strong> Ist ein Slot voll, werden
+                    weitere Anmeldungen auf die Warteliste gesetzt.<br><br>
+
+                    <strong>Fuer alle offen:</strong> Alle Anmeldungen werden
+                    bestaetigt; es gibt kein Limit.<br><br>
+
+                    <strong>Ohne Warteliste:</strong> Bei einem vollen Slot
+                    werden weitere Anmeldungen abgelehnt.<br><br>
+
+                    <strong>Warteliste fuer Gaeste:</strong> Gaeste kommen auf
+                    die Warteliste; Mitglieder werden direkt bestaetigt.
+                </div>
+
+                <form
+                    method="post"
+                    action="{{ url_for('admin_update_waitlist_settings') }}"
+                >
+                    <p>
+                        <label for="waitlist-limit">
+                            Wartelisten-Groesse pro Slot
+                        </label><br>
+                        <input
+                            class="form-control"
+                            type="number"
+                            min="0"
+                            id="waitlist-limit"
+                            name="waitlist_limit"
+                            value="{{ waitlist_limit }}"
+                        >
+                    </p>
+
+                    <p>
+                        <label for="slot-selection">Slot-Auswahl</label><br>
+                        <select
+                            class="form-control"
+                            id="slot-selection"
+                            name="slot_selection"
+                        >
+                            <option
+                                value="one"
+                                {% if slot_selection == "one" %}selected{% endif %}
+                            >
+                                Nur einen Slot anbieten
+                            </option>
+
+                            <option
+                                value="both"
+                                {% if slot_selection == "both" %}selected{% endif %}
+                            >
+                                Beide Slots anbieten
+                            </option>
+                        </select>
+                    </p>
+
+                    <p>
+                        <label for="waitlist-mode">Wartelisten-Modus</label><br>
+                        <select
+                            class="form-control"
+                            id="waitlist-mode"
+                            name="waitlist_mode"
+                        >
+                            <option
+                                value="with_waitlist"
+                                {% if waitlist_mode == "with_waitlist" %}selected{% endif %}
+                            >
+                                Mit Warteliste
+                            </option>
+
+                            <option
+                                value="open_for_all"
+                                {% if waitlist_mode == "open_for_all" %}selected{% endif %}
+                            >
+                                Fuer alle offen (kein Limit)
+                            </option>
+
+                            <option
+                                value="no_waitlist"
+                                {% if waitlist_mode == "no_waitlist" %}selected{% endif %}
+                            >
+                                Ohne Warteliste
+                            </option>
+
+                            <option
+                                value="guests_only"
+                                {% if waitlist_mode == "guests_only" %}selected{% endif %}
+                            >
+                                Warteliste fuer Gaeste
+                            </option>
+                        </select>
+                    </p>
+
+                    <button type="submit">
+                        Wartelisten-Einstellungen speichern
+                    </button>
+                </form>
+            </div>
+        </div>
+    </section>
+
+    <section
+        class="admin-tabpanel"
+        id="tab-system"
+        role="tabpanel"
+        aria-labelledby="btn-system"
+        hidden
+    >
+        <div class="admin-stack">
+            <div class="admin-card">
+                <h2>Datenbank-Backup</h2>
+
+                <p>
+                    Lade ein Backup der aktuellen SQLite-Datenbank herunter,
+                    bevor du groessere Aenderungen machst.
+                </p>
+
+                <a href="{{ url_for('admin_backup_download') }}">
+                    Datenbank-Backup herunterladen
+                </a>
+            </div>
+
+            <div class="admin-card">
+                <h2>Gefahrenzone</h2>
+
+                <p>
+                    Diese Aktion loescht alle bestaetigten Anmeldungen und
+                    Wartelisten-Eintraege unwiderruflich.
+                </p>
+
+                <form
+                    method="post"
+                    action="{{ url_for('admin_clear_signups') }}"
+                    onsubmit="return confirm('Wirklich alle Anmeldungen loeschen?');"
+                >
+                    <div class="danger-actions">
+                        <button type="submit">
+                            Alle Anmeldungen zuruecksetzen
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </section>
 </div>
 
 <script>
 document.addEventListener("DOMContentLoaded", function () {
-  const tabs = document.querySelectorAll(".admin-tab");
-  const panels = document.querySelectorAll(".admin-tabpanel");
+    const tabs = document.querySelectorAll(".admin-tab[data-tab]");
+    const panels = document.querySelectorAll(".admin-tabpanel");
 
-  tabs.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      const target = tab.dataset.tab;
+    tabs.forEach(function (tab) {
+        tab.addEventListener("click", function () {
+            const target = tab.dataset.tab;
 
-      tabs.forEach((btn) => {
-        btn.classList.remove("is-active");
-        btn.setAttribute("aria-selected", "false");
-      });
+            tabs.forEach(function (button) {
+                button.classList.remove("is-active");
+                button.setAttribute("aria-selected", "false");
+            });
 
-      panels.forEach((panel) => {
-        panel.hidden = true;
-      });
+            panels.forEach(function (panel) {
+                panel.hidden = true;
+            });
 
-      tab.classList.add("is-active");
-      tab.setAttribute("aria-selected", "true");
+            tab.classList.add("is-active");
+            tab.setAttribute("aria-selected", "true");
 
-      const activePanel = document.getElementById("tab-" + target);
-      if (activePanel) {
-        activePanel.hidden = false;
-      }
+            const activePanel = document.getElementById("tab-" + target);
+            if (activePanel) {
+                activePanel.hidden = false;
+            }
+        });
     });
-  });
 });
 </script>
 {% endblock %}
