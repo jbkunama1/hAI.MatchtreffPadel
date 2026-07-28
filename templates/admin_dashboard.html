@@ -26,6 +26,7 @@
     border-radius: 999px;
     padding: 0.65rem 1rem;
     cursor: pointer;
+    text-decoration: none;
   }
 
   .admin-tab.is-active {
@@ -117,13 +118,16 @@
 
 <div class="admin-tabs">
   <div class="admin-tablist" role="tablist" aria-label="Admin-Bereiche">
-    <button class="admin-tab is-active" role="tab" aria-selected="true" aria-controls="tab-anmeldung" id="btn-anmeldung" data-tab="anmeldung">Anmeldung</button>
-    <button class="admin-tab" role="tab" aria-selected="false" aria-controls="tab-aussehen" id="btn-aussehen" data-tab="aussehen">Aussehen</button>
-    <button class="admin-tab" role="tab" aria-selected="false" aria-controls="tab-admins" id="btn-admins" data-tab="admins">Admins</button>
-    <button class="admin-tab" role="tab" aria-selected="false" aria-controls="tab-system" id="btn-system" data-tab="system">System</button>
+    <button class="admin-tab is-active" role="tab" aria-selected="true" aria-controls="tab-uebersicht" id="btn-uebersicht" data-tab="uebersicht">Übersicht</button>
+    <a class="admin-tab" role="tab" href="{{ url_for('admin_edit_signup') }}">Anmeldung</a>
+    <a class="admin-tab" role="tab" href="{{ url_for('admin_stats') }}">Statistik</a>
+    <a class="admin-tab" role="tab" href="{{ url_for('admin_qrcode') }}">QR-Code</a>
+    <a class="admin-tab" role="tab" href="{{ url_for('admin_events') }}">Events</a>
+    <a class="admin-tab" role="tab" href="{{ url_for('admin_users_list') }}">Admins</a>
+    <a class="admin-tab" role="tab" href="{{ url_for('admin_system') }}">System</a>
   </div>
 
-  <section class="admin-tabpanel" id="tab-anmeldung" role="tabpanel" aria-labelledby="btn-anmeldung">
+  <section class="admin-tabpanel" id="tab-uebersicht" role="tabpanel" aria-labelledby="btn-uebersicht">
     <div class="admin-stack">
       {% for slot in slots %}
       <div class="admin-card">
