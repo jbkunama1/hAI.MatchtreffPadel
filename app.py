@@ -283,21 +283,38 @@ def create_app(test_config=None):
                 created_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS signup_comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                name_normalized TEXT NOT NULL,
+                comment TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
             """
         )
         cols = [r[1] for r in db.execute("PRAGMA table_info(signups)").fetchall()]
         if "is_member" not in cols:
             db.execute("ALTER TABLE signups ADD COLUMN is_member INTEGER NOT NULL DEFAULT 1")
 
-        existing_theme = db.execute("SELECT value FROM settings WHERE key = 'theme'").fetchone()
-        if not existing_theme:
-            db.execute("INSERT INTO settings (key, value) VALUES ('theme', ?)", (DEFAULT_THEME,))
-        existing_custom_img = db.execute("SELECT value FROM settings WHERE key = 'custom_bg_image'").fetchone()
-        if not existing_custom_img:
-            db.execute("INSERT INTO settings (key, value) VALUES ('custom_bg_image', ?)", (DEFAULT_CUSTOM_IMAGE,))
+        # Hinweis: Gunicorn startet mehrere Worker parallel, die alle beim Boot
+        # init_db() aufrufen. "SELECT dann INSERT" ist dabei nicht race-sicher
+        # (zwei Worker koennen gleichzeitig "existiert nicht" sehen). Deshalb
+        # ausschliesslich atomare INSERT OR IGNORE-Statements verwenden.
+        db.execute(
+            "INSERT OR IGNORE INTO settings (key, value) VALUES ('theme', ?)",
+            (DEFAULT_THEME,),
+        )
+        db.commit()
+        db.execute(
+            "INSERT OR IGNORE INTO settings (key, value) VALUES ('custom_bg_image', ?)",
+            (DEFAULT_CUSTOM_IMAGE,),
+        )
+        db.commit()
 
         # --- NEU: Automatik-Einstellungen (Reset + Digest) -------------------
         # Werden nur einmalig mit Defaults angelegt, falls noch nicht vorhanden.
+        # INSERT OR IGNORE ist atomar -> keine Race Condition zwischen Workern.
         automation_defaults = {
             "reset_enabled": DEFAULT_RESET_ENABLED,
             "reset_weekday": DEFAULT_RESET_WEEKDAY,
@@ -306,26 +323,26 @@ def create_app(test_config=None):
             "notify_interval_minutes": DEFAULT_NOTIFY_INTERVAL_MINUTES,
         }
         for key, value in automation_defaults.items():
-            existing = db.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
-            if not existing:
-                db.execute("INSERT INTO settings (key, value) VALUES (?, ?)", (key, value))
+            db.execute(
+                "INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)",
+                (key, value),
+            )
+            db.commit()
 
         for seed_name, seed_password in SEED_ADMIN_USERS.items():
             if not seed_password:
                 continue
-            existing_admin = db.execute("SELECT id FROM admin_users WHERE username = ?", (seed_name,)).fetchone()
-            if not existing_admin:
-                db.execute(
-                    "INSERT INTO admin_users (username, password_hash, created_by) VALUES (?, ?, ?)",
-                    (seed_name, generate_password_hash(seed_password), "system"),
-                )
+            db.execute(
+                "INSERT OR IGNORE INTO admin_users (username, password_hash, created_by) VALUES (?, ?, ?)",
+                (seed_name, generate_password_hash(seed_password), "system"),
+            )
+            db.commit()
         for s in SLOT_DEFINITIONS:
-            existing = db.execute("SELECT id FROM slots WHERE slot_key = ?", (s["key"],)).fetchone()
-            if not existing:
-                db.execute(
-                    "INSERT INTO slots (slot_key, label, max_players) VALUES (?, ?, ?)",
-                    (s["key"], s["label"], DEFAULT_MAX_PLAYERS),
-                )
+            db.execute(
+                "INSERT OR IGNORE INTO slots (slot_key, label, max_players) VALUES (?, ?, ?)",
+                (s["key"], s["label"], DEFAULT_MAX_PLAYERS),
+            )
+            db.commit()
 
         # Migration: alte, individuell nicht mehr gewuenschte Labels (z.B. "FRUEH"/"SPAET")
         # aus frueheren Versionen automatisch auf die aktuellen Standard-Labels anheben,
@@ -569,6 +586,36 @@ def create_app(test_config=None):
         for _, slot_key in added + waitlisted:
             resp.set_cookie(SIGNUP_COOKIE_PREFIX + slot_key, "1", max_age=max_age, httponly=True, samesite="Lax")
         return resp
+
+    # --- NEU: Fehlende Route fuer das bereits im Template vorhandene
+    # Kommentarformular (index.html ruft url_for('add_comment') auf).
+    # Nur bereits angemeldete Spieler (Name muss exakt passen) koennen
+    # einen kurzen Kommentar hinterlassen.
+    @app.route("/add_comment", methods=["POST"])
+    def add_comment():
+        name = request.form.get("name", "").strip()
+        comment = request.form.get("comment", "").strip()
+
+        if not name or not comment:
+            flash("Bitte Namen und Kommentar ausfuellen.", "danger")
+            return redirect(url_for("index"))
+
+        name_norm = normalize_name(name)
+        db = get_db()
+        existing_signup = db.execute(
+            "SELECT id FROM signups WHERE name_normalized = ?", (name_norm,)
+        ).fetchone()
+        if not existing_signup:
+            flash("Kein passender angemeldeter Spieler mit diesem Namen gefunden.", "danger")
+            return redirect(url_for("index"))
+
+        db.execute(
+            "INSERT INTO signup_comments (name, name_normalized, comment) VALUES (?, ?, ?)",
+            (name, name_norm, comment[:200]),
+        )
+        db.commit()
+        flash("Kommentar hinzugefuegt.", "success")
+        return redirect(url_for("index"))
 
     @app.route("/admin/login", methods=["GET", "POST"])
     def admin_login():
