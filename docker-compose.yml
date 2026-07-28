@@ -29,10 +29,12 @@ services:
   matchtreff_bot:
     build: .
     container_name: matchtreff_padel_bot
-    command: python telegram_bot.py
+    command: python -u telegram_bot.py
     environment:
+      - PYTHONUNBUFFERED=1
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
+      - MATCHTREFF_DB_PATH=/app/instance/matchtreff.sqlite3
     volumes:
       - matchtreff_data:/app/instance
     restart: unless-stopped
