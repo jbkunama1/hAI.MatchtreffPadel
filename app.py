@@ -314,6 +314,17 @@ def create_app(test_config=None):
                 created_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
+
+            CREATE TABLE IF NOT EXISTS telegram_users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                telegram_id INTEGER UNIQUE NOT NULL,
+                username TEXT,
+                first_name TEXT,
+                role TEXT NOT NULL DEFAULT 'user',
+                is_member_default INTEGER NOT NULL DEFAULT 1,
+                is_active INTEGER NOT NULL DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
             """
         )
 
