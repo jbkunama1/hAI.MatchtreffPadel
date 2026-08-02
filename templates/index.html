@@ -123,6 +123,93 @@
         background: rgba(255, 255, 255, 0.04);
     }
 
+    /* Grosse, tappbare Slot-Karten fuer mobiles Eintragen */
+    .slot-toggle-card {
+        display: block;
+        margin: 0.55rem 0;
+        padding: 0.9rem 1rem;
+        border: 2px solid rgba(255, 255, 255, 0.14);
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, 0.06);
+        cursor: pointer;
+        transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+        user-select: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .slot-toggle-card:active {
+        transform: scale(0.99);
+    }
+
+    .slot-toggle-card.has-input:has(input:checked),
+    .slot-toggle-card.checked {
+        border-color: var(--accent, #38bdf8);
+        background: rgba(56, 189, 248, 0.16);
+    }
+
+    .slot-toggle-card.disabled {
+        opacity: 0.5;
+        pointer-events: none;
+    }
+
+    .slot-toggle-card input {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .slot-toggle-main {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    .slot-toggle-check {
+        flex: 0 0 1.6rem;
+        width: 1.6rem;
+        height: 1.6rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 0.45rem;
+        border: 2px solid rgba(255, 255, 255, 0.35);
+        font-size: 0.9rem;
+        color: transparent;
+    }
+
+    .slot-toggle-card.has-input:has(input:checked) .slot-toggle-check,
+    .slot-toggle-card.checked .slot-toggle-check {
+        border-color: var(--accent, #38bdf8);
+        background: var(--accent, #38bdf8);
+        color: #06111f;
+    }
+
+    .slot-toggle-label {
+        font-weight: 700;
+        font-size: 0.98rem;
+    }
+
+    .slot-toggle-meta {
+        margin-left: 2.2rem;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem 0.6rem;
+        font-size: 0.82rem;
+        opacity: 0.85;
+    }
+
+    /* Kompakte mobile Spielerliste */
+    .admin-multi-note {
+        margin: 0.6rem 0;
+        padding: 0.65rem 0.85rem;
+        border: 1px solid rgba(250, 204, 21, 0.35);
+        border-radius: 0.8rem;
+        background: rgba(250, 204, 21, 0.12);
+        font-size: 0.88rem;
+        font-weight: 600;
+    }
+
+
     .slot-choice .checkbox-row {
         margin: 0;
     }
@@ -311,24 +398,64 @@
         }
 
         .player-row {
-            gap: 0.55rem;
-            padding: 0.65rem;
+            gap: 0.5rem;
+            padding: 0.55rem 0.6rem;
+            margin: 0.35rem 0;
         }
 
         .player-position {
-            flex-basis: 1.65rem;
-            width: 1.65rem;
-            height: 1.65rem;
+            flex-basis: 1.5rem;
+            width: 1.5rem;
+            height: 1.5rem;
+            font-size: 0.75rem;
         }
 
         .player-avatar {
-            flex-basis: 2rem;
-            width: 2rem;
-            height: 2rem;
+            flex-basis: 1.85rem;
+            width: 1.85rem;
+            height: 1.85rem;
+            font-size: 0.9rem;
         }
 
         .player-main {
-            gap: 0.3rem;
+            gap: 0.25rem 0.35rem;
+        }
+
+        .player-name {
+            font-size: 0.95rem;
+        }
+
+        .player-role {
+            font-size: 0.68rem;
+            padding: 0.15rem 0.4rem;
+        }
+
+        .badge-member,
+        .badge-guest {
+            font-size: 0.62rem;
+            padding: 0.1rem 0.45rem;
+        }
+
+        /* Mobil nur Icons statt Text-Badges, damit die Liste kompakt bleibt */
+        .badge-member,
+        .badge-guest {
+            font-size: 0;
+        }
+        .badge-member::after {
+            content: "🏆";
+            font-size: 0.85rem;
+        }
+        .badge-guest::after {
+            content: "👋";
+            font-size: 0.85rem;
+        }
+
+        .slot-toggle-card {
+            padding: 0.8rem 0.9rem;
+        }
+
+        .slot-toggle-label {
+            font-size: 0.95rem;
         }
     }
 </style>
@@ -362,6 +489,12 @@
 </p>
 
 <h2 class="signup-heading">📝 Jetzt anmelden</h2>
+
+{% if is_admin %}
+<div class="admin-multi-note">
+    👑 Admin-Modus: Cookie-Blockade aufgehoben – du kannst vom selben Geraet mehrere Personen eintragen.
+</div>
+{% endif %}
 
 <form action="{{ url_for('eintragen') }}" method="post">
     <div class="form-group">
@@ -402,34 +535,33 @@
         <label>🕒 Slot-Auswahl</label>
 
         {% for slot in slots %}
-        <div class="slot-choice">
-            <div class="checkbox-row">
-                <input
-                    type="checkbox"
-                    id="{{ slot.slot_key }}"
-                    name="slots"
-                    value="{{ slot.slot_key }}"
-                    {% if cookie_locked[slot.slot_key] or (slot.waitlist_full and slot.full) %}disabled{% endif %}
-                >
+        <label class="slot-toggle-card {% if (not is_admin and cookie_locked[slot.slot_key]) or (slot.waitlist_full and slot.full) %}disabled{% endif %}">
+            <input
+                type="checkbox"
+                name="slots"
+                value="{{ slot.slot_key }}"
+                {% if (not is_admin and cookie_locked[slot.slot_key]) or (slot.waitlist_full and slot.full) %}disabled{% endif %}
+            >
+            <span class="slot-toggle-main">
+                <span class="slot-toggle-check" aria-hidden="true">✓</span>
+                <span class="slot-toggle-label">🎾 {{ slot.label }}</span>
+            </span>
+            <span class="slot-toggle-meta">
+                <span>{{ slot.count }}/{{ slot.max_players }} Plaetze</span>
 
-                <label for="{{ slot.slot_key }}" style="margin: 0;">
-                    🎾 <strong>{{ slot.label }}</strong>
-                    — {{ slot.count }}/{{ slot.max_players }} Plaetze
+                {% if slot.full %}
+                    <span>🔴 VOLL</span>
+                {% endif %}
 
-                    {% if slot.full %}
-                        · 🔴 VOLL
-                    {% endif %}
+                {% if slot.waitlist_count > 0 or slot.full %}
+                    <span>⏳ Warteliste {{ slot.waitlist_count }}/{{ waitlist_limit }}</span>
+                {% endif %}
 
-                    {% if slot.waitlist_count > 0 or slot.full %}
-                        · ⏳ Warteliste {{ slot.waitlist_count }}/{{ waitlist_limit }}
-                    {% endif %}
-
-                    {% if cookie_locked[slot.slot_key] %}
-                        · ✅ Bereits eingetragen
-                    {% endif %}
-                </label>
-            </div>
-        </div>
+                {% if not is_admin and cookie_locked[slot.slot_key] %}
+                    <span>✅ Bereits eingetragen</span>
+                {% endif %}
+            </span>
+        </label>
         {% endfor %}
     </div>
 
@@ -539,4 +671,17 @@
     {% endif %}
 </div>
 {% endfor %}
+
+<script>
+    // Sorgt fuer die visuelle Auswahl der grossen Slot-Toggle-Karten (Fallback fuer :has).
+    document.querySelectorAll(".slot-toggle-card").forEach(function (card) {
+        var input = card.querySelector("input[type='checkbox']");
+        if (!input) return;
+        function sync() {
+            card.classList.toggle("checked", input.checked);
+        }
+        input.addEventListener("change", sync);
+        sync();
+    });
+</script>
 {% endblock %}
