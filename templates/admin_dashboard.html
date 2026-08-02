@@ -468,6 +468,12 @@
                         >
 
                         <label for="custom-image-{{ loop.index }}">
+                            <img
+                                src="{{ url_for('static', filename='pictures/' + image) }}"
+                                alt="{{ image }}"
+                                loading="lazy"
+                                class="gallery-preview"
+                            >
                             {{ image }}
                         </label>
                     </div>
