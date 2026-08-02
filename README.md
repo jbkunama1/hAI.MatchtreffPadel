@@ -45,11 +45,12 @@ Flask-Webapp **und Telegram-Bot** mit gemeinsamem SQLite-Backend fuer den woeche
 
 ### Telegram
 
-- `/slots` fuer aktuelle Belegung.
-- `/eintragen <Name> <a|b|beide>` fuer Anmeldungen.
-- `/status <Name>` fuer den eigenen Status.
-- Admin-Kommandos wie `/admin_liste`, `/admin_max`, `/admin_loeschen`, `/admin_reset`.
-- Sofort-Benachrichtigung an Admins bei Gast-Anmeldungen mit Inline-Buttons.
+Der Bot arbeitet komplett mit **Inline-Buttons** und kennt zwei Rollen:
+
+- **Enduser**: Chat-basierte Anmeldung, eigener Status, Nachricht an den Admin.
+- **Admin**: alle Admin-Funktionen (Liste, Loeschen, Max-Limit, Reset, CSV-Export, Einstellungen, Broadcast).
+
+Start mit `/start`, alle weiteren Aktionen laufen ueber Inline-Buttons. `Gäste` (nicht-Mitglieder) erhalten sofort einen Eintrag; die Admins werden per Benachrichtigung informiert und koennen per Inline-Button bestaetigen oder entfernen.
 
 ## Aktueller Funktionsstand
 
@@ -130,8 +131,19 @@ Danach ist die Web-App unter `http://localhost:1905` erreichbar.
 ```bash
 export TELEGRAM_BOT_TOKEN="dein-bot-token"
 export ADMIN_TELEGRAM_IDS="123456789,987654321"
+# optional: Admin-Verify-Code, mit dem sich weitere Admins im Bot verifizieren koennen
+export TELEGRAM_ADMIN_VERIFY_CODE="geheimer-code"
 python telegram_bot.py
 ```
+
+#### Rollen im Bot
+
+| Rolle | Rechte |
+|---|---|
+| **Enduser** | Chat-Anmeldung (Name → Mitglied/Gast → Slot-Auswahl), Status abfragen, Nachricht an Admin senden |
+| **Admin** | Liste, Nutzer loeschen, Max. Spieler setzen, Reset, CSV-Export, Einstellungen (Wartelisten-Modus, Slot-Auswahl), Broadcast an alle Nutzer |
+
+Die Admin-Rolle wird ueber `ADMIN_TELEGRAM_IDS` (Komma-getrennte Telegram-IDs) vergeben. Alternativ kann sich ein Nutzer mit `TELEGRAM_ADMIN_VERIFY_CODE` selbst zum Admin verifizieren. Die Rollen werden in der Tabelle `telegram_users` gespeichert.
 
 ### Kurzfassung fuer Assets
 
@@ -243,14 +255,15 @@ Bei Timeouts helfen die bereits vorgesehenen Massnahmen im Projekt:
 
 | Funktion | Web-App | Telegram-Bot |
 |---|---|---|
-| Slot-Belegung ansehen | Startseite | `/slots`, `/admin_liste` |
-| Anmelden | Formular mit Name + Slot-Auswahl | `/eintragen <Name> <a\|b\|beide>` |
+| Slot-Belegung ansehen | Startseite | `/start` → Belegung anzeigen |
+| Anmelden | Formular mit Name + Slot-Auswahl | `/start` → "Anmelden" → Inline-Buttons |
 | Eintrag bearbeiten | Admin-Dashboard | - |
-| Max. Plaetze setzen | Admin-Dashboard | `/admin_max <a\|b> <zahl>` |
-| Anmeldung loeschen | Admin-Dashboard | `/admin_loeschen <id>` |
-| Reset | Admin-Dashboard | `/admin_reset` |
+| Max. Plaetze setzen | Admin-Dashboard | Admin-Menue → "Max. Spieler setzen" |
+| Anmeldung loeschen | Admin-Dashboard | Admin-Menue → "Nutzer loeschen" |
+| Reset | Admin-Dashboard | Admin-Menue → "Alle Anmeldungen zuruecksetzen" |
+| CSV-Export | Backup herunterladen | Admin-Menue → "Export (CSV)" |
+| Broadcast | - | Admin-Menue → "Broadcast an alle Nutzer" |
 | Automatik konfigurieren | Admin-Dashboard | - |
-| Backup herunterladen | Admin-Dashboard | - |
 
 ## Lizenz
 
