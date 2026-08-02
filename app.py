@@ -63,6 +63,18 @@ DEFAULT_BG_STYLE = "bubbles"
 DEFAULT_CUSTOM_IMAGE = "Racketfire.png"
 SIGNUP_COOKIE_PREFIX = "mtp_signed_"
 
+# Automatik / Scheduler (Reset + Digest + Reminder)
+DEFAULT_RESET_ENABLED = "1"
+DEFAULT_RESET_WEEKDAY = "4"  # 0=Montag ... 4=Freitag
+DEFAULT_RESET_HOUR = "6"
+DEFAULT_RESET_MINUTE = "0"
+DEFAULT_NOTIFY_INTERVAL_MINUTES = "60"
+DEFAULT_REMINDER_ENABLED = "1"
+DEFAULT_REMINDER_WEEKDAY = "3"  # 0=Montag ... 3=Donnerstag (Spieltag)
+DEFAULT_REMINDER_HOUR = "12"
+DEFAULT_REMINDER_MINUTE = "0"
+WEEKDAY_NAMES = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
+
 DEFAULT_INTRO_TEXT = (
     "Anmeldung fuer Donnerstag, {next_thursday}. Trag einfach deinen Namen ein "
     "und waehle einen oder beide Slots. Pro Geraet kann man sich pro Slot nur "
@@ -341,6 +353,15 @@ def create_app(test_config=None):
             "waitlist_limit": str(WAITLIST_LIMIT),
             "slot_selection": DEFAULT_SLOT_SELECTION,
             "waitlist_mode": DEFAULT_WAITLIST_MODE,
+            "reset_enabled": DEFAULT_RESET_ENABLED,
+            "reset_weekday": DEFAULT_RESET_WEEKDAY,
+            "reset_hour": DEFAULT_RESET_HOUR,
+            "reset_minute": DEFAULT_RESET_MINUTE,
+            "notify_interval_minutes": DEFAULT_NOTIFY_INTERVAL_MINUTES,
+            "reminder_enabled": DEFAULT_REMINDER_ENABLED,
+            "reminder_weekday": DEFAULT_REMINDER_WEEKDAY,
+            "reminder_hour": DEFAULT_REMINDER_HOUR,
+            "reminder_minute": DEFAULT_REMINDER_MINUTE,
         }
 
         for key, value in setting_defaults.items():
@@ -456,6 +477,59 @@ def create_app(test_config=None):
             return row["value"]
 
         return DEFAULT_WAITLIST_MODE
+
+    def get_setting_value(key, default=None):
+        db = get_db()
+        row = db.execute(
+            "SELECT value FROM settings WHERE key = ?",
+            (key,),
+        ).fetchone()
+        return row["value"] if row else default
+
+    def set_setting_value(key, value):
+        db = get_db()
+        db.execute(
+            """
+            INSERT INTO settings (key, value)
+            VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (key, value),
+        )
+        db.commit()
+
+    def get_automatik_settings():
+        return {
+            "reset_enabled": get_setting_value(
+                "reset_enabled", DEFAULT_RESET_ENABLED
+            ),
+            "reset_weekday": int(
+                get_setting_value("reset_weekday", DEFAULT_RESET_WEEKDAY)
+            ),
+            "reset_hour": int(
+                get_setting_value("reset_hour", DEFAULT_RESET_HOUR)
+            ),
+            "reset_minute": int(
+                get_setting_value("reset_minute", DEFAULT_RESET_MINUTE)
+            ),
+            "notify_interval_minutes": int(
+                get_setting_value(
+                    "notify_interval_minutes", DEFAULT_NOTIFY_INTERVAL_MINUTES
+                )
+            ),
+            "reminder_enabled": get_setting_value(
+                "reminder_enabled", DEFAULT_REMINDER_ENABLED
+            ),
+            "reminder_weekday": int(
+                get_setting_value("reminder_weekday", DEFAULT_REMINDER_WEEKDAY)
+            ),
+            "reminder_hour": int(
+                get_setting_value("reminder_hour", DEFAULT_REMINDER_HOUR)
+            ),
+            "reminder_minute": int(
+                get_setting_value("reminder_minute", DEFAULT_REMINDER_MINUTE)
+            ),
+        }
 
     def get_slots_with_counts():
         db = get_db()
@@ -876,6 +950,8 @@ def create_app(test_config=None):
             gallery_images=GALLERY_IMAGES,
             current_custom_image=get_custom_bg_image(),
             raw_intro_text=get_raw_intro_text(),
+            automatik=get_automatik_settings(),
+            weekdays=WEEKDAY_NAMES,
         )
 
     @app.route("/admin/slot/<int:slot_id>/update", methods=["POST"])
@@ -1263,6 +1339,85 @@ def create_app(test_config=None):
 
         db.commit()
         flash("Wartelisten-Einstellungen gespeichert.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/automatik/update", methods=["POST"])
+    @admin_required
+    def admin_update_automatik_settings():
+        reset_enabled = "1" if request.form.get("reset_enabled") else "0"
+        reminder_enabled = "1" if request.form.get("reminder_enabled") else "0"
+
+        try:
+            reset_weekday = int(request.form.get("reset_weekday", DEFAULT_RESET_WEEKDAY))
+        except ValueError:
+            reset_weekday = int(DEFAULT_RESET_WEEKDAY)
+        try:
+            reset_hour = int(request.form.get("reset_hour", DEFAULT_RESET_HOUR))
+        except ValueError:
+            reset_hour = int(DEFAULT_RESET_HOUR)
+        try:
+            reset_minute = int(request.form.get("reset_minute", DEFAULT_RESET_MINUTE))
+        except ValueError:
+            reset_minute = int(DEFAULT_RESET_MINUTE)
+        try:
+            notify_interval = int(
+                request.form.get("notify_interval_minutes", DEFAULT_NOTIFY_INTERVAL_MINUTES)
+            )
+        except ValueError:
+            notify_interval = int(DEFAULT_NOTIFY_INTERVAL_MINUTES)
+        try:
+            reminder_weekday = int(request.form.get("reminder_weekday", DEFAULT_REMINDER_WEEKDAY))
+        except ValueError:
+            reminder_weekday = int(DEFAULT_REMINDER_WEEKDAY)
+        try:
+            reminder_hour = int(request.form.get("reminder_hour", DEFAULT_REMINDER_HOUR))
+        except ValueError:
+            reminder_hour = int(DEFAULT_REMINDER_HOUR)
+        try:
+            reminder_minute = int(request.form.get("reminder_minute", DEFAULT_REMINDER_MINUTE))
+        except ValueError:
+            reminder_minute = int(DEFAULT_REMINDER_MINUTE)
+
+        if reset_weekday not in range(7):
+            reset_weekday = int(DEFAULT_RESET_WEEKDAY)
+        if reminder_weekday not in range(7):
+            reminder_weekday = int(DEFAULT_REMINDER_WEEKDAY)
+        if reset_hour not in range(24):
+            reset_hour = int(DEFAULT_RESET_HOUR)
+        if reminder_hour not in range(24):
+            reminder_hour = int(DEFAULT_REMINDER_HOUR)
+        if reset_minute not in range(60):
+            reset_minute = int(DEFAULT_RESET_MINUTE)
+        if reminder_minute not in range(60):
+            reminder_minute = int(DEFAULT_REMINDER_MINUTE)
+        if notify_interval < 5:
+            notify_interval = 5
+
+        settings = {
+            "reset_enabled": reset_enabled,
+            "reset_weekday": str(reset_weekday),
+            "reset_hour": str(reset_hour),
+            "reset_minute": str(reset_minute),
+            "notify_interval_minutes": str(notify_interval),
+            "reminder_enabled": reminder_enabled,
+            "reminder_weekday": str(reminder_weekday),
+            "reminder_hour": str(reminder_hour),
+            "reminder_minute": str(reminder_minute),
+        }
+
+        for key, value in settings.items():
+            db = get_db()
+            db.execute(
+                """
+                INSERT INTO settings (key, value)
+                VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+                """,
+                (key, value),
+            )
+            db.commit()
+
+        flash("Automatik-Einstellungen gespeichert.", "success")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/backup/download")

@@ -41,15 +41,17 @@ services:
     depends_on:
       - matchtreff_web
 
-  # NEU: dritter Container fuer Automatik-Jobs (woechentlicher Reset + Digest).
+  # NEU: dritter Container fuer Automatik-Jobs (woechentlicher Reset + Digest + Reminder).
   # Laeuft unabhaengig von Web und Bot, nutzt aber dieselbe DB (Volume).
   matchtreff_scheduler:
     build: .
     container_name: matchtreff_padel_scheduler
-    command: python scheduler.py
+    command: python -u scheduler.py
     environment:
+      - PYTHONUNBUFFERED=1
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
+      - MATCHTREFF_DB_PATH=/app/instance/matchtreff.sqlite3
     volumes:
       - matchtreff_data:/app/instance
     restart: unless-stopped

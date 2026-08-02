@@ -39,7 +39,7 @@ Flask-Webapp **und Telegram-Bot** mit gemeinsamem SQLite-Backend fuer den woeche
 - Eintraege loeschen und bearbeiten.
 - Alle Anmeldungen fuer die kommende Woche zuruecksetzen.
 - Datenbank-Backup herunterladen.
-- Automatik fuer Reset und Digest konfigurieren.
+- Automatik fuer Reset, Digest und Teilnehmer-Reminder konfigurieren (Tab "⚙️ Automatik").
 - Themes, Hintergrundbilder und Hintergrundeffekte umschalten.
 - Weitere Admins anlegen oder entfernen.
 
@@ -89,6 +89,7 @@ Spieler koennen sich fuer einen oder beide Slots eintragen. Ist ein Slot voll, w
 ├── app.py
 ├── telegram_bot.py
 ├── scheduler.py
+├── scheduler_new.py       # Job-Kern: Reset, Digest, Reminder
 ├── index.html
 ├── templates/
 ├── static/
@@ -144,6 +145,16 @@ python telegram_bot.py
 | **Admin** | Liste, Nutzer loeschen, Max. Spieler setzen, Reset, CSV-Export, Einstellungen (Wartelisten-Modus, Slot-Auswahl), Broadcast an alle Nutzer |
 
 Die Admin-Rolle wird ueber `ADMIN_TELEGRAM_IDS` (Komma-getrennte Telegram-IDs) vergeben. Alternativ kann sich ein Nutzer mit `TELEGRAM_ADMIN_VERIFY_CODE` selbst zum Admin verifizieren. Die Rollen werden in der Tabelle `telegram_users` gespeichert.
+
+### Automatik / Scheduler
+
+Der Scheduler (`scheduler.py` + `scheduler_new.py`) laeuft als eigener Container und erledigt automatisiert drei Aufgaben:
+
+- **Woechlicher Reset**: Leert alle Anmeldungen (z. B. Freitag frueh 06:00 Uhr) fuer die kommende Woche. Wochentag, Uhrzeit und Aktivierung sind einstellbar.
+- **Digest**: Fasst regulaer (Standard alle 60 Minuten) neue Anmeldungen zusammen und schickt sie an alle Admins (`ADMIN_TELEGRAM_IDS`).
+- **Teilnehmer-Reminder**: Erinnert angemeldete Spieler an den Spieltag und schickt den Admins eine Belegungs-Statusmeldung.
+
+Alle Einstellungen werden im Admin-Dashboard unter **⚙️ Automatik** gespeichert. Der Scheduler liest die Konfiguration bei jedem Durchlauf frisch aus der Datenbank (kein Neustart noetig).
 
 ### Kurzfassung fuer Assets
 
@@ -237,6 +248,10 @@ Weitere Admins lassen sich spaeter im Bereich `/admin/users` anlegen. Der letzte
 - Alternativ kann der Backup-Button im Admin-Dashboard genutzt werden.
 
 ## Troubleshooting
+
+### Scheduler-Container startet nicht / macht nichts
+
+Der Scheduler benoetigt die Pakete `APScheduler` und `tzdata` (in `requirements.txt`). Falls der Container mit `ModuleNotFoundError` startet, das Image neu bauen (`docker compose build scheduler` bzw. Stack neu deployen). Ausserdem sicherstellen, dass `MATCHTREFF_DB_PATH` im Compose auf dasselbe Volume zeigt wie die Web-App, damit Scheduler und App dieselbe Datenbank nutzen.
 
 ### Portainer-Variablen werden ignoriert
 
