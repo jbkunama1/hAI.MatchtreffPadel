@@ -308,7 +308,7 @@
 
       <div class="feature-card">
         <h3>Design-Themes</h3>
-        <p>Der Admin kann zwischen mehreren Farbschemata und Hintergrundbildern wechseln (Standard, Sunset, Court, Night). Das Theme gilt f&uuml;r alle Besucher.</p>
+        <p>Der Admin kann zwischen mehreren Farbschemata und Hintergrundbildern wechseln (Standard, Sunset, Court, Night). Bilder aus <span class="code-inline">static/pictures/</span> koennen als eigenes Hintergrundbild gewaehlt werden &ndash; inkl. Vorschau-Galerie.</p>
       </div>
 
       <div class="feature-card">
@@ -337,6 +337,16 @@
         <li>Optional: <strong>GitOps updates</strong> (Polling/Webhook) aktivieren, damit neue Commits automatisch deployt werden</li>
         <li>Auf <strong>Deploy the stack</strong> klicken &ndash; Web-App l&auml;uft danach auf Port <span class="code-inline">1905</span>, Bot und Scheduler starten automatisch mit</li>
       </ol>
+
+      <h2>Automatischer Docker-Build (GHCR)</h2>
+
+      <p>
+        Ein GitHub-Actions-Workflow baut bei jedem Push auf <span class="code-inline">main</span> automatisch ein
+        Docker-Image und pusht es nach
+        <span class="code-inline">ghcr.io/jbkunama1/hAI.MatchtreffPadel</span>.
+        Der Build l&auml;sst sich auch manuell ausl&ouml;sen (Actions &rarr;
+        <strong>Docker Build and Push to GHCR</strong> &rarr; <strong>Run workflow</strong>).
+      </p>
 
       <p style="margin-top: 0.75rem; color: #64748b; font-size: 0.9rem;">
         Ausf&uuml;hrliche Details dazu stehen in der <a href="README.md" style="color: var(--accent); font-weight: 500;">README</a>

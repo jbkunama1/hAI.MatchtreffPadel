@@ -220,6 +220,18 @@
         >
             🛠️ System
         </button>
+
+        <button
+            class="admin-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-automatik"
+            id="btn-automatik"
+            data-tab="automatik"
+        >
+            ⚙️ Automatik
+        </button>
     </div>
 </div>
 
@@ -468,6 +480,12 @@
                         >
 
                         <label for="custom-image-{{ loop.index }}">
+                            <img
+                                src="{{ url_for('static', filename='pictures/' + image) }}"
+                                alt="{{ image }}"
+                                loading="lazy"
+                                class="gallery-preview"
+                            >
                             {{ image }}
                         </label>
                     </div>
@@ -676,6 +694,175 @@
                         Alle Anmeldungen zuruecksetzen
                     </button>
                 </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+<section
+    class="admin-tabpanel"
+    id="tab-automatik"
+    role="tabpanel"
+    aria-labelledby="btn-automatik"
+    hidden
+>
+    <div class="admin-stack">
+        <div class="admin-card">
+            <h2>⚙️ Automatik-Einstellungen</h2>
+
+            <div class="info-box">
+                Diese Einstellungen steuern den separaten Scheduler-Container
+                (<code>matchtreff_scheduler</code>). Der Reset leert alle
+                Anmeldungen fuer die neue Woche, der Digest sendet
+                Zusammenfassungen neuer Anmeldungen an die Admins, und der
+                Reminder erinnert die angemeldeten Teilnehmer per Telegram.
+                <br><br>
+                <strong>Hinweis:</strong> Die Aenderungen werden beim
+                Scheduler-Container automatisch uebernommen.
+            </div>
+
+            <form
+                method="post"
+                action="{{ url_for('admin_update_automatik_settings') }}"
+            >
+                <h3>🗓️ Wochen-Reset</h3>
+
+                <p>
+                    <label for="automatik-reset-enabled">
+                        <input
+                            type="checkbox"
+                            id="automatik-reset-enabled"
+                            name="reset_enabled"
+                            value="1"
+                            {% if automatik.reset_enabled == "1" %}checked{% endif %}
+                        >
+                        Automatischen Wochen-Reset aktivieren
+                    </label>
+                </p>
+
+                <p>
+                    <label for="automatik-reset-weekday">Reset-Tag</label><br>
+                    <select
+                        class="form-control"
+                        id="automatik-reset-weekday"
+                        name="reset_weekday"
+                    >
+                        {% for wd in weekdays %}
+                            <option
+                                value="{{ loop.index0 }}"
+                                {% if automatik.reset_weekday == loop.index0 %}selected{% endif %}
+                            >
+                                {{ wd }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </p>
+
+                <p>
+                    <label for="automatik-reset-hour">Reset-Uhrzeit</label><br>
+                    <input
+                        class="form-control"
+                        type="number"
+                        min="0"
+                        max="23"
+                        id="automatik-reset-hour"
+                        name="reset_hour"
+                        value="{{ automatik.reset_hour }}"
+                    >
+                    :
+                    <input
+                        class="form-control"
+                        type="number"
+                        min="0"
+                        max="59"
+                        id="automatik-reset-minute"
+                        name="reset_minute"
+                        value="{{ automatik.reset_minute }}"
+                    >
+                    Uhr
+                </p>
+
+                <hr>
+
+                <h3>📬 Digest-Intervall</h3>
+
+                <p>
+                    <label for="automatik-notify-interval">
+                        Zusammenfassung neuer Anmeldungen alle
+                    </label>
+                    <input
+                        class="form-control"
+                        type="number"
+                        min="5"
+                        id="automatik-notify-interval"
+                        name="notify_interval_minutes"
+                        value="{{ automatik.notify_interval_minutes }}"
+                    >
+                    Minuten
+                </p>
+
+                <hr>
+
+                <h3>⏰ Teilnehmer-Reminder</h3>
+
+                <p>
+                    <label for="automatik-reminder-enabled">
+                        <input
+                            type="checkbox"
+                            id="automatik-reminder-enabled"
+                            name="reminder_enabled"
+                            value="1"
+                            {% if automatik.reminder_enabled == "1" %}checked{% endif %}
+                        >
+                        Reminder an Teilnehmer senden
+                    </label>
+                </p>
+
+                <p>
+                    <label for="automatik-reminder-weekday">Reminder-Tag</label><br>
+                    <select
+                        class="form-control"
+                        id="automatik-reminder-weekday"
+                        name="reminder_weekday"
+                    >
+                        {% for wd in weekdays %}
+                            <option
+                                value="{{ loop.index0 }}"
+                                {% if automatik.reminder_weekday == loop.index0 %}selected{% endif %}
+                            >
+                                {{ wd }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </p>
+
+                <p>
+                    <label for="automatik-reminder-hour">Reminder-Uhrzeit</label><br>
+                    <input
+                        class="form-control"
+                        type="number"
+                        min="0"
+                        max="23"
+                        id="automatik-reminder-hour"
+                        name="reminder_hour"
+                        value="{{ automatik.reminder_hour }}"
+                    >
+                    :
+                    <input
+                        class="form-control"
+                        type="number"
+                        min="0"
+                        max="59"
+                        id="automatik-reminder-minute"
+                        name="reminder_minute"
+                        value="{{ automatik.reminder_minute }}"
+                    >
+                    Uhr
+                </p>
+
+                <button type="submit">
+                    Automatik-Einstellungen speichern
+                </button>
             </form>
         </div>
     </div>

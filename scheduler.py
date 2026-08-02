@@ -1,5 +1,5 @@
 """
-Eigener, dritter Container fuer die Automatik-Jobs (Reset + Digest).
+Eigener, dritter Container fuer die Automatik-Jobs (Reset + Digest + Reminder).
 
 Laeuft komplett unabhaengig von matchtreff_web und matchtreff_bot, nutzt aber
 dieselbe SQLite-Datenbank ueber das gemeinsame Docker-Volume 'matchtreff_data'.
@@ -7,205 +7,180 @@ dieselbe SQLite-Datenbank ueber das gemeinsame Docker-Volume 'matchtreff_data'.
 Start (im Container, siehe docker-compose.yml):
     python scheduler.py
 
-Die Automatik-Einstellungen (aktiviert/deaktiviert, Wochentag, Uhrzeit,
-Digest-Intervall) werden NICHT mehr fest ueber Umgebungsvariablen gesetzt,
-sondern aus der Tabelle 'settings' gelesen -- Admins koennen sie also direkt
-im Web-Dashboard unter "Automatik" aendern, ohne den Container neu zu starten.
-Die Werte werden bei jedem Job-Lauf frisch aus der DB gelesen.
+Die Automatik-Einstellungen werden aus der Tabelle 'settings' gelesen -- Admins
+koennen sie im Web-Dashboard unter "Automatik" aendern. Die Job-Planung wird
+laufend beobachtet und an Aenderungen angepasst, sodass kein Container-Neustart
+noetig ist, wenn die Zeiten im Dashboard angepasst werden.
 """
 
 import os
-import sys
-import json
-import sqlite3
-import urllib.request
-from datetime import datetime
+import time
 
 from apscheduler.schedulers.blocking import BlockingScheduler
+from apscheduler.triggers.cron import CronTrigger
 
-DB_PATH = os.environ.get("MATCHTREFF_DB_PATH", os.path.join("instance", "matchtreff.sqlite3"))
+import scheduler_new as jobs
 
-# Fallback-Defaults, falls in der DB noch keine Werte existieren
-# (z.B. beim allerersten Start, bevor app.py init_db() gelaufen ist).
-DEFAULT_RESET_ENABLED = "1"
-DEFAULT_RESET_WEEKDAY = "4"
-DEFAULT_RESET_HOUR = "6"
-DEFAULT_RESET_MINUTE = "0"
-DEFAULT_NOTIFY_INTERVAL_MINUTES = "60"
+DB_PATH = os.environ.get(
+    "MATCHTREFF_DB_PATH", os.path.join("instance", "matchtreff.sqlite3")
+)
+TOKEN = os.environ.get("TELEGRAM_BOT_TOKEN", "")
+ADMIN_IDS = [
+    x.strip()
+    for x in os.environ.get("ADMIN_TELEGRAM_IDS", "").split(",")
+    if x.strip()
+]
+
+INTERVAL_CONFIG_KEY = "notify_interval_minutes"
 
 
-def get_conn():
-    conn = sqlite3.connect(DB_PATH, detect_types=sqlite3.PARSE_DECLTYPES, timeout=10)
+def read_config():
+    """Liest die aktuellen Einstellungen frisch aus der DB."""
+    import sqlite3
+
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA journal_mode = WAL")
-    conn.execute("PRAGMA busy_timeout = 8000")
-    return conn
-
-
-def get_setting(conn, key, default=None):
-    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
-    return row["value"] if row else default
-
-
-def set_setting(conn, key, value):
-    conn.execute(
-        "INSERT INTO settings (key, value) VALUES (?, ?) "
-        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-        (key, value),
-    )
-
-
-def telegram_api_call(method, payload):
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    if not token:
-        return None
-    url = f"https://api.telegram.org/bot{token}/{method}"
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except Exception as exc:
-        print(f"[WARN] Telegram-API-Aufruf fehlgeschlagen: {exc}", file=sys.stderr)
-        return None
-
-
-def notify_admins(text: str):
-    """Digests und Reset-Meldungen gehen NUR an Telegram-Admins
-    (ADMIN_TELEGRAM_IDS), keine E-Mail-Vorbereitung."""
-    admin_ids_raw = os.environ.get("ADMIN_TELEGRAM_IDS", "")
-    admin_ids = [x.strip() for x in admin_ids_raw.split(",") if x.strip()]
-    for admin_id in admin_ids:
-        telegram_api_call("sendMessage", {"chat_id": admin_id, "text": text})
-
-
-def weekly_reset():
-    """Loescht ALLE Anmeldungen (signups) -> neue Woche, neuer Anfang.
-    Cookies auf den Nutzer-Geraeten und Telegram-User-IDs bleiben davon
-    unberuehrt (das ist so gewuenscht: die naechste Anmeldung in der neuen
-    Woche funktioniert trotzdem normal, da die Cookie-Sperre nur verhindert,
-    dass man sich fuer denselben, bereits laufenden Slot doppelt eintraegt --
-    nach dem Reset gibt es ja wieder frische Slots)."""
-    conn = get_conn()
-
-    reset_enabled = get_setting(conn, "reset_enabled", DEFAULT_RESET_ENABLED) == "1"
-    if not reset_enabled:
-        print("[Scheduler] Automatischer Reset ist deaktiviert (reset_enabled=0) - uebersprungen.")
-        conn.close()
-        return
-
-    conn.execute("DELETE FROM signups")
-
-    now_str = datetime.now().isoformat(timespec="seconds")
-    set_setting(conn, "last_auto_reset_at", now_str)
-    conn.commit()
-    conn.close()
-
-    notify_admins(f"Automatischer Reset ausgefuehrt am {now_str} - alle Anmeldungen wurden geloescht.")
-    print(f"[Scheduler] Reset ausgefuehrt am {now_str}")
-
-
-def digest_new_signups():
-    """Sammelt alle Anmeldungen seit dem letzten Digest und schickt EINE
-    Zusammenfassung an die Telegram-Admins (nicht an Gaeste, die bekommen
-    weiterhin sofort ihre eigene Nachricht aus app.py)."""
-    conn = get_conn()
-
-    last_value = get_setting(conn, "digest_last_sent_at")
-    if last_value:
-        try:
-            last_ts = datetime.fromisoformat(last_value)
-        except ValueError:
-            last_ts = datetime.min
-    else:
-        last_ts = datetime.min
-
-    new_signups = conn.execute(
-        """
-        SELECT s.id, s.name, s.status, s.created_at, sl.label AS slot_label
-        FROM signups s
-        JOIN slots sl ON sl.id = s.slot_id
-        WHERE s.created_at > ?
-        ORDER BY s.created_at ASC
-        """,
-        (last_ts,),
-    ).fetchall()
-
-    if not new_signups:
-        conn.close()
-        return
-
-    lines = ["Neue Anmeldungen (Digest):", ""]
-    by_slot = {}
-    for row in new_signups:
-        key = (row["slot_label"], row["status"])
-        by_slot.setdefault(key, []).append(row["name"])
-
-    for (slot_label, status), names in by_slot.items():
-        status_txt = "bestaetigt" if status == "confirmed" else "Warteliste"
-        lines.append(f"- {slot_label} ({status_txt}): {', '.join(names)}")
-
-    notify_admins("\n".join(lines))
-
-    latest_created = max(r["created_at"] for r in new_signups)
-    latest_str = (
-        latest_created.isoformat(timespec="seconds")
-        if isinstance(latest_created, datetime)
-        else str(latest_created)
-    )
-    set_setting(conn, "digest_last_sent_at", latest_str)
-    conn.commit()
-    conn.close()
-    print(f"[Scheduler] Digest gesendet, {len(new_signups)} neue Anmeldung(en) bis {latest_str}")
-
-
-def load_schedule_config():
-    """Liest die aktuelle Job-Konfiguration aus der DB (mit Fallback auf
-    Defaults). Wird beim Start des Schedulers einmal gelesen; Aenderungen,
-    die der Admin waehrend des Betriebs im Dashboard macht, wirken erst nach
-    einem Neustart des scheduler-Containers (z.B. per Portainer-Redeploy)."""
-    conn = get_conn()
-    cfg = {
-        "reset_weekday": int(get_setting(conn, "reset_weekday", DEFAULT_RESET_WEEKDAY)),
-        "reset_hour": int(get_setting(conn, "reset_hour", DEFAULT_RESET_HOUR)),
-        "reset_minute": int(get_setting(conn, "reset_minute", DEFAULT_RESET_MINUTE)),
-        "notify_interval_minutes": int(
-            get_setting(conn, "notify_interval_minutes", DEFAULT_NOTIFY_INTERVAL_MINUTES)
-        ),
+    result = {
+        "reset_enabled": True,
+        "reset_weekday": 4,
+        "reset_hour": 6,
+        "reset_minute": 0,
+        "notify_interval_minutes": 60,
+        "reminder_enabled": True,
+        "reminder_weekday": 3,
+        "reminder_hour": 12,
+        "reminder_minute": 0,
     }
-    conn.close()
-    return cfg
+    try:
+        rows = conn.execute("SELECT key, value FROM settings").fetchall()
+        for row in rows:
+            key = row["key"]
+            if key in result:
+                if key in ("reset_enabled", "reminder_enabled"):
+                    result[key] = row["value"].strip() == "1"
+                else:
+                    try:
+                        result[key] = int(row["value"])
+                    except (TypeError, ValueError):
+                        pass
+    except sqlite3.Error as exc:
+        print(f"[Scheduler] Fehler beim Lesen der DB: {exc}", flush=True)
+    finally:
+        conn.close()
+    return result
+
+
+def _wrap(job_func):
+    def wrapper():
+        try:
+            job_func(DB_PATH, TOKEN, ADMIN_IDS)
+        except Exception as exc:  # pragma: no cover - defensive
+            print(f"[Scheduler] Fehler im Job: {exc}", flush=True)
+
+    return wrapper
+
+
+def reschedule(scheduler, cfg, wl_mode_text):
+    """(Re-)Plant die Jobs anhand der aktuellen Config."""
+    # Wochen-Reset
+    if scheduler.get_job("weekly_reset"):
+        scheduler.remove_job("weekly_reset")
+    if cfg["reset_enabled"]:
+        scheduler.add_job(
+            _wrap(jobs.weekly_reset),
+            CronTrigger(
+                day_of_week=str(cfg["reset_weekday"]),
+                hour=cfg["reset_hour"],
+                minute=cfg["reset_minute"],
+                timezone="Europe/Berlin",
+            ),
+            id="weekly_reset",
+            replace_existing=True,
+        )
+
+    # Digest (interval) - Intervall kann sich aendern
+    if scheduler.get_job("digest"):
+        interval = scheduler.get_job("digest").trigger.interval
+        current_min = int(getattr(interval, "total_seconds", lambda: 0)() / 60)
+    else:
+        current_min = None
+
+    if current_min != cfg["notify_interval_minutes"]:
+        if scheduler.get_job("digest"):
+            scheduler.remove_job("digest")
+        scheduler.add_job(
+            _wrap(jobs.digest_new_signups),
+            "interval",
+            minutes=cfg["notify_interval_minutes"],
+            id="digest",
+            replace_existing=True,
+        )
+
+    # Reminder (cron)
+    if scheduler.get_job("reminder_participants"):
+        scheduler.remove_job("reminder_participants")
+    if cfg["reminder_enabled"]:
+        scheduler.add_job(
+            _wrap(jobs.reminder_participants),
+            CronTrigger(
+                day_of_week=str(cfg["reminder_weekday"]),
+                hour=cfg["reminder_hour"],
+                minute=cfg["reminder_minute"],
+                timezone="Europe/Berlin",
+            ),
+            id="reminder_participants",
+            replace_existing=True,
+        )
+
+    print(
+        "[Scheduler] Jobs geplant. "
+        f"Reset={'AN' if cfg['reset_enabled'] else 'AUS'} "
+        f"(Wochentag {cfg['reset_weekday']} {cfg['reset_hour']:02d}:{cfg['reset_minute']:02d}), "
+        f"Digest alle {cfg['notify_interval_minutes']} Min., "
+        f"Reminder={'AN' if cfg['reminder_enabled'] else 'AUS'} "
+        f"(Wochentag {cfg['reminder_weekday']} {cfg['reminder_hour']:02d}:{cfg['reminder_minute']:02d}).",
+        flush=True,
+    )
+
+
+def monitor_config(scheduler):
+    """Beobachtet die DB und plant Jobs neu, wenn sich Einstellungen aendern."""
+    last_signature = None
+    while True:
+        cfg = read_config()
+        signature = tuple(
+            (k, str(v)) for k, v in cfg.items() if k.startswith(("reset", "notify", "reminder"))
+        )
+        sig = str(signature)
+        if sig != last_signature:
+            reschedule(scheduler, cfg, "")
+            last_signature = sig
+        time.sleep(30)
 
 
 def main():
-    cfg = load_schedule_config()
+    if not TOKEN:
+        print(
+            "[Scheduler] WARNUNG: TELEGRAM_BOT_TOKEN nicht gesetzt - "
+            "Benachrichtigungen deaktiviert.",
+            flush=True,
+        )
 
     scheduler = BlockingScheduler(timezone="Europe/Berlin")
 
-    scheduler.add_job(
-        weekly_reset,
-        "cron",
-        day_of_week=cfg["reset_weekday"],
-        hour=cfg["reset_hour"],
-        minute=cfg["reset_minute"],
-        id="weekly_reset",
-        replace_existing=True,
-    )
+    # Jobs einmal initial aus DB konfigurieren
+    cfg = read_config()
+    reschedule(scheduler, cfg, "")
 
-    scheduler.add_job(
-        digest_new_signups,
-        "interval",
-        minutes=cfg["notify_interval_minutes"],
-        id="digest",
-        replace_existing=True,
-    )
+    # Konfig-aenderungen im Hintergrund beobachten
+    # Da BlockingScheduler den Main-Thread haelt, laeuft der Monitor hier
+    # zusaetzlich als eigener Prozess/Thread - wir nutzen den Hintergrund-Thread.
+    import threading
 
-    print(
-        "[Scheduler] gestartet. "
-        f"Reset: Wochentag={cfg['reset_weekday']} {cfg['reset_hour']:02d}:{cfg['reset_minute']:02d} Uhr, "
-        f"Digest alle {cfg['notify_interval_minutes']} Minuten."
-    )
+    t = threading.Thread(target=monitor_config, args=(scheduler,), daemon=True)
+    t.start()
+
+    print("[Scheduler] gestartet.", flush=True)
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
@@ -214,3 +189,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

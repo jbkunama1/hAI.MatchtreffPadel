@@ -39,23 +39,24 @@ Flask-Webapp **und Telegram-Bot** mit gemeinsamem SQLite-Backend fuer den woeche
 - Eintraege loeschen und bearbeiten.
 - Alle Anmeldungen fuer die kommende Woche zuruecksetzen.
 - Datenbank-Backup herunterladen.
-- Automatik fuer Reset und Digest konfigurieren.
+- Automatik fuer Reset, Digest und Teilnehmer-Reminder konfigurieren (Tab "⚙️ Automatik").
 - Themes, Hintergrundbilder und Hintergrundeffekte umschalten.
 - Weitere Admins anlegen oder entfernen.
 
 ### Telegram
 
-- `/slots` fuer aktuelle Belegung.
-- `/eintragen <Name> <a|b|beide>` fuer Anmeldungen.
-- `/status <Name>` fuer den eigenen Status.
-- Admin-Kommandos wie `/admin_liste`, `/admin_max`, `/admin_loeschen`, `/admin_reset`.
-- Sofort-Benachrichtigung an Admins bei Gast-Anmeldungen mit Inline-Buttons.
+Der Bot arbeitet komplett mit **Inline-Buttons** und kennt zwei Rollen:
+
+- **Enduser**: Chat-basierte Anmeldung, eigener Status, Nachricht an den Admin.
+- **Admin**: alle Admin-Funktionen (Liste, Loeschen, Max-Limit, Reset, CSV-Export, Einstellungen, Broadcast).
+
+Start mit `/start`, alle weiteren Aktionen laufen ueber Inline-Buttons. `Gäste` (nicht-Mitglieder) erhalten sofort einen Eintrag; die Admins werden per Benachrichtigung informiert und koennen per Inline-Button bestaetigen oder entfernen.
 
 ## Aktueller Funktionsstand
 
 - **Kein Pending-Status mehr:** Mitglied- und Gast-Anmeldungen werden sofort eingetragen.
 - **Gast-Benachrichtigung per Telegram:** Admins erhalten bei Gast-Anmeldungen direkte Hinweise.
-- **Bildergalerie im Admin-Panel:** Bilder aus `pictures/` koennen als Hintergrund uebernommen werden.
+- **Bildergalerie im Admin-Panel:** Bilder aus `static/pictures/` koennen als Hintergrund uebernommen werden (mit Vorschau).
 - **Groessere Hintergrund-Icons:** Padel-Ball-Icons wurden deutlich vergroessert.
 - **Automatisches Donnerstagsdatum:** `{next_thursday}` wird bei Seitenaufruf dynamisch ersetzt.
 - **Warteliste mit Auto-Nachruecken:** Freie Plaetze werden automatisch aufgefuellt.
@@ -88,10 +89,14 @@ Spieler koennen sich fuer einen oder beide Slots eintragen. Ist ein Slot voll, w
 ├── app.py
 ├── telegram_bot.py
 ├── scheduler.py
+├── scheduler_new.py       # Job-Kern: Reset, Digest, Reminder
 ├── index.html
 ├── templates/
 ├── static/
-├── pictures/
+│   └── pictures/          # Hintergrundbilder fuer die Galerie
+├── .github/
+│   └── workflows/
+│       └── docker-build-push.yml
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
@@ -127,20 +132,38 @@ Danach ist die Web-App unter `http://localhost:1905` erreichbar.
 ```bash
 export TELEGRAM_BOT_TOKEN="dein-bot-token"
 export ADMIN_TELEGRAM_IDS="123456789,987654321"
+# optional: Admin-Verify-Code, mit dem sich weitere Admins im Bot verifizieren koennen
+export TELEGRAM_ADMIN_VERIFY_CODE="geheimer-code"
 python telegram_bot.py
 ```
 
+#### Rollen im Bot
+
+| Rolle | Rechte |
+|---|---|
+| **Enduser** | Chat-Anmeldung (Name → Mitglied/Gast → Slot-Auswahl), Status abfragen, Nachricht an Admin senden |
+| **Admin** | Liste, Nutzer loeschen, Max. Spieler setzen, Reset, CSV-Export, Einstellungen (Wartelisten-Modus, Slot-Auswahl), Broadcast an alle Nutzer |
+
+Die Admin-Rolle wird ueber `ADMIN_TELEGRAM_IDS` (Komma-getrennte Telegram-IDs) vergeben. Alternativ kann sich ein Nutzer mit `TELEGRAM_ADMIN_VERIFY_CODE` selbst zum Admin verifizieren. Die Rollen werden in der Tabelle `telegram_users` gespeichert.
+
+### Automatik / Scheduler
+
+Der Scheduler (`scheduler.py` + `scheduler_new.py`) laeuft als eigener Container und erledigt automatisiert drei Aufgaben:
+
+- **Woechlicher Reset**: Leert alle Anmeldungen (z. B. Freitag frueh 06:00 Uhr) fuer die kommende Woche. Wochentag, Uhrzeit und Aktivierung sind einstellbar.
+- **Digest**: Fasst regulaer (Standard alle 60 Minuten) neue Anmeldungen zusammen und schickt sie an alle Admins (`ADMIN_TELEGRAM_IDS`).
+- **Teilnehmer-Reminder**: Erinnert angemeldete Spieler an den Spieltag und schickt den Admins eine Belegungs-Statusmeldung.
+
+Alle Einstellungen werden im Admin-Dashboard unter **⚙️ Automatik** gespeichert. Der Scheduler liest die Konfiguration bei jedem Durchlauf frisch aus der Datenbank (kein Neustart noetig).
+
 ### Kurzfassung fuer Assets
 
-Einige Dateien muessen fuer die Flask-Auslieferung im `static/`-Ordner liegen:
+Die Medien und Bilder liegen im Repo bereits an den richtigen Stellen:
 
-```bash
-cp Logo_I_Matchtreff.png static/Logo_I_Matchtreff.png
-cp Matchtreff_Silber.mp4 static/Matchtreff_Silber.mp4
-mkdir -p static/backgrounds static/pictures
-```
-
-Falls Bild-Themes oder die Galerie genutzt werden, muessen die benoetigten Bilder aus `pictures/` in die passenden `static/`-Unterordner kopiert werden.
+- `static/Logo_I_Matchtreff.png`: kleines Logo fuer den Header.
+- `static/Logo_II_Banner.png`: Banner fuer Landingpage und README.
+- `static/Matchtreff_Silber.mp4`: Erklaervideo.
+- `static/pictures/`: alle Bilder fuer die Admin-Galerie (eigenes Hintergrundbild).
 
 ## Docker & Portainer
 
@@ -167,6 +190,16 @@ Alle drei Container teilen sich das Volume `matchtreff_data` und damit dieselbe 
 4. Repo `https://github.com/jbkunama1/hAI.MatchtreffPadel` und `docker-compose.yml` eintragen.
 5. `SECRET_KEY`, `ADMIN_PASSWORD_*`, `TELEGRAM_BOT_TOKEN` und `ADMIN_TELEGRAM_IDS` als Umgebungsvariablen setzen.
 6. Stack deployen oder spaeter per GitOps / Pull and redeploy aktualisieren.
+
+### Docker-Image ueber GitHub Actions (GHCR)
+
+Ein GitHub-Actions-Workflow (`.github/workflows/docker-build-push.yml`) baut bei jedem Push auf `main` automatisch ein Docker-Image und pusht es nach `ghcr.io/jbkunama1/hAI.MatchtreffPadel`. Der Build kann auch manuell ausgeloest werden:
+
+1. Auf GitHub den Tab **Actions** oeffnen.
+2. Links den Workflow **Docker Build and Push to GHCR** waehlen.
+3. Auf **Run workflow** klicken (optional Branch waehlen).
+
+Das Image wird mit den Tags `latest` (nur bei Default-Branch) und ggf. Branch-/SemVer-Tags versehen. Nach dem ersten Push muss die Sichtbarkeit des GHCR-Pakets ggf. auf **public** gesetzt werden, damit der Portainer-Stack das Image ohne Login ziehen kann.
 
 ## Admin-Verwaltung
 
@@ -201,9 +234,9 @@ Weitere Admins lassen sich spaeter im Bereich `/admin/users` anlegen. Der letzte
 
 ## Logos, Medien und Branding
 
-- `Logo_I_Matchtreff.png`: kleines Logo fuer den Header.
-- `Logo_II_Banner.png`: Banner fuer Landingpage und README.
-- `Matchtreff_Silber.mp4`: Erklaervideo fuer Landingpage und Info-Seite.
+- `static/Logo_I_Matchtreff.png`: kleines Logo fuer den Header.
+- `static/Logo_II_Banner.png`: Banner fuer Landingpage und README.
+- `static/Matchtreff_Silber.mp4`: Erklaervideo fuer Landingpage und Info-Seite.
 
 ## Sicherheit und Betrieb
 
@@ -215,6 +248,10 @@ Weitere Admins lassen sich spaeter im Bereich `/admin/users` anlegen. Der letzte
 - Alternativ kann der Backup-Button im Admin-Dashboard genutzt werden.
 
 ## Troubleshooting
+
+### Scheduler-Container startet nicht / macht nichts
+
+Der Scheduler benoetigt die Pakete `APScheduler` und `tzdata` (in `requirements.txt`). Falls der Container mit `ModuleNotFoundError` startet, das Image neu bauen (`docker compose build scheduler` bzw. Stack neu deployen). Ausserdem sicherstellen, dass `MATCHTREFF_DB_PATH` im Compose auf dasselbe Volume zeigt wie die Web-App, damit Scheduler und App dieselbe Datenbank nutzen.
 
 ### Portainer-Variablen werden ignoriert
 
@@ -233,14 +270,15 @@ Bei Timeouts helfen die bereits vorgesehenen Massnahmen im Projekt:
 
 | Funktion | Web-App | Telegram-Bot |
 |---|---|---|
-| Slot-Belegung ansehen | Startseite | `/slots`, `/admin_liste` |
-| Anmelden | Formular mit Name + Slot-Auswahl | `/eintragen <Name> <a\|b\|beide>` |
+| Slot-Belegung ansehen | Startseite | `/start` → Belegung anzeigen |
+| Anmelden | Formular mit Name + Slot-Auswahl | `/start` → "Anmelden" → Inline-Buttons |
 | Eintrag bearbeiten | Admin-Dashboard | - |
-| Max. Plaetze setzen | Admin-Dashboard | `/admin_max <a\|b> <zahl>` |
-| Anmeldung loeschen | Admin-Dashboard | `/admin_loeschen <id>` |
-| Reset | Admin-Dashboard | `/admin_reset` |
+| Max. Plaetze setzen | Admin-Dashboard | Admin-Menue → "Max. Spieler setzen" |
+| Anmeldung loeschen | Admin-Dashboard | Admin-Menue → "Nutzer loeschen" |
+| Reset | Admin-Dashboard | Admin-Menue → "Alle Anmeldungen zuruecksetzen" |
+| CSV-Export | Backup herunterladen | Admin-Menue → "Export (CSV)" |
+| Broadcast | - | Admin-Menue → "Broadcast an alle Nutzer" |
 | Automatik konfigurieren | Admin-Dashboard | - |
-| Backup herunterladen | Admin-Dashboard | - |
 
 ## Lizenz
 
