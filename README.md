@@ -55,7 +55,7 @@ Flask-Webapp **und Telegram-Bot** mit gemeinsamem SQLite-Backend fuer den woeche
 
 - **Kein Pending-Status mehr:** Mitglied- und Gast-Anmeldungen werden sofort eingetragen.
 - **Gast-Benachrichtigung per Telegram:** Admins erhalten bei Gast-Anmeldungen direkte Hinweise.
-- **Bildergalerie im Admin-Panel:** Bilder aus `pictures/` koennen als Hintergrund uebernommen werden.
+- **Bildergalerie im Admin-Panel:** Bilder aus `static/pictures/` koennen als Hintergrund uebernommen werden (mit Vorschau).
 - **Groessere Hintergrund-Icons:** Padel-Ball-Icons wurden deutlich vergroessert.
 - **Automatisches Donnerstagsdatum:** `{next_thursday}` wird bei Seitenaufruf dynamisch ersetzt.
 - **Warteliste mit Auto-Nachruecken:** Freie Plaetze werden automatisch aufgefuellt.
@@ -91,7 +91,10 @@ Spieler koennen sich fuer einen oder beide Slots eintragen. Ist ein Slot voll, w
 ├── index.html
 ├── templates/
 ├── static/
-├── pictures/
+│   └── pictures/          # Hintergrundbilder fuer die Galerie
+├── .github/
+│   └── workflows/
+│       └── docker-build-push.yml
 ├── Dockerfile
 ├── docker-compose.yml
 ├── requirements.txt
@@ -132,15 +135,12 @@ python telegram_bot.py
 
 ### Kurzfassung fuer Assets
 
-Einige Dateien muessen fuer die Flask-Auslieferung im `static/`-Ordner liegen:
+Die Medien und Bilder liegen im Repo bereits an den richtigen Stellen:
 
-```bash
-cp Logo_I_Matchtreff.png static/Logo_I_Matchtreff.png
-cp Matchtreff_Silber.mp4 static/Matchtreff_Silber.mp4
-mkdir -p static/backgrounds static/pictures
-```
-
-Falls Bild-Themes oder die Galerie genutzt werden, muessen die benoetigten Bilder aus `pictures/` in die passenden `static/`-Unterordner kopiert werden.
+- `static/Logo_I_Matchtreff.png`: kleines Logo fuer den Header.
+- `static/Logo_II_Banner.png`: Banner fuer Landingpage und README.
+- `static/Matchtreff_Silber.mp4`: Erklaervideo.
+- `static/pictures/`: alle Bilder fuer die Admin-Galerie (eigenes Hintergrundbild).
 
 ## Docker & Portainer
 
@@ -167,6 +167,16 @@ Alle drei Container teilen sich das Volume `matchtreff_data` und damit dieselbe 
 4. Repo `https://github.com/jbkunama1/hAI.MatchtreffPadel` und `docker-compose.yml` eintragen.
 5. `SECRET_KEY`, `ADMIN_PASSWORD_*`, `TELEGRAM_BOT_TOKEN` und `ADMIN_TELEGRAM_IDS` als Umgebungsvariablen setzen.
 6. Stack deployen oder spaeter per GitOps / Pull and redeploy aktualisieren.
+
+### Docker-Image ueber GitHub Actions (GHCR)
+
+Ein GitHub-Actions-Workflow (`.github/workflows/docker-build-push.yml`) baut bei jedem Push auf `main` automatisch ein Docker-Image und pusht es nach `ghcr.io/jbkunama1/hAI.MatchtreffPadel`. Der Build kann auch manuell ausgeloest werden:
+
+1. Auf GitHub den Tab **Actions** oeffnen.
+2. Links den Workflow **Docker Build and Push to GHCR** waehlen.
+3. Auf **Run workflow** klicken (optional Branch waehlen).
+
+Das Image wird mit den Tags `latest` (nur bei Default-Branch) und ggf. Branch-/SemVer-Tags versehen. Nach dem ersten Push muss die Sichtbarkeit des GHCR-Pakets ggf. auf **public** gesetzt werden, damit der Portainer-Stack das Image ohne Login ziehen kann.
 
 ## Admin-Verwaltung
 
@@ -201,9 +211,9 @@ Weitere Admins lassen sich spaeter im Bereich `/admin/users` anlegen. Der letzte
 
 ## Logos, Medien und Branding
 
-- `Logo_I_Matchtreff.png`: kleines Logo fuer den Header.
-- `Logo_II_Banner.png`: Banner fuer Landingpage und README.
-- `Matchtreff_Silber.mp4`: Erklaervideo fuer Landingpage und Info-Seite.
+- `static/Logo_I_Matchtreff.png`: kleines Logo fuer den Header.
+- `static/Logo_II_Banner.png`: Banner fuer Landingpage und README.
+- `static/Matchtreff_Silber.mp4`: Erklaervideo fuer Landingpage und Info-Seite.
 
 ## Sicherheit und Betrieb
 
