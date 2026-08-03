@@ -52,6 +52,7 @@ Die Anmeldung ist fuer normale Nutzer standardmaessig **geschlossen**. Sie wird 
 - Ab Donnerstag 22 Uhr bleibt die Anmeldung fuer normale Nutzer gesperrt, bis ein Admin sie wieder freigibt.
 - **Admins koennen sich immer eintragen**, unabhaengig vom Sperr-Status.
 - Der woechentliche Reset setzt die Sperre wieder auf den Standard (geschlossen) zurueck.
+- Auf der Startseite erscheint ein **Hinweistext**, ab wann die Liste oeffnet: Standard ist der **naechste Dienstag um 13:00 Uhr**. Hat ein Admin eine automatische Freigabe hinterlegt, wird stattdessen dieser Zeitpunkt angezeigt (mitsamt Datum). Bei manueller Freigabe heisst es "Die Liste ist gerade geoeffnet."
 
 ### Telegram
 
@@ -194,12 +195,83 @@ Alle drei Container teilen sich das Volume `matchtreff_data` und damit dieselbe 
 
 ### Deployment ueber Portainer
 
+Es gibt zwei gleichwertige Wege: **Stack aus dem Git-Repository selbst bauen** (Methode A) oder **das fertige GHCR-Image ziehen** (Methode B, empfohlen — schneller, kein Build im Portainer noetig).
+
+#### Methode A: Git-basierter Stack (Build aus dem Repository)
+
 1. In Portainer **Stacks** oeffnen.
 2. **Add stack** waehlen.
 3. Als Build-Methode **Repository** auswaehlen.
 4. Repo `https://github.com/jbkunama1/hAI.MatchtreffPadel` und `docker-compose.yml` eintragen.
 5. `SECRET_KEY`, `ADMIN_PASSWORD_*`, `TELEGRAM_BOT_TOKEN` und `ADMIN_TELEGRAM_IDS` als Umgebungsvariablen setzen.
 6. Stack deployen oder spaeter per GitOps / Pull and redeploy aktualisieren.
+
+#### Methode B: Stack aus dem fertigen GHCR-Image (empfohlen)
+
+Nach jedem Push auf `main` baut GitHub Actions automatisch ein Docker-Image und pusht es nach `ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest` (s. unten). Du kannst diesen Stack direkt in Portainer ziehen, ohne das Image selbst bauen zu muessen:
+
+1. In Portainer **Stacks** oeffnen.
+2. **Add stack** waehlen.
+3. Als Build-Methode **Web editor** (bzw. "Standard editor") waehlen und folgenden Inhalt einfuegen:
+
+```yaml
+services:
+  matchtreff_web:
+    image: ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest
+    container_name: matchtreff_padel_web
+    command: gunicorn -b 0.0.0.0:1905 --workers 2 --threads 4 --worker-class gthread --timeout 60 --graceful-timeout 30 app:app
+    ports:
+      - "1905:1905"
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - ADMIN_PASSWORD_ADMIN=${ADMIN_PASSWORD_ADMIN}
+      - ADMIN_PASSWORD_DANIEL=${ADMIN_PASSWORD_DANIEL}
+      - ADMIN_PASSWORD_COSME=${ADMIN_PASSWORD_COSME}
+      - ADMIN_PASSWORD_SASCHA=${ADMIN_PASSWORD_SASCHA}
+      - ADMIN_PASSWORD_PATRICK=${ADMIN_PASSWORD_PATRICK}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
+    volumes:
+      - matchtreff_data:/app/instance
+    restart: unless-stopped
+
+  matchtreff_bot:
+    image: ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest
+    container_name: matchtreff_padel_bot
+    command: python -u telegram_bot.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
+      - MATCHTREFF_DB_PATH=/app/instance/matchtreff.sqlite3
+    volumes:
+      - matchtreff_data:/app/instance
+    restart: unless-stopped
+    depends_on:
+      - matchtreff_web
+
+  matchtreff_scheduler:
+    image: ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest
+    container_name: matchtreff_padel_scheduler
+    command: python -u scheduler.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
+      - MATCHTREFF_DB_PATH=/app/instance/matchtreff.sqlite3
+    volumes:
+      - matchtreff_data:/app/instance
+    restart: unless-stopped
+    depends_on:
+      - matchtreff_web
+
+volumes:
+  matchtreff_data:
+```
+
+4. Unter den Stack-Details die Umgebungsvariablen setzen (siehe Methode A, Schritt 5).
+5. **Deploy the stack** klicken. Portainer zieht das Image automatisch (erlaubt das GHCR-Paket kein anonymes Ziehen, zuerst die Registrierung `ghcr.io` unter **Registries** hinzufuegen und das GHCR-Paket auf public stellen).
+6. Um zu aktualisieren: Stack waehlen, dann **Actions → Pull and redeploy**.
 
 ### Docker-Image ueber GitHub Actions (GHCR)
 
