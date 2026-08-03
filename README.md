@@ -206,72 +206,17 @@ Es gibt zwei gleichwertige Wege: **Stack aus dem Git-Repository selbst bauen** (
 5. `SECRET_KEY`, `ADMIN_PASSWORD_*`, `TELEGRAM_BOT_TOKEN` und `ADMIN_TELEGRAM_IDS` als Umgebungsvariablen setzen.
 6. Stack deployen oder spaeter per GitOps / Pull and redeploy aktualisieren.
 
-#### Methode B: Stack aus dem fertigen GHCR-Image (empfohlen)
+#### Methode B: Git-Stack mit fertigem GHCR-Image (empfohlen, kein Build)
 
-Nach jedem Push auf `main` baut GitHub Actions automatisch ein Docker-Image und pusht es nach `ghcr.io/jbkunama1/hai.matchtreffpadel:latest` (s. unten). Du kannst diesen Stack direkt in Portainer ziehen, ohne das Image selbst bauen zu muessen:
+Das Image ist bereits fertig gebaut und liegt in der GitHub Container Registry (`ghcr.io/jbkunama1/hai.matchtreffpadel:latest`). Im Repo gibt es dafuer eine eigene Compose-Datei **ohne `build:`** — Portainer holt sich diese Datei und startet das fertige Image einfach:
 
 1. In Portainer **Stacks** oeffnen.
 2. **Add stack** waehlen.
-3. Als Build-Methode **Web editor** (bzw. "Standard editor") waehlen und folgenden Inhalt einfuegen:
-
-```yaml
-services:
-  matchtreff_web:
-    image: ghcr.io/jbkunama1/hai.matchtreffpadel:latest
-    container_name: matchtreff_padel_web
-    command: gunicorn -b 0.0.0.0:1905 --workers 2 --threads 4 --worker-class gthread --timeout 60 --graceful-timeout 30 app:app
-    ports:
-      - "1905:1905"
-    environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - ADMIN_PASSWORD_ADMIN=${ADMIN_PASSWORD_ADMIN}
-      - ADMIN_PASSWORD_DANIEL=${ADMIN_PASSWORD_DANIEL}
-      - ADMIN_PASSWORD_COSME=${ADMIN_PASSWORD_COSME}
-      - ADMIN_PASSWORD_SASCHA=${ADMIN_PASSWORD_SASCHA}
-      - ADMIN_PASSWORD_PATRICK=${ADMIN_PASSWORD_PATRICK}
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
-    volumes:
-      - matchtreff_data:/app/instance
-    restart: unless-stopped
-
-  matchtreff_bot:
-    image: ghcr.io/jbkunama1/hai.matchtreffpadel:latest
-    container_name: matchtreff_padel_bot
-    command: python -u telegram_bot.py
-    environment:
-      - PYTHONUNBUFFERED=1
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
-      - MATCHTREFF_DB_PATH=/app/instance/matchtreff.sqlite3
-    volumes:
-      - matchtreff_data:/app/instance
-    restart: unless-stopped
-    depends_on:
-      - matchtreff_web
-
-  matchtreff_scheduler:
-    image: ghcr.io/jbkunama1/hai.matchtreffpadel:latest
-    container_name: matchtreff_padel_scheduler
-    command: python -u scheduler.py
-    environment:
-      - PYTHONUNBUFFERED=1
-      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
-      - MATCHTREFF_DB_PATH=/app/instance/matchtreff.sqlite3
-    volumes:
-      - matchtreff_data:/app/instance
-    restart: unless-stopped
-    depends_on:
-      - matchtreff_web
-
-volumes:
-  matchtreff_data:
-```
-
-4. Unter den Stack-Details die Umgebungsvariablen setzen (siehe Methode A, Schritt 5).
-5. **Deploy the stack** klicken. Portainer zieht das Image automatisch (erlaubt das GHCR-Paket kein anonymes Ziehen, zuerst die Registrierung `ghcr.io` unter **Registries** hinzufuegen und das GHCR-Paket auf public stellen).
-6. Um zu aktualisieren: Stack waehlen, dann **Actions → Pull and redeploy**.
+3. Als Build-Methode **Repository** auswaehlen.
+4. Repo `https://github.com/jbkunama1/hAI.MatchtreffPadel` und **Compose path `ghcr-docker-compose.yml`** eintragen (Reference `refs/heads/main`).
+5. `SECRET_KEY`, `ADMIN_PASSWORD_*`, `TELEGRAM_BOT_TOKEN` und `ADMIN_TELEGRAM_IDS` als Umgebungsvariablen setzen.
+6. **Deploy the stack** klicken. Portainer zieht das fertige Image automatisch (kein Build).
+7. Um zu aktualisieren: Stack waehlen, dann **Actions → Pull and redeploy** (holt dann auch das neueste Image).
 
 ### Docker-Image ueber GitHub Actions (GHCR)
 
