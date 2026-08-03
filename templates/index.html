@@ -219,6 +219,16 @@
         line-height: 1.45;
     }
 
+    .signup-open-banner {
+        margin: 0.6rem 0;
+        padding: 0.75rem 0.9rem;
+        border: 1px solid rgba(59, 130, 246, 0.4);
+        border-radius: 0.8rem;
+        background: rgba(59, 130, 246, 0.1);
+        font-size: 0.9rem;
+        line-height: 1.45;
+    }
+
 
     .slot-choice .checkbox-row {
         margin: 0;
@@ -510,7 +520,13 @@
 <div class="signup-lock-banner">
     <strong>🔒 Die Anmeldung ist gerade geschlossen.</strong>
     <br>
-    Bitte wende dich an einen Administrator, um sie freizuschalten.
+    {{ signup_lock_cfg.open_info }}
+    <br>
+    Bei Fragen wende dich an einen Administrator.
+</div>
+{% elif is_admin %}
+<div class="signup-open-banner">
+    <strong>👑 Admin-Blick:</strong> {{ signup_lock_cfg.open_info }}
 </div>
 {% endif %}
 
