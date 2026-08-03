@@ -31,6 +31,7 @@ Flask-Webapp **und Telegram-Bot** mit gemeinsamem SQLite-Backend fuer den woeche
 - Automatische Warteliste bei vollen Slots.
 - Mitglied/Gast-Unterscheidung ueber Checkbox.
 - Schutz vor Doppelanmeldungen.
+- Die Anmeldung kann von einem Admin gesperrt werden; dann ist die Eintragung nur noch fuer Admins moeglich.
 
 ### Admins
 
@@ -42,6 +43,15 @@ Flask-Webapp **und Telegram-Bot** mit gemeinsamem SQLite-Backend fuer den woeche
 - Automatik fuer Reset, Digest und Teilnehmer-Reminder konfigurieren (Tab "⚙️ Automatik").
 - Themes, Hintergrundbilder und Hintergrundeffekte umschalten.
 - Weitere Admins anlegen oder entfernen.
+- **Anmeldesperre** verwalten (Tab "🔒 Anmeldung"): Anmeldung fuer normale Nutzer manuell oeffnen oder sperren, oder eine automatische Freigabe zu einem festen Datum/Uhrzeit planen. Admins koennen sich immer eintragen.
+
+### Anmeldesperre
+
+Die Anmeldung ist fuer normale Nutzer standardmaessig **geschlossen**. Sie wird nur freigeschaltet, wenn ein **Admin** sie oeffnet (manuell oder automatisch zu einer geplanten Uhrzeit). Darueber hinaus:
+
+- Ab Donnerstag 22 Uhr bleibt die Anmeldung fuer normale Nutzer gesperrt, bis ein Admin sie wieder freigibt.
+- **Admins koennen sich immer eintragen**, unabhaengig vom Sperr-Status.
+- Der woechentliche Reset setzt die Sperre wieder auf den Standard (geschlossen) zurueck.
 
 ### Telegram
 

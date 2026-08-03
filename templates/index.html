@@ -209,6 +209,16 @@
         font-weight: 600;
     }
 
+    .signup-lock-banner {
+        margin: 0.6rem 0;
+        padding: 0.75rem 0.9rem;
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        border-radius: 0.8rem;
+        background: rgba(239, 68, 68, 0.12);
+        font-size: 0.9rem;
+        line-height: 1.45;
+    }
+
 
     .slot-choice .checkbox-row {
         margin: 0;
@@ -496,6 +506,14 @@
 </div>
 {% endif %}
 
+{% if not signup_open and not is_admin %}
+<div class="signup-lock-banner">
+    <strong>🔒 Die Anmeldung ist gerade geschlossen.</strong>
+    <br>
+    Bitte wende dich an einen Administrator, um sie freizuschalten.
+</div>
+{% endif %}
+
 <form action="{{ url_for('eintragen') }}" method="post">
     <div class="form-group">
         <label for="name">👤 Dein Name</label>
@@ -565,7 +583,7 @@
         {% endfor %}
     </div>
 
-    <button class="btn-accent" type="submit">
+    <button class="btn-accent" type="submit" {% if not signup_open and not is_admin %}disabled{% endif %}>
         ✅ Verbindlich eintragen
     </button>
 </form>

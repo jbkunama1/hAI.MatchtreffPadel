@@ -205,6 +205,18 @@
             ⏳ Warteliste
         </button>
 
+        <button
+            class="admin-tab"
+            type="button"
+            role="tab"
+            aria-selected="false"
+            aria-controls="tab-anmeldung"
+            id="btn-anmeldung"
+            data-tab="anmeldung"
+        >
+            🔒 Anmeldung
+        </button>
+
         <a class="admin-tab" href="{{ url_for('admin_users_list') }}">
             👥 Admins
         </a>
@@ -657,10 +669,80 @@
 
 <section
     class="admin-tabpanel"
-    id="tab-system"
+                    id="tab-anmeldung"
     role="tabpanel"
-    aria-labelledby="btn-system"
+                    aria-labelledby="btn-anmeldung"
     hidden
+                >
+                    <div class="admin-stack">
+                        <div class="admin-card">
+                            <h2>🔒 Anmeldung</h2>
+
+                            <p class="meta-text">
+                                Aktueller Status:
+                                {% if signup_open %}
+                                    <strong>🟢 Offen</strong>
+                                {% else %}
+                                    <strong>🔴 Geschlossen</strong>
+                                {% endif %}
+                            </p>
+
+                            <div class="admin-card">
+                                <h3>🔓 Manuelle Freigabe</h3>
+
+                                <p class="meta-text">
+                                    Oeffne oder sperre die Anmeldung fuer alle Nutzer.
+                                    Admins koennen sich immer eintragen.
+                                </p>
+
+                                <form method="post" action="{{ url_for('admin_update_signup_lock') }}">
+                                    <input type="hidden" name="action" value="open">
+                                    <button class="btn-accent" type="submit">🔓 Anmeldung öffnen</button>
+                                </form>
+
+                                <form method="post" action="{{ url_for('admin_update_signup_lock') }}">
+                                    <input type="hidden" name="action" value="close">
+                                    <button class="btn-danger" type="submit">🔒 Anmeldung sperren</button>
+                                </form>
+                            </div>
+
+                            <div class="admin-card">
+                                <h3>⏰ Automatische Freigabe</h3>
+
+                                <p class="meta-text">
+                                    {% if signup_lock_cfg and signup_lock_cfg.auto_open_at %}
+                                        Geplant für: {{ signup_lock_cfg.auto_open_at.strftime("%A, %d.%m.%Y, %H:%M Uhr") }}
+                                    {% else %}
+                                        Keine automatische Freigabe geplant.
+                                    {% endif %}
+                                </p>
+
+                                <form method="post" action="{{ url_for('admin_update_signup_lock') }}">
+                                    <input type="hidden" name="action" value="auto">
+
+                                    <div class="form-group">
+                                        <label for="auto_open_datetime">Datum/Uhrzeit für automatische Freigabe</label>
+                                        <input
+                                            type="datetime-local"
+                                            id="auto_open_datetime"
+                                            name="auto_open_datetime"
+                                            value="{{ signup_lock_cfg.auto_open_at_raw if signup_lock_cfg else '' }}"
+                                        >
+                                    </div>
+
+                                    <button class="btn-accent" type="submit">⏰ Automatische Freigabe planen</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section
+                    class="admin-tabpanel"
+                    id="tab-system"
+                    role="tabpanel"
+                    aria-labelledby="btn-system"
+                    hidden
 >
     <div class="admin-stack">
         <div class="admin-card">
