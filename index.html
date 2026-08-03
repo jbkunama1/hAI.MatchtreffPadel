@@ -354,7 +354,7 @@
 
       <p>
         Nach jedem Push auf <span class="code-inline">main</span> baut GitHub Actions automatisch ein Docker-Image
-        und pusht es nach <span class="code-inline">ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest</span>.
+        und pusht es nach <span class="code-inline">ghcr.io/jbkunama1/hai.matchtreffpadel:latest</span>.
         So holst du den Stack ohne Build im Portainer:
       </p>
 
@@ -366,7 +366,7 @@
 
       <pre class="code-block"><code>services:
   matchtreff_web:
-    image: ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest
+    image: ghcr.io/jbkunama1/hai.matchtreffpadel:latest
     container_name: matchtreff_padel_web
     command: gunicorn -b 0.0.0.0:1905 --workers 2 --threads 4 --worker-class gthread --timeout 60 --graceful-timeout 30 app:app
     ports:
@@ -385,7 +385,7 @@
     restart: unless-stopped
 
   matchtreff_bot:
-    image: ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest
+    image: ghcr.io/jbkunama1/hai.matchtreffpadel:latest
     container_name: matchtreff_padel_bot
     command: python -u telegram_bot.py
     environment:
@@ -400,7 +400,7 @@
       - matchtreff_web
 
   matchtreff_scheduler:
-    image: ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest
+    image: ghcr.io/jbkunama1/hai.matchtreffpadel:latest
     container_name: matchtreff_padel_scheduler
     command: python -u scheduler.py
     environment:
@@ -433,7 +433,7 @@ volumes:
       <p>
         Ein GitHub-Actions-Workflow baut bei jedem Push auf <span class="code-inline">main</span> automatisch ein
         Docker-Image und pusht es nach
-        <span class="code-inline">ghcr.io/jbkunama1/hAI.MatchtreffPadel</span>.
+        <span class="code-inline">ghcr.io/jbkunama1/hai.matchtreffpadel</span>.
         Der Build l&auml;sst sich auch manuell ausl&ouml;sen (Actions &rarr;
         <strong>Docker Build and Push to GHCR</strong> &rarr; <strong>Run workflow</strong>).
       </p>

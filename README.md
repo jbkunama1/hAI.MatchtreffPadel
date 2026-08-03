@@ -208,7 +208,7 @@ Es gibt zwei gleichwertige Wege: **Stack aus dem Git-Repository selbst bauen** (
 
 #### Methode B: Stack aus dem fertigen GHCR-Image (empfohlen)
 
-Nach jedem Push auf `main` baut GitHub Actions automatisch ein Docker-Image und pusht es nach `ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest` (s. unten). Du kannst diesen Stack direkt in Portainer ziehen, ohne das Image selbst bauen zu muessen:
+Nach jedem Push auf `main` baut GitHub Actions automatisch ein Docker-Image und pusht es nach `ghcr.io/jbkunama1/hai.matchtreffpadel:latest` (s. unten). Du kannst diesen Stack direkt in Portainer ziehen, ohne das Image selbst bauen zu muessen:
 
 1. In Portainer **Stacks** oeffnen.
 2. **Add stack** waehlen.
@@ -217,7 +217,7 @@ Nach jedem Push auf `main` baut GitHub Actions automatisch ein Docker-Image und 
 ```yaml
 services:
   matchtreff_web:
-    image: ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest
+    image: ghcr.io/jbkunama1/hai.matchtreffpadel:latest
     container_name: matchtreff_padel_web
     command: gunicorn -b 0.0.0.0:1905 --workers 2 --threads 4 --worker-class gthread --timeout 60 --graceful-timeout 30 app:app
     ports:
@@ -236,7 +236,7 @@ services:
     restart: unless-stopped
 
   matchtreff_bot:
-    image: ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest
+    image: ghcr.io/jbkunama1/hai.matchtreffpadel:latest
     container_name: matchtreff_padel_bot
     command: python -u telegram_bot.py
     environment:
@@ -251,7 +251,7 @@ services:
       - matchtreff_web
 
   matchtreff_scheduler:
-    image: ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest
+    image: ghcr.io/jbkunama1/hai.matchtreffpadel:latest
     container_name: matchtreff_padel_scheduler
     command: python -u scheduler.py
     environment:
@@ -275,7 +275,7 @@ volumes:
 
 ### Docker-Image ueber GitHub Actions (GHCR)
 
-Ein GitHub-Actions-Workflow (`.github/workflows/docker-build-push.yml`) baut bei jedem Push auf `main` automatisch ein Docker-Image und pusht es nach `ghcr.io/jbkunama1/hAI.MatchtreffPadel`. Der Build kann auch manuell ausgeloest werden:
+Ein GitHub-Actions-Workflow (`.github/workflows/docker-build-push.yml`) baut bei jedem Push auf `main` automatisch ein Docker-Image und pusht es nach `ghcr.io/jbkunama1/hai.matchtreffpadel`. Der Build kann auch manuell ausgeloest werden:
 
 1. Auf GitHub den Tab **Actions** oeffnen.
 2. Links den Workflow **Docker Build and Push to GHCR** waehlen.
