@@ -287,6 +287,16 @@
       </div>
 
       <div class="feature-card">
+        <h3>Anmeldesperre</h3>
+        <p>Die Anmeldung ist f&uuml;r normale Nutzer standardm&auml;&szlig;ig geschlossen und wird erst wieder freigeschaltet, wenn ein Admin sie &ouml;ffnet &ndash; manuell oder per geplanter Auto-Freigabe zu einem festen Datum/Uhrzeit. <strong>Admins k&ouml;nnen sich immer eintragen.</strong></p>
+      </div>
+
+      <div class="feature-card">
+        <h3>Hinweistext auf der Startseite</h3>
+        <p>Die Startseite zeigt transparent an, ab wann die Liste &ouml;ffnet: Standard ist der n&auml;chste <strong>Dienstag um 13:00 Uhr</strong>. Hat ein Admin eine Auto-Freigabe hinterlegt, wird stattdessen deren Datum/Uhrzeit angezeigt; ist die Liste ge&ouml;ffnet, steht dort &ldquo;Die Liste ist gerade ge&ouml;ffnet.&rdquo;</p>
+      </div>
+
+      <div class="feature-card">
         <h3>Digest-Benachrichtigung</h3>
         <p>Sammelt neue Anmeldungen und schickt alle 60 Minuten (konfigurierbar) eine Zusammenfassung an die Telegram-Admins. G&auml;ste erhalten weiterhin sofort ihre eigene Nachricht.</p>
       </div>
@@ -326,7 +336,9 @@
         <li><strong>UI:</strong> eigenes responsives CSS im VfB-K&auml;ssle-Design</li>
       </ul>
 
-      <h2>Deployment via Portainer (Git-Stack)</h2>
+      <h2>Deployment via Portainer</h2>
+
+      <h3>Methode A &ndash; Git-Stack (Build aus dem Repository)</h3>
 
       <ol class="list-tight">
         <li>Portainer &rarr; <strong>Stacks</strong> &rarr; <strong>+ Add stack</strong></li>
@@ -337,6 +349,84 @@
         <li>Optional: <strong>GitOps updates</strong> (Polling/Webhook) aktivieren, damit neue Commits automatisch deployt werden</li>
         <li>Auf <strong>Deploy the stack</strong> klicken &ndash; Web-App l&auml;uft danach auf Port <span class="code-inline">1905</span>, Bot und Scheduler starten automatisch mit</li>
       </ol>
+
+      <h3>Methode B &ndash; Stack aus dem fertigen GHCR-Image (empfohlen)</h3>
+
+      <p>
+        Nach jedem Push auf <span class="code-inline">main</span> baut GitHub Actions automatisch ein Docker-Image
+        und pusht es nach <span class="code-inline">ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest</span>.
+        So holst du den Stack ohne Build im Portainer:
+      </p>
+
+      <ol class="list-tight">
+        <li>Portainer &rarr; <strong>Stacks</strong> &rarr; <strong>+ Add stack</strong></li>
+        <li>Build method: <strong>Web editor</strong> w&auml;hlen</li>
+        <li>Folgenden Inhalt in den Editor einf&uuml;gen (gleiche Services und Umgebungsvariablen wie in der <span class="code-inline">docker-compose.yml</span>, nur mit <span class="code-inline">image:</span> statt <span class="code-inline">build:</span>):</li>
+      </ol>
+
+      <pre class="code-block"><code>services:
+  matchtreff_web:
+    image: ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest
+    container_name: matchtreff_padel_web
+    command: gunicorn -b 0.0.0.0:1905 --workers 2 --threads 4 --worker-class gthread --timeout 60 --graceful-timeout 30 app:app
+    ports:
+      - "1905:1905"
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - ADMIN_PASSWORD_ADMIN=${ADMIN_PASSWORD_ADMIN}
+      - ADMIN_PASSWORD_DANIEL=${ADMIN_PASSWORD_DANIEL}
+      - ADMIN_PASSWORD_COSME=${ADMIN_PASSWORD_COSME}
+      - ADMIN_PASSWORD_SASCHA=${ADMIN_PASSWORD_SASCHA}
+      - ADMIN_PASSWORD_PATRICK=${ADMIN_PASSWORD_PATRICK}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
+    volumes:
+      - matchtreff_data:/app/instance
+    restart: unless-stopped
+
+  matchtreff_bot:
+    image: ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest
+    container_name: matchtreff_padel_bot
+    command: python -u telegram_bot.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
+      - MATCHTREFF_DB_PATH=/app/instance/matchtreff.sqlite3
+    volumes:
+      - matchtreff_data:/app/instance
+    restart: unless-stopped
+    depends_on:
+      - matchtreff_web
+
+  matchtreff_scheduler:
+    image: ghcr.io/jbkunama1/hAI.MatchtreffPadel:latest
+    container_name: matchtreff_padel_scheduler
+    command: python -u scheduler.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
+      - MATCHTREFF_DB_PATH=/app/instance/matchtreff.sqlite3
+    volumes:
+      - matchtreff_data:/app/instance
+    restart: unless-stopped
+    depends_on:
+      - matchtreff_web
+
+volumes:
+  matchtreff_data:</code></pre>
+
+      <ol class="list-tight" start="4">
+        <li>Umgebungsvariablen setzen: <span class="code-inline">SECRET_KEY</span>, <span class="code-inline">ADMIN_PASSWORD_*</span>, <span class="code-inline">TELEGRAM_BOT_TOKEN</span>, <span class="code-inline">ADMIN_TELEGRAM_IDS</span></li>
+        <li>Auf <strong>Deploy the stack</strong> klicken &ndash; Portainer zieht das Image automatisch</li>
+        <li>F&uuml;r Updates: Stack &rarr; <strong>Actions</strong> &rarr; <strong>Pull and redeploy</strong></li>
+      </ol>
+
+      <p style="margin-top: 0.5rem; color: #64748b; font-size: 0.9rem;">
+        Hinweis: Falls das GHCR-Paket nicht &ouml;ffentlich ist, in Portainer unter <strong>Registries</strong> zun&auml;chst
+        <span class="code-inline">ghcr.io</span> mit deinem GitHub-Login hinzuf&uuml;gen.
+      </p>
 
       <h2>Automatischer Docker-Build (GHCR)</h2>
 
