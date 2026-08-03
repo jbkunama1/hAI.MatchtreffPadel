@@ -85,6 +85,7 @@ body::before {
 
 @media (prefers-reduced-motion: reduce) {
   .bg-bubbles span { animation: none !important; opacity: 0.2 !important; }
+  .bg-bubbles.bg-style-logo span { animation: none !important; opacity: 0.2 !important; }
 }
 
 .page-shell {
@@ -120,7 +121,12 @@ body::before {
 }
 
 @media (max-width: 767.98px) {
-  .site-banner { display: none; }
+  .site-banner {
+    display: block;
+    max-height: 3.5rem;
+    border-radius: 0.6rem;
+  }
+  .nav-row .btn-soft { width: 100%; box-sizing: border-box; }
 }
 
 .badge-pill {
@@ -212,6 +218,10 @@ a { text-decoration: none; }
 }
 .btn-danger:hover { filter: brightness(1.05); }
 
+/* Navigation: Buttons (besonders gestapelt auf Mobile) mit klaren Abstaenden */
+.nav-row { display: flex; flex-wrap: wrap; gap: 0.5rem 0.6rem; margin-top: 0.5rem; }
+.nav-row .btn-soft { margin-right: 0; margin-top: 0; }
+
 .code-inline {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
   font-size: 0.8rem;
@@ -231,6 +241,7 @@ a { text-decoration: none; }
   padding: 1.25rem;
   margin-top: 1rem;
   background: #fafbff;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.06);
 }
 .slot-card.full { border-color: rgba(220, 38, 38, 0.3); background: rgba(220, 38, 38, 0.04); }
 

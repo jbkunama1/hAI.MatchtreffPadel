@@ -53,7 +53,7 @@
             {% block content %}{% endblock %}
 
             <div class="stack-label">Navigation</div>
-            <div>
+            <div class="nav-row">
                 <a class="btn-soft" href="{{ url_for('index') }}">Startseite</a>
                 {% if is_admin %}
                     <a class="btn-soft" href="{{ url_for('admin_dashboard') }}">Admin-Bereich ({{ admin_username }})</a>
