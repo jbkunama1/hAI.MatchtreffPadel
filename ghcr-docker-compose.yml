@@ -1,0 +1,63 @@
+# Portainer: als Git-basierter Stack deploybar, OHNE Build.
+# Nutzt das fertige GHCR-Image (ghcr.io/jbkunama1/hai.matchtreffpadel:latest),
+# das bei jedem Push auf main automatisch gebaut und gepusht wird.
+#
+# Repository URL: https://github.com/jbkunama1/hAI.MatchtreffPadel
+# Compose path:   ghcr-docker-compose.yml
+#
+# WICHTIG: Die Werte rechts vom Gleichheitszeichen (z.B. ${SECRET_KEY}) werden
+# aus den Umgebungsvariablen uebernommen, die du im Portainer Stack-Editor unter
+# "Environment variables" setzt. Setze dort echte Werte, NICHT hier in dieser Datei.
+
+services:
+  matchtreff_web:
+    image: ghcr.io/jbkunama1/hai.matchtreffpadel:latest
+    container_name: matchtreff_padel_web
+    command: gunicorn -b 0.0.0.0:1905 --workers 2 --threads 4 --worker-class gthread --timeout 60 --graceful-timeout 30 app:app
+    ports:
+      - "1905:1905"
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - ADMIN_PASSWORD_ADMIN=${ADMIN_PASSWORD_ADMIN}
+      - ADMIN_PASSWORD_DANIEL=${ADMIN_PASSWORD_DANIEL}
+      - ADMIN_PASSWORD_COSME=${ADMIN_PASSWORD_COSME}
+      - ADMIN_PASSWORD_SASCHA=${ADMIN_PASSWORD_SASCHA}
+      - ADMIN_PASSWORD_PATRICK=${ADMIN_PASSWORD_PATRICK}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
+    volumes:
+      - matchtreff_data:/app/instance
+    restart: unless-stopped
+
+  matchtreff_bot:
+    image: ghcr.io/jbkunama1/hai.matchtreffpadel:latest
+    container_name: matchtreff_padel_bot
+    command: python -u telegram_bot.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
+      - MATCHTREFF_DB_PATH=/app/instance/matchtreff.sqlite3
+    volumes:
+      - matchtreff_data:/app/instance
+    restart: unless-stopped
+    depends_on:
+      - matchtreff_web
+
+  matchtreff_scheduler:
+    image: ghcr.io/jbkunama1/hai.matchtreffpadel:latest
+    container_name: matchtreff_padel_scheduler
+    command: python -u scheduler.py
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+      - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
+      - MATCHTREFF_DB_PATH=/app/instance/matchtreff.sqlite3
+    volumes:
+      - matchtreff_data:/app/instance
+    restart: unless-stopped
+    depends_on:
+      - matchtreff_web
+
+volumes:
+  matchtreff_data:
