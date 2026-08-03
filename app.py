@@ -381,48 +381,34 @@ def create_app(test_config=None):
         }
 
         for key, value in setting_defaults.items():
-            existing = db.execute(
-                "SELECT value FROM settings WHERE key = ?",
-                (key,),
-            ).fetchone()
-            if not existing:
-                db.execute(
-                    "INSERT INTO settings (key, value) VALUES (?, ?)",
-                    (key, value),
-                )
+            db.execute(
+                "INSERT INTO settings (key, value) VALUES (?, ?) "
+                "ON CONFLICT(key) DO NOTHING",
+                (key, value),
+            )
 
         for seed_name, seed_password in SEED_ADMIN_USERS.items():
             if not seed_password:
                 continue
 
-            existing_admin = db.execute(
-                "SELECT id FROM admin_users WHERE username = ?",
-                (seed_name,),
-            ).fetchone()
-
-            if not existing_admin:
-                db.execute(
-                    """
-                    INSERT INTO admin_users (username, password_hash, created_by)
-                    VALUES (?, ?, ?)
-                    """,
-                    (seed_name, generate_password_hash(seed_password), "system"),
-                )
+            db.execute(
+                """
+                INSERT INTO admin_users (username, password_hash, created_by)
+                VALUES (?, ?, ?)
+                ON CONFLICT(username) DO NOTHING
+                """,
+                (seed_name, generate_password_hash(seed_password), "system"),
+            )
 
         for slot in SLOT_DEFINITIONS:
-            existing_slot = db.execute(
-                "SELECT id FROM slots WHERE slot_key = ?",
-                (slot["key"],),
-            ).fetchone()
-
-            if not existing_slot:
-                db.execute(
-                    """
-                    INSERT INTO slots (slot_key, label, max_players)
-                    VALUES (?, ?, ?)
-                    """,
-                    (slot["key"], slot["label"], DEFAULT_MAX_PLAYERS),
-                )
+            db.execute(
+                """
+                INSERT INTO slots (slot_key, label, max_players)
+                VALUES (?, ?, ?)
+                ON CONFLICT(slot_key) DO NOTHING
+                """,
+                (slot["key"], slot["label"], DEFAULT_MAX_PLAYERS),
+            )
 
         migrated_flag = db.execute(
             "SELECT value FROM settings WHERE key = 'slot_labels_migrated_v2'"
