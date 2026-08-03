@@ -75,6 +75,11 @@ DEFAULT_REMINDER_HOUR = "12"
 DEFAULT_REMINDER_MINUTE = "0"
 WEEKDAY_NAMES = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
 
+# Anmeldesperre: Standard gesperrt fuer normale Nutzer, Oeffnung nur durch Admin
+DEFAULT_SIGNUP_LOCK_ENABLED = "1"  # Sperre aktiv
+DEFAULT_SIGNUP_LOCK_MANUAL_OPEN = "0"  # manuell durch Admin geoeffnet?
+DEFAULT_SIGNUP_LOCK_AUTO_OPEN_AT = ""  # ISO-Datetime fuer automatische Freigabe (leer = aus)
+
 DEFAULT_INTRO_TEXT = (
     "Anmeldung fuer Donnerstag, {next_thursday}. Trag einfach deinen Namen ein "
     "und waehle einen oder beide Slots. Pro Geraet kann man sich pro Slot nur "
@@ -362,6 +367,9 @@ def create_app(test_config=None):
             "reminder_weekday": DEFAULT_REMINDER_WEEKDAY,
             "reminder_hour": DEFAULT_REMINDER_HOUR,
             "reminder_minute": DEFAULT_REMINDER_MINUTE,
+            "signup_lock_enabled": DEFAULT_SIGNUP_LOCK_ENABLED,
+            "signup_lock_manual_open": DEFAULT_SIGNUP_LOCK_MANUAL_OPEN,
+            "signup_lock_auto_open_at": DEFAULT_SIGNUP_LOCK_AUTO_OPEN_AT,
         }
 
         for key, value in setting_defaults.items():
@@ -497,6 +505,40 @@ def create_app(test_config=None):
             (key, value),
         )
         db.commit()
+
+    def signup_lock_settings():
+        enabled = get_setting_value(
+            "signup_lock_enabled", DEFAULT_SIGNUP_LOCK_ENABLED
+        ) == "1"
+        manual_open = get_setting_value(
+            "signup_lock_manual_open", DEFAULT_SIGNUP_LOCK_MANUAL_OPEN
+        ) == "1"
+        auto_open_at_raw = get_setting_value(
+            "signup_lock_auto_open_at", DEFAULT_SIGNUP_LOCK_AUTO_OPEN_AT
+        )
+        auto_open_at = None
+        if auto_open_at_raw:
+            try:
+                auto_open_at = datetime.fromisoformat(auto_open_at_raw)
+            except (ValueError, TypeError):
+                auto_open_at = None
+        return {
+            "enabled": enabled,
+            "manual_open": manual_open,
+            "auto_open_at": auto_open_at,
+            "auto_open_at_raw": auto_open_at_raw,
+        }
+
+    def is_signup_open():
+        """True, wenn die Anmeldung aktuell geoeffnet ist (Sperre fuer normale Nutzer)."""
+        cfg = signup_lock_settings()
+        if not cfg["enabled"]:
+            return True
+        if cfg["manual_open"]:
+            return True
+        if cfg["auto_open_at"] and cfg["auto_open_at"] <= datetime.now():
+            return True
+        return False
 
     def get_automatik_settings():
         return {
@@ -703,6 +745,8 @@ def create_app(test_config=None):
             cookie_locked=cookie_locked,
             waitlist_limit=get_waitlist_limit(),
             is_admin=bool(session.get("is_admin")),
+            signup_open=is_signup_open(),
+            signup_lock_cfg=signup_lock_settings(),
         )
 
     @app.route("/info")
@@ -748,10 +792,18 @@ def create_app(test_config=None):
         waitlist_limit = get_waitlist_limit()
         waitlist_mode = get_waitlist_mode()
 
+        is_admin_user = bool(session.get("is_admin"))
+
+        if not is_admin_user and not is_signup_open():
+            flash(
+                "Die Anmeldung ist aktuell gesperrt. Bitte wende dich an einen "
+                "Administrator, um sie freizuschalten.",
+                "danger",
+            )
+            return redirect(url_for("index"))
+
         for slot_key in selected_slots:
             cookie_name = SIGNUP_COOKIE_PREFIX + slot_key
-
-            is_admin_user = bool(session.get("is_admin"))
 
             if not is_admin_user and request.cookies.get(cookie_name):
                 blocked_cookie.append(SLOT_LABEL.get(slot_key, slot_key))
@@ -955,6 +1007,8 @@ def create_app(test_config=None):
             raw_intro_text=get_raw_intro_text(),
             automatik=get_automatik_settings(),
             weekdays=WEEKDAY_NAMES,
+            signup_open=is_signup_open(),
+            signup_lock_cfg=signup_lock_settings(),
         )
 
     @app.route("/admin/slot/<int:slot_id>/update", methods=["POST"])
@@ -1421,6 +1475,33 @@ def create_app(test_config=None):
             db.commit()
 
         flash("Automatik-Einstellungen gespeichert.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/signup-lock/update", methods=["POST"])
+    @admin_required
+    def admin_update_signup_lock():
+        action = request.form.get("action")
+        if action == "open":
+            set_setting_value("signup_lock_manual_open", "1")
+            set_setting_value("signup_lock_auto_open_at", "")
+            flash("Anmeldung manuell geoeffnet.", "success")
+        elif action == "close":
+            set_setting_value("signup_lock_manual_open", "0")
+            set_setting_value("signup_lock_auto_open_at", "")
+            flash("Anmeldung gesperrt.", "success")
+        elif action == "auto":
+            auto_raw = request.form.get("auto_open_datetime", "").strip()
+            if auto_raw:
+                try:
+                    datetime.fromisoformat(auto_raw)
+                except (ValueError, TypeError):
+                    flash("Ungueltiges Datum/Uhrzeit fuer die automatische Oeffnung.", "danger")
+                    return redirect(url_for("admin_dashboard"))
+                set_setting_value("signup_lock_manual_open", "0")
+                set_setting_value("signup_lock_auto_open_at", auto_raw)
+                flash("Automatische Oeffnung geplant.", "success")
+            else:
+                flash("Bitte ein Datum und Uhrzeit angeben.", "danger")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/backup/download")
