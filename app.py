@@ -702,6 +702,7 @@ def create_app(test_config=None):
             signups_by_slot=signups_by_slot,
             cookie_locked=cookie_locked,
             waitlist_limit=get_waitlist_limit(),
+            is_admin=bool(session.get("is_admin")),
         )
 
     @app.route("/info")
@@ -750,7 +751,9 @@ def create_app(test_config=None):
         for slot_key in selected_slots:
             cookie_name = SIGNUP_COOKIE_PREFIX + slot_key
 
-            if request.cookies.get(cookie_name):
+            is_admin_user = bool(session.get("is_admin"))
+
+            if not is_admin_user and request.cookies.get(cookie_name):
                 blocked_cookie.append(SLOT_LABEL.get(slot_key, slot_key))
                 continue
 
