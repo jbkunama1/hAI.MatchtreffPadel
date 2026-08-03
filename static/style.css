@@ -5,7 +5,15 @@
   --accent: #38bdf8;
   --accent-soft: rgba(56, 189, 248, 0.08);
   --bubble-color: rgba(56, 189, 248, 0.16);
+  /* Einheitliche Border-Radius-Skala (weniger Stufen = ruhigeres Bild) */
+  --radius-sm: 0.6rem;
+  --radius-md: 0.8rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
 }
+
+h1 { font-size: clamp(1.5rem, 4vw, 2.1rem); margin: 0 0 0.5rem; line-height: 1.15; }
+h2 { font-size: clamp(1.2rem, 3vw, 1.5rem); margin: 0 0 0.5rem; line-height: 1.2; }
 
 html { min-height: 100%; }
 
@@ -102,7 +110,7 @@ body::before {
 .card-root {
   max-width: 760px;
   width: 100%;
-  border-radius: 1.5rem;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--border-subtle);
   background: var(--card-bg);
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(255, 255, 255, 0.8);
@@ -237,7 +245,7 @@ a { text-decoration: none; }
 
 .slot-card {
   border: 1px solid var(--border-subtle);
-  border-radius: 1rem;
+  border-radius: var(--radius-lg);
   padding: 1.25rem;
   margin-top: 1rem;
   background: #fafbff;
@@ -268,7 +276,7 @@ a { text-decoration: none; }
 .form-control {
   width: 100%;
   padding: 0.55rem 0.8rem;
-  border-radius: 0.6rem;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-subtle);
   font-size: 1rem;
   box-sizing: border-box;
@@ -294,8 +302,8 @@ img, video { max-width: 100%; height: auto; }
 @media (max-width: 767.98px) {
   .page-shell { padding: 1.25rem 0.75rem; }
   .card-root { padding: 1.25rem; border-radius: 1rem; }
-  h1 { font-size: 1.4rem; }
-  h2 { font-size: 1.15rem; }
+  h1 { font-size: clamp(1.3rem, 6vw, 1.5rem); }
+  h2 { font-size: clamp(1.1rem, 4.5vw, 1.25rem); }
   .btn-soft, .btn-accent, .btn-danger { width: 100%; margin-right: 0; box-sizing: border-box; }
   .checkbox-row .btn-accent { width: auto; }
   form .btn-accent { width: 100%; }
