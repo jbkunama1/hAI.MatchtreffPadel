@@ -5,6 +5,7 @@ import sys
 import urllib.request
 from datetime import datetime, timedelta
 from functools import wraps
+from zoneinfo import ZoneInfo
 
 from flask import (
     Flask,
@@ -79,6 +80,13 @@ WEEKDAY_NAMES = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Sam
 DEFAULT_SIGNUP_LOCK_ENABLED = "1"  # Sperre aktiv
 DEFAULT_SIGNUP_LOCK_MANUAL_OPEN = "0"  # manuell durch Admin geoeffnet?
 DEFAULT_SIGNUP_LOCK_AUTO_OPEN_AT = ""  # ISO-Datetime fuer automatische Freigabe (leer = aus)
+
+# Standard: Liste oeffnet am Dienstag um 13:00 Uhr (nach EU-Zeit).
+# Wird ueberschrieben, wenn ein Admin eine Abweichung hinterlegt hat.
+SIGNUP_DEFAULT_OPEN_WEEKDAY = 1  # 0=Mo ... 1=Di ... 6=So
+SIGNUP_DEFAULT_OPEN_HOUR = 13
+SIGNUP_DEFAULT_OPEN_MINUTE = 0
+APP_TZ = ZoneInfo("Europe/Berlin")
 
 DEFAULT_INTRO_TEXT = (
     "Anmeldung fuer Donnerstag, {next_thursday}. Trag einfach deinen Namen ein "
@@ -522,11 +530,44 @@ def create_app(test_config=None):
                 auto_open_at = datetime.fromisoformat(auto_open_at_raw)
             except (ValueError, TypeError):
                 auto_open_at = None
+
+        # Hinweistext: ab wann die Liste oeffnet (fuer die Startseite).
+        def _format_open(open_dt):
+            weekdays = [
+                "Montag", "Dienstag", "Mittwoch", "Donnerstag",
+                "Freitag", "Samstag", "Sonntag",
+            ]
+            return (
+                f"{weekdays[open_dt.weekday()]}, "
+                f"{open_dt.strftime('%d.%m.%Y')} um {open_dt.strftime('%H:%M')} Uhr"
+            )
+
+        if manual_open and enabled:
+            open_info = "Die Liste ist gerade geoeffnet."
+        elif auto_open_at:
+            open_info = "Die Liste oeffnet am " + _format_open(auto_open_at)
+        else:
+            # Standard: naechster Dienstag um 13:00
+            now = datetime.now(APP_TZ)
+            days_ahead = (SIGNUP_DEFAULT_OPEN_WEEKDAY - now.weekday()) % 7
+            if days_ahead == 0 and (
+                (now.hour, now.minute) >= (SIGNUP_DEFAULT_OPEN_HOUR, SIGNUP_DEFAULT_OPEN_MINUTE)
+            ):
+                days_ahead = 7
+            next_open = (now + timedelta(days=days_ahead)).replace(
+                hour=SIGNUP_DEFAULT_OPEN_HOUR,
+                minute=SIGNUP_DEFAULT_OPEN_MINUTE,
+                second=0,
+                microsecond=0,
+            )
+            open_info = "Die Liste oeffnet am " + _format_open(next_open)
+
         return {
             "enabled": enabled,
             "manual_open": manual_open,
             "auto_open_at": auto_open_at,
             "auto_open_at_raw": auto_open_at_raw,
+            "open_info": open_info,
         }
 
     def is_signup_open():
