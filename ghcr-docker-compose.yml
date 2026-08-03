@@ -61,3 +61,8 @@ services:
 
 volumes:
   matchtreff_data:
+
+networks:
+  default:
+    name: highfishNetwork
+    external: true
