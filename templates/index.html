@@ -128,9 +128,10 @@
         display: block;
         margin: 0.55rem 0;
         padding: 0.9rem 1rem;
-        border: 2px solid rgba(255, 255, 255, 0.14);
+        border: 2px solid rgba(255, 255, 255, 0.5);
         border-radius: 1rem;
-        background: rgba(255, 255, 255, 0.06);
+        background: rgba(255, 255, 255, 0.14);
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
         cursor: pointer;
         transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
         user-select: none;
@@ -526,7 +527,7 @@
 </div>
 {% elif is_admin %}
 <div class="signup-open-banner">
-    <strong>👑 Admin-Blick:</strong> {{ signup_lock_cfg.open_info }}
+    <strong>👑 Admin-Modus:</strong> {{ signup_lock_cfg.open_info }}
 </div>
 {% endif %}
 
