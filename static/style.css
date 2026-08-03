@@ -2,9 +2,9 @@
   --bg: #f5f5fb;
   --card-bg: #ffffff;
   --border-subtle: rgba(15, 23, 42, 0.08);
-  --accent: #2563eb;
-  --accent-soft: rgba(37, 99, 235, 0.08);
-  --bubble-color: rgba(37, 99, 235, 0.16);
+  --accent: #38bdf8;
+  --accent-soft: rgba(56, 189, 248, 0.08);
+  --bubble-color: rgba(56, 189, 248, 0.16);
 }
 
 html { min-height: 100%; }
