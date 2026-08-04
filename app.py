@@ -1,16 +1,54 @@
-import json
 import os
 import sqlite3
 import sys
-import urllib.request
+import logging
+from logging_config import setup_logging
 from datetime import datetime, timedelta
-from functools import wraps
-from zoneinfo import ZoneInfo
+
+from logic_settings import (
+    APP_TZ,
+    BG_STYLES,
+    DEFAULT_BG_STYLE,
+    DEFAULT_CUSTOM_IMAGE,
+        DEFAULT_INTRO_TEXT,
+        DEFAULT_REMINDER_ENABLED,
+    DEFAULT_REMINDER_HOUR,
+    DEFAULT_REMINDER_MINUTE,
+    DEFAULT_REMINDER_WEEKDAY,
+    DEFAULT_RESET_ENABLED,
+    DEFAULT_RESET_HOUR,
+    DEFAULT_RESET_MINUTE,
+    DEFAULT_RESET_WEEKDAY,
+    DEFAULT_SHOW_BANNER,
+    DEFAULT_SIGNUP_LOCK_AUTO_OPEN_AT,
+    DEFAULT_SIGNUP_LOCK_ENABLED,
+    DEFAULT_SIGNUP_LOCK_MANUAL_OPEN,
+    DEFAULT_SLOT_SELECTION,
+    DEFAULT_THEME,
+    DEFAULT_WAITLIST_MODE,
+    DEFAULT_NOTIFY_INTERVAL_MINUTES,
+    GALLERY_IMAGES,
+    INFO_PAGE_TEXT,
+    ORGA_TEAM_NORMALIZED,
+    SIGNUP_COOKIE_PREFIX,
+    SIGNUP_DEFAULT_OPEN_HOUR,
+    SIGNUP_DEFAULT_OPEN_MINUTE,
+    SIGNUP_DEFAULT_OPEN_WEEKDAY,
+    SLOT_DEFINITIONS,
+    SLOT_LABEL,
+    THEMES,
+    WAITLIST_LIMIT,
+    WAITLIST_MODES,
+    WEEKDAY_NAMES,
+    normalize_name,
+)
+from logic_telegram import notify_admins_guest_signup
+from logic_db import close_db, get_db, init_db
+from logic_auth import admin_required, authenticate_admin
 
 from flask import (
     Flask,
     flash,
-    g,
     make_response,
     redirect,
     render_template,
@@ -19,17 +57,22 @@ from flask import (
     session,
     url_for,
 )
-from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.security import generate_password_hash
+
+
+
+
+setup_logging(name="matchtreff.web")
+logger = logging.getLogger("matchtreff.web")
 
 
 _REQUIRED_ENV = ["SECRET_KEY", "ADMIN_PASSWORD_ADMIN", "ADMIN_PASSWORD_DANIEL"]
 _missing = [name for name in _REQUIRED_ENV if not os.environ.get(name, "").strip()]
 if _missing:
     missing_list = ", ".join(_missing)
-    print(
-        f"[FEHLER] Fehlende Pflicht-Umgebungsvariablen: {missing_list}\n"
-        "Bitte in der .env auf dem Host setzen. Anwendung wird beendet.",
-        file=sys.stderr,
+    logger.critical(
+        f"Fehlende Pflicht-Umgebungsvariablen: {missing_list}. "
+        "Bitte in der .env auf dem Host setzen. Anwendung wird beendet."
     )
     sys.exit(1)
 
@@ -41,238 +84,6 @@ SEED_ADMIN_USERS = {
     "Sascha": os.environ.get("ADMIN_PASSWORD_SASCHA"),
     "Patrick": os.environ.get("ADMIN_PASSWORD_PATRICK"),
 }
-
-SLOT_DEFINITIONS = [
-    {"key": "slot_a", "label": "Temprano: 18:00 - 20:00 Uhr"},
-    {"key": "slot_b", "label": "Tarde: 20:00 - 22:00 Uhr"},
-]
-SLOT_LABEL = {slot["key"]: slot["label"] for slot in SLOT_DEFINITIONS}
-
-WAITLIST_LIMIT = 4
-DEFAULT_SLOT_SELECTION = "both"
-DEFAULT_WAITLIST_MODE = "with_waitlist"
-WAITLIST_MODES = {
-    "with_waitlist",
-    "open_for_all",
-    "no_waitlist",
-    "guests_only",
-}
-
-DEFAULT_MAX_PLAYERS = 14
-DEFAULT_THEME = "night"
-DEFAULT_BG_STYLE = "bubbles"
-DEFAULT_CUSTOM_IMAGE = "Racketfire.png"
-SIGNUP_COOKIE_PREFIX = "mtp_signed_"
-
-# Automatik / Scheduler (Reset + Digest + Reminder)
-DEFAULT_RESET_ENABLED = "1"
-DEFAULT_RESET_WEEKDAY = "4"  # 0=Montag ... 4=Freitag
-DEFAULT_RESET_HOUR = "6"
-DEFAULT_RESET_MINUTE = "0"
-DEFAULT_NOTIFY_INTERVAL_MINUTES = "60"
-DEFAULT_REMINDER_ENABLED = "1"
-DEFAULT_REMINDER_WEEKDAY = "3"  # 0=Montag ... 3=Donnerstag (Spieltag)
-DEFAULT_REMINDER_HOUR = "12"
-DEFAULT_REMINDER_MINUTE = "0"
-WEEKDAY_NAMES = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"]
-
-# Anmeldesperre: Standard gesperrt fuer normale Nutzer, Oeffnung nur durch Admin
-DEFAULT_SIGNUP_LOCK_ENABLED = "1"  # Sperre aktiv
-DEFAULT_SIGNUP_LOCK_MANUAL_OPEN = "0"  # manuell durch Admin geoeffnet?
-DEFAULT_SIGNUP_LOCK_AUTO_OPEN_AT = ""  # ISO-Datetime fuer automatische Freigabe (leer = aus)
-
-# Standard: Liste oeffnet am Dienstag um 13:00 Uhr (nach EU-Zeit).
-# Wird ueberschrieben, wenn ein Admin eine Abweichung hinterlegt hat.
-SIGNUP_DEFAULT_OPEN_WEEKDAY = 1  # 0=Mo ... 1=Di ... 6=So
-SIGNUP_DEFAULT_OPEN_HOUR = 13
-SIGNUP_DEFAULT_OPEN_MINUTE = 0
-APP_TZ = ZoneInfo("Europe/Berlin")
-
-DEFAULT_SHOW_BANNER = "1"  # Banner auf der Startseite sichtbar (1=ja, 0=aus)
-
-DEFAULT_INTRO_TEXT = (
-    "Anmeldung fuer Donnerstag, {next_thursday}. Trag einfach deinen Namen ein "
-    "und waehle einen oder beide Slots. Pro Geraet kann man sich pro Slot nur "
-    "einmal eintragen."
-)
-
-INFO_PAGE_TEXT = """Hallo Padel-Spieler,
-
-hier findet Ihr die Abfrage, wer so alles beim MATCHTREFF SILBER dabei ist.
-
-Ich habe uns aktuell 3 Plaetze reserviert von 18 - 22 Uhr.
-
-Wuerde mich freuen, wenn wir uns am Donnerstag sehen!
-Das ganze findet natuerlich nur statt, wenn es das Wetter auch zulaesst.
-Ihr koennt jederzeit dazukommen, entweder direkt ab 18 Uhr, oder auch spaeter ab 20 Uhr.
-Bitte beachtet diese Startzeiten, damit wir auch immer genuegend Spieler sind und nicht warten muessen.
-
-Ich bekomme bitte von jedem Teilnehmer 2 Euro (TCG-Mitglieder), das nutzen wir,
-um zum Beispiel Baelle fuer den Matchtreff zu organisieren.
-
-Gaeste (Nicht-TCG-Mitglieder) sind willkommen, zahlen aber pauschal 15 Euro.
-Gaeste bitte unbedingt vorher bei mir anmelden. TCG-Mitglieder haben Vorrang.
-
-Wann immer es geht, spielen wir Golden Court, je nach Teilnehmerzahl.
-
-In unregelmaessigen Abstaenden wird donnerstags auch ein GPS100 DPV angeboten.
-Ausserdem wird es ab dieser Saison immer wieder ein AMERICANO geben.
-
-Das Angebot richtet sich an Spieler auf SILBER-Level.
-Fuer Anfaenger und Interessierte gibt es montags ein Angebot.
-
-Tragt euch ein, wer dabei ist!
-
-Danke und Gruss
-Daniel
-
-Fragen? Immer gerne, entweder per WhatsApp oder per Mail:
-daniel@will-padel-spielen.de
-"""
-
-GALLERY_IMAGES = [
-    "1716335274392.png",
-    "1716335619157.png",
-    "Designer (1).jpeg",
-    "Designer (10).jpeg",
-    "Designer (11).jpeg",
-    "Designer (12).jpeg",
-    "Designer (13).jpeg",
-    "Designer (14).jpeg",
-    "Designer (2).jpeg",
-    "Designer (3).jpeg",
-    "Designer (4).jpeg",
-    "Designer (5).jpeg",
-    "Designer (6).jpeg",
-    "Designer (7).jpeg",
-    "Designer (8).jpeg",
-    "Designer (9).jpeg",
-    "Designer.jpeg",
-    "Designer1.jpeg",
-    "Designer_Paypal_1.jpeg",
-    "Designer_Paypal_2.jpeg",
-    "Download.png",
-    "FollowLogo.jpeg",
-    "Racketfire.png",
-    "Racketsplash.png",
-    "image_fx_a__flyer_for_a_padel_tennis_event_called__ma.jpg",
-    "image_fx_a_background_for_a_padel_tennis_event_without (1).jpg",
-    "image_fx_a_background_for_a_padel_tennis_event_without (2).jpg",
-    "image_fx_a_background_for_a_padel_tennis_event_without (3).jpg",
-    "image_fx_a_background_for_a_padel_tennis_event_without.jpg",
-    "image_fx_a_flyer_for_a_padel_tennis_event_without_any.jpg",
-]
-
-THEMES = {
-    "default": {
-        "label": "Standard (Blau)",
-        "gradient": "radial-gradient(circle at top left, #e0ecff 0, #f5f5fb 40%, #fdfdfd 100%)",
-        "background_image": None,
-        "accent": "#2563eb",
-        "accent2": "#0ea5e9",
-    },
-    "sunset": {
-        "label": "Sunset (Orange)",
-        "gradient": "radial-gradient(circle at top left, #ffe4d6 0, #fff5f0 40%, #fffaf7 100%)",
-        "background_image": None,
-        "accent": "#ea580c",
-        "accent2": "#f59e0b",
-    },
-    "court": {
-        "label": "Court (Gruen)",
-        "gradient": "radial-gradient(circle at top left, #dcfce7 0, #f0fdf4 40%, #fbfffc 100%)",
-        "background_image": None,
-        "accent": "#16a34a",
-        "accent2": "#22c55e",
-    },
-    "night": {
-        "label": "Night (Dunkel)",
-        "gradient": "radial-gradient(circle at top left, #1e293b 0, #0f172a 60%, #020617 100%)",
-        "background_image": None,
-        "accent": "#38bdf8",
-        "accent2": "#818cf8",
-    },
-    "custom_image": {
-        "label": "Eigenes Bild (Galerie)",
-        "gradient": "linear-gradient(rgba(15,23,42,0.55), rgba(15,23,42,0.55))",
-        "background_image": "__CUSTOM__",
-        "accent": "#f97316",
-        "accent2": "#facc15",
-    },
-}
-
-BG_STYLES = {
-    "bubbles": "Farbige Blasen",
-    "logo": "Padel-Ball-Icons",
-}
-
-ORGA_TEAM = ["Daniel", "Cosme", "Sascha", "Patrick"]
-
-
-def normalize_name(name: str) -> str:
-    return " ".join(name.strip().split()).lower()
-
-
-ORGA_TEAM_NORMALIZED = {normalize_name(name) for name in ORGA_TEAM}
-
-
-def telegram_api_call(method, payload):
-    token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    if not token:
-        return None
-
-    url = f"https://api.telegram.org/bot{token}/{method}"
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(
-        url,
-        data=data,
-        headers={"Content-Type": "application/json"},
-    )
-
-    try:
-        with urllib.request.urlopen(req, timeout=8) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except Exception as exc:
-        print(f"[WARN] Telegram-API-Aufruf fehlgeschlagen: {exc}", file=sys.stderr)
-        return None
-
-
-def notify_admins_guest_signup(signup_id, name, slot_label, status):
-    admin_ids_raw = os.environ.get("ADMIN_TELEGRAM_IDS", "")
-    admin_ids = [item.strip() for item in admin_ids_raw.split(",") if item.strip()]
-    if not admin_ids:
-        return
-
-    status_text = "Warteliste" if status == "waitlist" else "bestaetigt"
-    text = (
-        "Neue Gast-Anmeldung (kein TPCG-Mitglied)\n\n"
-        f"Name: {name}\n"
-        f"Slot: {slot_label}\n"
-        f"Status: {status_text}\n\n"
-        "Die Anmeldung ist bereits eingetragen. Du kannst sie jederzeit entfernen."
-    )
-    keyboard = {
-        "inline_keyboard": [[
-            {
-                "text": "Bestaetigen (ok)",
-                "callback_data": f"ack_signup:{signup_id}",
-            },
-            {
-                "text": "Entfernen",
-                "callback_data": f"reject_signup:{signup_id}",
-            },
-        ]]
-    }
-
-    for admin_id in admin_ids:
-        telegram_api_call(
-            "sendMessage",
-            {
-                "chat_id": admin_id,
-                "text": text,
-                "reply_markup": keyboard,
-            },
-        )
 
 
 def create_app(test_config=None):
@@ -287,161 +98,12 @@ def create_app(test_config=None):
 
     os.makedirs(app.instance_path, exist_ok=True)
 
-    def get_db():
-        if "db" not in g:
-            g.db = sqlite3.connect(
-                app.config["DATABASE"],
-                detect_types=sqlite3.PARSE_DECLTYPES,
-                timeout=10,
-            )
-            g.db.row_factory = sqlite3.Row
-            g.db.execute("PRAGMA foreign_keys = ON")
-            g.db.execute("PRAGMA journal_mode = WAL")
-            g.db.execute("PRAGMA busy_timeout = 8000")
-        return g.db
-
     @app.teardown_appcontext
-    def close_db(exception=None):
-        db = g.pop("db", None)
-        if db is not None:
-            db.close()
-
-    def init_db():
-        db = get_db()
-        db.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS slots (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                slot_key TEXT UNIQUE NOT NULL,
-                label TEXT NOT NULL,
-                max_players INTEGER NOT NULL DEFAULT 8
-            );
-
-            CREATE TABLE IF NOT EXISTS signups (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                slot_id INTEGER NOT NULL,
-                name TEXT NOT NULL,
-                name_normalized TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'confirmed',
-                is_member INTEGER NOT NULL DEFAULT 1,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY(slot_id) REFERENCES slots(id),
-                UNIQUE(slot_id, name_normalized)
-            );
-
-            CREATE TABLE IF NOT EXISTS settings (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            );
-
-            CREATE TABLE IF NOT EXISTS admin_users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                username TEXT UNIQUE NOT NULL,
-                password_hash TEXT NOT NULL,
-                created_by TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-
-            CREATE TABLE IF NOT EXISTS telegram_users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                telegram_id INTEGER UNIQUE NOT NULL,
-                username TEXT,
-                first_name TEXT,
-                role TEXT NOT NULL DEFAULT 'user',
-                is_member_default INTEGER NOT NULL DEFAULT 1,
-                is_active INTEGER NOT NULL DEFAULT 1,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
-            """
-        )
-
-        columns = [row[1] for row in db.execute("PRAGMA table_info(signups)").fetchall()]
-        if "is_member" not in columns:
-            db.execute(
-                "ALTER TABLE signups ADD COLUMN is_member INTEGER NOT NULL DEFAULT 1"
-            )
-
-        setting_defaults = {
-            "theme": DEFAULT_THEME,
-            "bg_style": DEFAULT_BG_STYLE,
-            "custom_bg_image": DEFAULT_CUSTOM_IMAGE,
-            "waitlist_limit": str(WAITLIST_LIMIT),
-            "slot_selection": DEFAULT_SLOT_SELECTION,
-            "waitlist_mode": DEFAULT_WAITLIST_MODE,
-            "reset_enabled": DEFAULT_RESET_ENABLED,
-            "reset_weekday": DEFAULT_RESET_WEEKDAY,
-            "reset_hour": DEFAULT_RESET_HOUR,
-            "reset_minute": DEFAULT_RESET_MINUTE,
-            "notify_interval_minutes": DEFAULT_NOTIFY_INTERVAL_MINUTES,
-            "reminder_enabled": DEFAULT_REMINDER_ENABLED,
-            "reminder_weekday": DEFAULT_REMINDER_WEEKDAY,
-            "reminder_hour": DEFAULT_REMINDER_HOUR,
-            "reminder_minute": DEFAULT_REMINDER_MINUTE,
-            "signup_lock_enabled": DEFAULT_SIGNUP_LOCK_ENABLED,
-            "signup_lock_manual_open": DEFAULT_SIGNUP_LOCK_MANUAL_OPEN,
-            "signup_lock_auto_open_at": DEFAULT_SIGNUP_LOCK_AUTO_OPEN_AT,
-            "show_banner": DEFAULT_SHOW_BANNER,
-        }
-
-        for key, value in setting_defaults.items():
-            db.execute(
-                "INSERT INTO settings (key, value) VALUES (?, ?) "
-                "ON CONFLICT(key) DO NOTHING",
-                (key, value),
-            )
-
-        for seed_name, seed_password in SEED_ADMIN_USERS.items():
-            if not seed_password:
-                continue
-
-            db.execute(
-                """
-                INSERT INTO admin_users (username, password_hash, created_by)
-                VALUES (?, ?, ?)
-                ON CONFLICT(username) DO NOTHING
-                """,
-                (seed_name, generate_password_hash(seed_password), "system"),
-            )
-
-        for slot in SLOT_DEFINITIONS:
-            db.execute(
-                """
-                INSERT INTO slots (slot_key, label, max_players)
-                VALUES (?, ?, ?)
-                ON CONFLICT(slot_key) DO NOTHING
-                """,
-                (slot["key"], slot["label"], DEFAULT_MAX_PLAYERS),
-            )
-
-        migrated_flag = db.execute(
-            "SELECT value FROM settings WHERE key = 'slot_labels_migrated_v2'"
-        ).fetchone()
-
-        if not migrated_flag:
-            for slot in SLOT_DEFINITIONS:
-                custom_flag = db.execute(
-                    "SELECT value FROM settings WHERE key = ?",
-                    (f"slot_label_custom_{slot['key']}",),
-                ).fetchone()
-
-                if not custom_flag:
-                    db.execute(
-                        "UPDATE slots SET label = ? WHERE slot_key = ?",
-                        (slot["label"], slot["key"]),
-                    )
-
-            db.execute(
-                """
-                INSERT INTO settings (key, value)
-                VALUES ('slot_labels_migrated_v2', '1')
-                ON CONFLICT(key) DO UPDATE SET value = excluded.value
-                """
-            )
-
-        db.commit()
+    def _close_db(exception=None):
+        close_db(exception)
 
     with app.app_context():
-        init_db()
+        init_db(SEED_ADMIN_USERS)
 
     def next_thursday():
         today = datetime.today().date()
@@ -659,16 +321,6 @@ def create_app(test_config=None):
             """,
             (slot_id, status),
         ).fetchall()
-
-    def admin_required(view):
-        @wraps(view)
-        def wrapped(*args, **kwargs):
-            if not session.get("is_admin"):
-                flash("Admin-Login erforderlich.", "danger")
-                return redirect(url_for("admin_login"))
-            return view(*args, **kwargs)
-
-        return wrapped
 
     def get_current_theme_key():
         db = get_db()
@@ -994,18 +646,13 @@ def create_app(test_config=None):
         if request.method == "POST":
             username = request.form.get("username", "").strip()
             password = request.form.get("password", "")
-            db = get_db()
+            admin_name = authenticate_admin(username, password)
 
-            row = db.execute(
-                "SELECT * FROM admin_users WHERE username = ?",
-                (username,),
-            ).fetchone()
-
-            if row and check_password_hash(row["password_hash"], password):
+            if admin_name:
                 session["is_admin"] = True
-                session["admin_username"] = row["username"]
+                session["admin_username"] = admin_name
                 flash(
-                    f"Admin-Login erfolgreich als {row['username']}.",
+                    f"Admin-Login erfolgreich als {admin_name}.",
                     "success",
                 )
                 return redirect(url_for("admin_dashboard"))
