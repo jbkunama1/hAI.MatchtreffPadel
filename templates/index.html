@@ -17,6 +17,13 @@
         margin: 0;
     }
 
+        .heading-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
     .info-top-link {
         flex: 0 0 auto;
         display: inline-flex;
@@ -191,6 +198,15 @@
     .slot-toggle-label {
         font-weight: 700;
         font-size: 0.98rem;
+    }
+
+    .slot-icon {
+        flex: 0 0 auto;
+        width: 1.5rem;
+        height: 1.5rem;
+        object-fit: cover;
+        border-radius: 0.35rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     }
 
     .slot-toggle-meta {
@@ -487,13 +503,23 @@
 <div class="page-heading">
     <h1>🎾 Padel Matchtreff</h1>
 
-    <a
-        class="info-top-link"
-        href="{{ url_for('info_page') }}"
-        title="Alle Informationen zum MATCHTREFF Silber"
-    >
-        ℹ️ Alle Infos
-    </a>
+    <div class="heading-actions">
+        <a
+            class="info-top-link"
+            href="{{ url_for('liste_ansicht') }}"
+            title="Nur die Listen der angemeldeten Spieler ansehen"
+        >
+            📋 Liste ansehen
+        </a>
+
+        <a
+            class="info-top-link"
+            href="{{ url_for('info_page') }}"
+            title="Alle Informationen zum MATCHTREFF Silber"
+        >
+            ℹ️ Alle Infos
+        </a>
+    </div>
 </div>
 
 <div class="event-date-card">
@@ -505,12 +531,9 @@
     </div>
 </div>
 
-<p class="event-description">
-    {{ intro_text
-        | replace("Anmeldung fuer Donnerstag, " ~ next_thursday ~ ". ", "")
-        | replace("Anmeldung fuer Donnerstag, {next_thursday}. ", "")
-    }}
-</p>
+<div class="event-description">
+    {{ intro_text | format_intro }}
+</div>
 
 <h2 class="signup-heading">📝 Jetzt anmelden</h2>
 
@@ -573,17 +596,24 @@
         <label>🕒 Slot-Auswahl</label>
 
         {% for slot in slots %}
-        <label class="slot-toggle-card {% if (not is_admin and cookie_locked[slot.slot_key]) or (slot.waitlist_full and slot.full) %}disabled{% endif %}">
+        <label class="slot-toggle-card {% if (not is_admin and cookie_counts[slot.slot_key] >= max_entries) or (slot.waitlist_full and slot.full) %}disabled{% endif %}">
             <input
                 type="checkbox"
                 name="slots"
                 value="{{ slot.slot_key }}"
-                {% if (not is_admin and cookie_locked[slot.slot_key]) or (slot.waitlist_full and slot.full) %}disabled{% endif %}
+                        {% if (not is_admin and cookie_counts[slot.slot_key] >= max_entries) or (slot.waitlist_full and slot.full) %}disabled{% endif %}
             >
             <span class="slot-toggle-main">
                 <span class="slot-toggle-check" aria-hidden="true">✓</span>
-                <span class="slot-toggle-label">🎾 {{ slot.label }}</span>
-            </span>
+                            {% if slot_icons[slot.slot_key] %}
+                            <img
+                                class="slot-icon"
+                                src="{{ url_for('static', filename=slot_icons[slot.slot_key]) }}"
+                                alt="Slot-Icon"
+                            >
+                            {% endif %}
+                            <span class="slot-toggle-label">🎾 {{ slot.label }}</span>
+                        </span>
             <span class="slot-toggle-meta">
                 <span>{{ slot.count }}/{{ slot.max_players }} Plaetze</span>
 
@@ -595,8 +625,8 @@
                     <span>⏳ Warteliste {{ slot.waitlist_count }}/{{ waitlist_limit }}</span>
                 {% endif %}
 
-                {% if not is_admin and cookie_locked[slot.slot_key] %}
-                    <span>✅ Bereits eingetragen</span>
+                        {% if not is_admin and cookie_counts[slot.slot_key] > 0 %}
+                                            <span>✅ Eingetragen {{ cookie_counts[slot.slot_key] }}/{{ max_entries }}</span>
                 {% endif %}
             </span>
         </label>

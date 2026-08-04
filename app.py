@@ -5,10 +5,12 @@ import sys
 import urllib.request
 from datetime import datetime, timedelta
 from functools import wraps
+from io import BytesIO
 from zoneinfo import ZoneInfo
 
 from flask import (
     Flask,
+    abort,
     flash,
     g,
     make_response,
@@ -20,6 +22,10 @@ from flask import (
     url_for,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
+try:
+    import qrcode
+except ImportError:
+    qrcode = None
 
 
 _REQUIRED_ENV = ["SECRET_KEY", "ADMIN_PASSWORD_ADMIN", "ADMIN_PASSWORD_DANIEL"]
@@ -63,6 +69,7 @@ DEFAULT_THEME = "night"
 DEFAULT_BG_STYLE = "bubbles"
 DEFAULT_CUSTOM_IMAGE = "Racketfire.png"
 SIGNUP_COOKIE_PREFIX = "mtp_signed_"
+DEFAULT_MAX_ENTRIES_PER_DEVICE = 2  # Pro Geraet/Slot max. Eintraege
 
 # Automatik / Scheduler (Reset + Digest + Reminder)
 DEFAULT_RESET_ENABLED = "1"
@@ -91,10 +98,19 @@ APP_TZ = ZoneInfo("Europe/Berlin")
 DEFAULT_SHOW_BANNER = "1"  # Banner auf der Startseite sichtbar (1=ja, 0=aus)
 
 DEFAULT_INTRO_TEXT = (
-    "Anmeldung fuer Donnerstag, {next_thursday}. Trag einfach deinen Namen ein "
-    "und waehle einen oder beide Slots. Pro Geraet kann man sich pro Slot nur "
-    "einmal eintragen."
+    "Anmeldung für Donnerstag, {next_thursday}. Trag einfach deinen Namen ein "
+    "und wähle einen oder beide Slots. Pro Gerät kann man sich pro Slot bis "
+    "zu zwei Mal eintragen (z. B. für dich und eine Begleitperson)."
 )
+
+# Verfuegbare Platzhalter im Einleitungstext
+INTRO_PLACEHOLDERS = {
+    "next_thursday": "Datum des naechsten Donnerstags (z. B. 07.08.2026)",
+    "slot_a": "Bezeichnung des ersten Slots",
+    "slot_b": "Bezeichnung des zweiten Slots",
+    "event_name": "Name des Events (MATCHTREFF SILBER)",
+    "entry_count": "Anzahl erlaubter Eintraege pro Geraet und Slot",
+}
 
 INFO_PAGE_TEXT = """Hallo Padel-Spieler,
 
@@ -140,9 +156,6 @@ GALLERY_IMAGES = [
     "Designer (13).jpeg",
     "Designer (14).jpeg",
     "Designer (2).jpeg",
-    "Designer (3).jpeg",
-    "Designer (4).jpeg",
-    "Designer (5).jpeg",
     "Designer (6).jpeg",
     "Designer (7).jpeg",
     "Designer (8).jpeg",
@@ -155,12 +168,12 @@ GALLERY_IMAGES = [
     "FollowLogo.jpeg",
     "Racketfire.png",
     "Racketsplash.png",
-    "image_fx_a__flyer_for_a_padel_tennis_event_called__ma.jpg",
-    "image_fx_a_background_for_a_padel_tennis_event_without (1).jpg",
-    "image_fx_a_background_for_a_padel_tennis_event_without (2).jpg",
-    "image_fx_a_background_for_a_padel_tennis_event_without (3).jpg",
-    "image_fx_a_background_for_a_padel_tennis_event_without.jpg",
-    "image_fx_a_flyer_for_a_padel_tennis_event_without_any.jpg",
+    "padelbackground_01.jpg",
+    "padelbackground_02.jpg",
+    "padelbackground_03.jpg",
+    "padelbackground_04.jpg",
+    "padelbackground_05.jpg",
+    "padelbackground_06.jpg",
 ]
 
 THEMES = {
@@ -192,12 +205,40 @@ THEMES = {
         "accent": "#38bdf8",
         "accent2": "#818cf8",
     },
-    "custom_image": {
-        "label": "Eigenes Bild (Galerie)",
-        "gradient": "linear-gradient(rgba(15,23,42,0.55), rgba(15,23,42,0.55))",
-        "background_image": "__CUSTOM__",
-        "accent": "#f97316",
-        "accent2": "#facc15",
+    "ocean": {
+        "label": "Ozean (Tuerkis)",
+        "gradient": "radial-gradient(circle at top right, #cffafe 0, #ecfeff 45%, #f8feff 100%)",
+        "background_image": None,
+        "accent": "#0891b2",
+        "accent2": "#06b6d4",
+    },
+    "forest": {
+        "label": "Wald (Tiefgruen)",
+        "gradient": "radial-gradient(circle at top left, #d1fae5 0, #ecfdf5 45%, #f7fffb 100%)",
+        "background_image": None,
+        "accent": "#047857",
+        "accent2": "#10b981",
+    },
+    "lavender": {
+        "label": "Lavendel (Lila)",
+        "gradient": "radial-gradient(circle at top left, #ede9fe 0, #f5f3ff 45%, #fbfaff 100%)",
+        "background_image": None,
+        "accent": "#7c3aed",
+        "accent2": "#a855f7",
+    },
+    "candy": {
+        "label": "Candy (Rosa)",
+        "gradient": "radial-gradient(circle at top right, #fce7f3 0, #fdf2f8 45%, #fff7fb 100%)",
+        "background_image": None,
+        "accent": "#db2777",
+        "accent2": "#ec4899",
+    },
+    "desert": {
+        "label": "Wueste (Sand)",
+        "gradient": "radial-gradient(circle at top left, #fef3c7 0, #fffbeb 45%, #fffdf5 100%)",
+        "background_image": None,
+        "accent": "#b45309",
+        "accent2": "#d97706",
     },
 }
 
@@ -210,10 +251,20 @@ ORGA_TEAM = ["Daniel", "Cosme", "Sascha", "Patrick"]
 
 
 def normalize_name(name: str) -> str:
-    return " ".join(name.strip().split()).lower()
+    """Normalisiert Namen: Leerzeichen, Kleinbuchstaben, ae/oe/ue zu ä/ö/ü."""
+    name = name.strip()
+    name = " ".join(name.split()).lower()
+    name = name.replace("ae", "ä").replace("oe", "ö").replace("ue", "ü")
+    return name
 
 
 ORGA_TEAM_NORMALIZED = {normalize_name(name) for name in ORGA_TEAM}
+
+
+SLOT_ICONS = {
+    "slot_a": "Racketfire.png",
+    "slot_b": "Racketsplash.png",
+}
 
 
 def telegram_api_call(method, payload):
@@ -235,6 +286,40 @@ def telegram_api_call(method, payload):
     except Exception as exc:
         print(f"[WARN] Telegram-API-Aufruf fehlgeschlagen: {exc}", file=sys.stderr)
         return None
+
+
+def forward_contact_message_to_admin(
+    name, email, recipient, contact_channel="", contact_value="", message_text=""
+):
+    """Leitet eine Kontaktnachricht an Admins per Telegram weiter."""
+    admin_ids_raw = os.environ.get("ADMIN_TELEGRAM_IDS", "")
+    admin_ids = [item.strip() for item in admin_ids_raw.split(",") if item.strip()]
+    if not admin_ids:
+        return 0
+
+    parts = [f"Name: {name or 'Anonym'}"]
+    if email:
+        parts.append(f"E-Mail: {email}")
+    if recipient:
+        parts.append(f"An: {recipient}")
+    if contact_channel and contact_value:
+        parts.append(f"Kontakt ({contact_channel}): {contact_value}")
+    text = (
+        "📨 Neue Nachricht über das Kontaktformular\n\n"
+        + "\n".join(parts)
+        + f"\n\n{message_text}"
+    )
+
+    sent = 0
+    for admin_id in admin_ids:
+        result = telegram_api_call(
+            "sendMessage",
+            {"chat_id": admin_id, "text": text},
+        )
+        if result and result.get("ok"):
+            sent += 1
+
+    return sent
 
 
 def notify_admins_guest_signup(signup_id, name, slot_label, status):
@@ -352,7 +437,32 @@ def create_app(test_config=None):
                 is_active INTEGER NOT NULL DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
-            """
+
+                        CREATE TABLE IF NOT EXISTS contact_messages (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            name TEXT NOT NULL DEFAULT '',
+                            email TEXT NOT NULL DEFAULT '',
+                            recipient TEXT NOT NULL DEFAULT '',
+                            message TEXT NOT NULL DEFAULT '',
+                            is_read INTEGER NOT NULL DEFAULT 0,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
+
+                        CREATE TABLE IF NOT EXISTS liste_comments (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            name TEXT NOT NULL DEFAULT '',
+                            comment TEXT NOT NULL DEFAULT '',
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
+
+                        CREATE TABLE IF NOT EXISTS faq_entries (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            question TEXT NOT NULL DEFAULT '',
+                            answer TEXT NOT NULL DEFAULT '',
+                            sort_order INTEGER NOT NULL DEFAULT 0,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );
+                        """
         )
 
         columns = [row[1] for row in db.execute("PRAGMA table_info(signups)").fetchall()]
@@ -360,6 +470,52 @@ def create_app(test_config=None):
             db.execute(
                 "ALTER TABLE signups ADD COLUMN is_member INTEGER NOT NULL DEFAULT 1"
             )
+
+        # Admin-Bestaetigung fuer Wartelisten-Eintraege
+        # 0 = noch nicht bestaetigt, 1 = von Admin bestaetigt (bleibt auf Warteliste)
+        if "admin_confirmed" not in columns:
+            db.execute(
+                "ALTER TABLE signups ADD COLUMN admin_confirmed INTEGER NOT NULL DEFAULT 0"
+            )
+
+        # Chatbox: Kontakt-Kanal und -Wert fuer Rueckmeldung
+        contact_columns = [row[1] for row in db.execute("PRAGMA table_info(contact_messages)").fetchall()]
+        if "contact_channel" not in contact_columns:
+            db.execute(
+                "ALTER TABLE contact_messages ADD COLUMN contact_channel TEXT NOT NULL DEFAULT ''"
+            )
+        if "contact_value" not in contact_columns:
+            db.execute(
+                "ALTER TABLE contact_messages ADD COLUMN contact_value TEXT NOT NULL DEFAULT ''"
+            )
+
+        # Migration: name_normalized mit Umlauten neu berechnen (ae/oe/ue -> ae/oe/ue)
+        rows = db.execute(
+            "SELECT id, name FROM signups"
+        ).fetchall()
+        for row in rows:
+            fresh = normalize_name(row["name"])
+            db.execute(
+                "UPDATE signups SET name_normalized = ? WHERE id = ?",
+                (fresh, row["id"]),
+            )
+
+        # Migration: bestehenden Einleitungstext auf Umlaute umstellen (ae->ae/ue->ue/oe->oe)
+        intro_row = db.execute(
+            "SELECT value FROM settings WHERE key = 'intro_text'"
+        ).fetchone()
+        if intro_row and intro_row["value"]:
+            converted = (
+                intro_row["value"]
+                .replace("ae", "ä")
+                .replace("oe", "ö")
+                .replace("ue", "ü")
+            )
+            if converted != intro_row["value"]:
+                db.execute(
+                    "UPDATE settings SET value = ? WHERE key = 'intro_text'",
+                    (converted,),
+                )
 
         setting_defaults = {
             "theme": DEFAULT_THEME,
@@ -381,6 +537,17 @@ def create_app(test_config=None):
             "signup_lock_manual_open": DEFAULT_SIGNUP_LOCK_MANUAL_OPEN,
             "signup_lock_auto_open_at": DEFAULT_SIGNUP_LOCK_AUTO_OPEN_AT,
             "show_banner": DEFAULT_SHOW_BANNER,
+            "max_entries_per_device": str(DEFAULT_MAX_ENTRIES_PER_DEVICE),
+            "telegram_channel_url": os.environ.get("TELEGRAM_CHANNEL_URL", ""),
+            "homebrew_url": os.environ.get("HOMEBREW_URL", ""),
+            "homebrew_image": os.environ.get("HOMEBREW_IMAGE", "homebrew.png"),
+            "paypal_url": os.environ.get("PAYPAL_URL", ""),
+            "paypal_image": os.environ.get("PAYPAL_IMAGE", "Designer_Paypal_2.jpeg"),
+            "americana_url": os.environ.get("AMERICANA_URL", ""),
+            "americana_text": os.environ.get(
+                "AMERICANA_TEXT",
+                "Entdecke die Padel Americana App - das schnelle Turnierformat f\u00fcr deinen Club!",
+            ),
         }
 
         for key, value in setting_defaults.items():
@@ -443,6 +610,41 @@ def create_app(test_config=None):
     with app.app_context():
         init_db()
 
+    def format_intro_text(text):
+        """Wandelt einfaches Markdown (fett, kursiv, Links, Zeilenumbrueche) in sicheres HTML um."""
+        import re as _re
+        from markupsafe import Markup
+
+        if not text:
+            return Markup("")
+
+        escaped = Markup.escape(text).__html__()
+
+        def _bold(m):
+            return "<strong>" + m.group(1) + "</strong>"
+
+        def _italic(m):
+            return "<em>" + m.group(1) + "</em>"
+
+        def _link(m):
+            url = m.group(1)
+            return '<a href="' + url + '" target="_blank" rel="noopener">' + url + "</a>"
+
+        # Verlinkungen (https? URLs)
+        escaped = _re.sub(r"(https?://[^\s<]+)", _link, escaped)
+        # **fett**
+        escaped = _re.sub(r"\*\*(.+?)\*\*", _bold, escaped)
+        # *kursiv*
+        escaped = _re.sub(r"\*(.+?)\*", _italic, escaped)
+        # Absaetze und Zeilenumbrueche
+        html_parts = []
+        for para in escaped.split("\n\n"):
+            para = para.replace("\n", "<br>")
+            html_parts.append("<p>" + para + "</p>")
+        return Markup("".join(html_parts))
+
+    app.jinja_env.filters["format_intro"] = format_intro_text
+
     def next_thursday():
         today = datetime.today().date()
         days_ahead = (3 - today.weekday()) % 7
@@ -491,17 +693,52 @@ def create_app(test_config=None):
         ).fetchone()
         return row["value"] if row else default
 
-    def set_setting_value(key, value):
-        db = get_db()
-        db.execute(
-            """
-            INSERT INTO settings (key, value)
-            VALUES (?, ?)
-            ON CONFLICT(key) DO UPDATE SET value = excluded.value
-            """,
-            (key, value),
+    def get_max_entries_per_device():
+        raw = get_setting_value("max_entries_per_device", str(DEFAULT_MAX_ENTRIES_PER_DEVICE))
+        try:
+            value = int(raw)
+        except (ValueError, TypeError):
+            value = DEFAULT_MAX_ENTRIES_PER_DEVICE
+        return value if value >= 1 else DEFAULT_MAX_ENTRIES_PER_DEVICE
+
+    def get_telegram_channel_url():
+        return get_setting_value("telegram_channel_url", "")
+
+    def get_homebrew_url():
+        return get_setting_value("homebrew_url", os.environ.get("HOMEBREW_URL", ""))
+
+    def get_homebrew_image():
+        return get_setting_value("homebrew_image", os.environ.get("HOMEBREW_IMAGE", "homebrew.png"))
+
+    def get_paypal_url():
+        return get_setting_value("paypal_url", os.environ.get("PAYPAL_URL", ""))
+
+    def get_paypal_image():
+        return get_setting_value("paypal_image", os.environ.get("PAYPAL_IMAGE", "Designer_Paypal_2.jpeg"))
+
+    def get_americana_url():
+        return get_setting_value("americana_url", os.environ.get("AMERICANA_URL", ""))
+
+    def get_americana_text():
+        return get_setting_value(
+            "americana_text",
+            os.environ.get(
+                "AMERICANA_TEXT",
+                "Entdecke die Padel Americana App - das schnelle Turnierformat f\u00fcr deinen Club!",
+            ),
         )
-        db.commit()
+
+        def set_setting_value(key, value):
+            db = get_db()
+            db.execute(
+                """
+                INSERT INTO settings (key, value)
+                VALUES (?, ?)
+                ON CONFLICT(key) DO UPDATE SET value = excluded.value
+                """,
+                (key, value),
+            )
+            db.commit()
 
     def signup_lock_settings():
         enabled = get_setting_value(
@@ -652,7 +889,7 @@ def create_app(test_config=None):
         db = get_db()
         return db.execute(
             """
-            SELECT *
+            SELECT id, name, name_normalized, is_member, admin_confirmed
             FROM signups
             WHERE slot_id = ? AND status = ?
             ORDER BY is_member DESC, created_at ASC
@@ -709,10 +946,19 @@ def create_app(test_config=None):
             else DEFAULT_INTRO_TEXT
         )
 
+        slots = db.execute("SELECT slot_key, label FROM slots").fetchall()
+        slot_labels = {s["slot_key"]: s["label"] for s in slots}
+
+        placeholders = {
+            "next_thursday": next_thursday().strftime("%d.%m.%Y"),
+            "slot_a": slot_labels.get("slot_a", "Slot 1"),
+            "slot_b": slot_labels.get("slot_b", "Slot 2"),
+            "event_name": "MATCHTREFF SILBER",
+            "entry_count": str(get_max_entries_per_device()),
+        }
+
         try:
-            return text_template.format(
-                next_thursday=next_thursday().strftime("%d.%m.%Y")
-            )
+            return text_template.format(**placeholders)
         except (KeyError, IndexError):
             return text_template
 
@@ -751,9 +997,19 @@ def create_app(test_config=None):
             "current_theme": theme,
             "themes": THEMES,
             "orga_team_normalized": ORGA_TEAM_NORMALIZED,
-            "current_bg_style": bg_style_key,
+            "slot_icons": SLOT_ICONS,
+            "orga_team": ORGA_TEAM,
+            "telegram_channel_url": get_telegram_channel_url(),
+            "homebrew_url": get_homebrew_url(),
+            "homebrew_image": get_homebrew_image(),
+            "paypal_url": get_paypal_url(),
+            "paypal_image": get_paypal_image(),
+                        "americana_url": get_americana_url(),
+                        "americana_text": get_americana_text(),
+                        "current_bg_style": bg_style_key,
             "bg_styles": BG_STYLES,
             "intro_text": get_intro_text(),
+            "intro_placeholders": INTRO_PLACEHOLDERS,
             "show_banner": get_show_banner(),
         }
 
@@ -768,10 +1024,11 @@ def create_app(test_config=None):
             for slot in slots
         }
 
-        cookie_locked = {
-            slot["slot_key"]: (
-                request.cookies.get(SIGNUP_COOKIE_PREFIX + slot["slot_key"])
-                is not None
+        max_entries = get_max_entries_per_device()
+
+        cookie_counts = {
+            slot["slot_key"]: int(
+                request.cookies.get(SIGNUP_COOKIE_PREFIX + slot["slot_key"]) or 0
             )
             for slot in slots
         }
@@ -780,7 +1037,8 @@ def create_app(test_config=None):
             "index.html",
             slots=slots,
             signups_by_slot=signups_by_slot,
-            cookie_locked=cookie_locked,
+            cookie_counts=cookie_counts,
+            max_entries=max_entries,
             waitlist_limit=get_waitlist_limit(),
             is_admin=bool(session.get("is_admin")),
             signup_open=is_signup_open(),
@@ -790,6 +1048,266 @@ def create_app(test_config=None):
     @app.route("/info")
     def info_page():
         return render_template("info.html", info_text=INFO_PAGE_TEXT)
+
+    @app.route("/liste", methods=["GET", "POST"])
+    def liste_ansicht():
+        if request.method == "POST":
+            name = request.form.get("name", "").strip()
+            comment_text = request.form.get("comment", "").strip()
+
+            if not comment_text:
+                flash("Bitte gib einen Kommentar ein.", "danger")
+                return redirect(url_for("liste_ansicht"))
+
+            db = get_db()
+            db.execute(
+                """
+                INSERT INTO liste_comments (name, comment)
+                VALUES (?, ?)
+                """,
+                (name, comment_text),
+            )
+            db.commit()
+            flash("Kommentar wurde hinzugefuegt.", "success")
+            return redirect(url_for("liste_ansicht"))
+
+        slots = get_slots_with_counts()
+        signups_by_slot = {
+            slot["id"]: {
+                "confirmed": get_signups_for_slot(slot["id"], "confirmed"),
+                "waitlist": get_signups_for_slot(slot["id"], "waitlist"),
+            }
+            for slot in slots
+        }
+        db = get_db()
+        comments = db.execute(
+            """
+            SELECT id, name, comment, created_at
+            FROM liste_comments
+            ORDER BY created_at DESC
+            LIMIT 50
+            """
+        ).fetchall()
+        return render_template(
+            "liste.html",
+            slots=slots,
+            signups_by_slot=signups_by_slot,
+            waitlist_limit=get_waitlist_limit(),
+            comments=comments,
+        )
+
+    @app.route("/downloads", methods=["GET", "POST"])
+    def downloads():
+        """Download-Bereich: Liste aller Dateien im static/downloads-Ordner."""
+        download_dir = os.path.join(app.static_folder, "downloads")
+        os.makedirs(download_dir, exist_ok=True)
+
+        if request.method == "POST":
+            if not session.get("is_admin"):
+                flash("Nur Administratoren duerfen Dateien hochladen.", "danger")
+                return redirect(url_for("downloads"))
+
+            uploaded = request.files.get("file")
+            if not uploaded or not uploaded.filename:
+                flash("Bitte eine Datei auswaehlen.", "danger")
+                return redirect(url_for("downloads"))
+
+            filename = os.path.basename(uploaded.filename)
+            if not filename:
+                flash("Ungueltiger Dateiname.", "danger")
+                return redirect(url_for("downloads"))
+
+            # Nur bestimmte Endungen erlauben
+            allowed = {".zip", ".apk", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf", ".mp4", ".txt"}
+            ext = os.path.splitext(filename)[1].lower()
+            if ext not in allowed:
+                flash("Dateityp nicht erlaubt (erlaubt: " + ", ".join(sorted(allowed)) + ").", "danger")
+                return redirect(url_for("downloads"))
+
+            uploaded.save(os.path.join(download_dir, filename))
+            flash("Datei hochgeladen: " + filename, "success")
+            return redirect(url_for("downloads"))
+
+        files = []
+        for entry in os.scandir(download_dir):
+            if entry.is_file():
+                files.append(
+                    {
+                        "name": entry.name,
+                        "size": entry.stat().st_size,
+                        "mtime": entry.stat().st_mtime,
+                    }
+                )
+
+        files.sort(key=lambda f: f["mtime"], reverse=True)
+
+        def _fmt_size(size):
+            if size >= 1024 * 1024:
+                return f"{size / (1024 * 1024):.1f} MB"
+            if size >= 1024:
+                return f"{size / 1024:.0f} KB"
+            return f"{size} B"
+
+        return render_template(
+            "downloads.html",
+            files=files,
+            fmt_size=_fmt_size,
+        )
+
+    @app.route("/downloads/<path:filename>/delete", methods=["POST"])
+    @admin_required
+    def downloads_delete(filename):
+        """Loescht eine Datei aus dem Download-Bereich (nur Admin)."""
+        download_dir = os.path.join(app.static_folder, "downloads")
+        safe_name = os.path.basename(filename)
+        path = os.path.join(download_dir, safe_name)
+
+        if not os.path.exists(path) or not path.startswith(os.path.abspath(download_dir)):
+            flash("Datei nicht gefunden.", "danger")
+            return redirect(url_for("downloads"))
+
+        try:
+            os.remove(path)
+            flash("Datei geloescht: " + safe_name, "info")
+        except OSError:
+            flash("Datei konnte nicht geloescht werden.", "danger")
+        return redirect(url_for("downloads"))
+
+    @app.route("/ueber-uns", methods=["GET", "POST"])
+    def ueber_uns():
+        if request.method == "POST":
+            name = request.form.get("name", "").strip()
+            email = request.form.get("email", "").strip()
+            recipient = request.form.get("recipient", "").strip()
+            contact_channel = request.form.get("contact_channel", "").strip()
+            contact_value = request.form.get("contact_value", "").strip()
+            message_text = request.form.get("message", "").strip()
+
+            if not message_text:
+                flash("Bitte gib eine Nachricht ein.", "danger")
+                return redirect(url_for("ueber_uns"))
+
+            if not contact_channel or not contact_value:
+                flash(
+                    "Bitte gib einen Kontakt an (Telegram, WhatsApp oder E-Mail), "
+                    "damit wir dir antworten koennen.",
+                    "danger",
+                )
+                return redirect(url_for("ueber_uns"))
+
+            db = get_db()
+            db.execute(
+                """
+                INSERT INTO contact_messages (
+                    name, email, recipient, contact_channel, contact_value, message
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (name, email, recipient, contact_channel, contact_value, message_text),
+            )
+            db.commit()
+            forward_contact_message_to_admin(
+                name, email, recipient, contact_channel, contact_value, message_text
+            )
+
+            flash(
+                "Vielen Dank! Deine Nachricht wurde an uns uebermittelt.",
+                "success",
+            )
+            return redirect(url_for("ueber_uns"))
+
+        return render_template(
+            "ueber_uns.html",
+            orga_team=ORGA_TEAM,
+        )
+
+    @app.route("/chat", methods=["GET", "POST"])
+    def chat():
+        """Chatbox: Nachricht an Admins mit Pflicht-Kontakt + FAQ-Bereich."""
+        if request.method == "POST":
+            name = request.form.get("name", "").strip()
+            contact_channel = request.form.get("contact_channel", "").strip()
+            contact_value = request.form.get("contact_value", "").strip()
+            message_text = request.form.get("message", "").strip()
+
+            if not message_text:
+                flash("Bitte gib deine Nachricht ein.", "danger")
+                return redirect(url_for("chat"))
+
+            if not contact_channel or not contact_value:
+                flash(
+                    "Bitte gib an, wie wir dir antworten koennen "
+                    "(Telegram, WhatsApp oder E-Mail).",
+                    "danger",
+                )
+                return redirect(url_for("chat"))
+
+            db = get_db()
+            db.execute(
+                """
+                INSERT INTO contact_messages (
+                    name, email, recipient, contact_channel, contact_value, message
+                )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (name, "", "", contact_channel, contact_value, message_text),
+            )
+            db.commit()
+            forward_contact_message_to_admin(
+                name, "", "", contact_channel, contact_value, message_text
+            )
+
+            flash(
+                "Vielen Dank! Deine Nachricht wurde an uns uebermittelt. "
+                "Wir melden uns ueber deinen angegebenen Kontakt.",
+                "success",
+            )
+            return redirect(url_for("chat"))
+
+        db = get_db()
+        faq = db.execute(
+            """
+            SELECT id, question, answer
+            FROM faq_entries
+            ORDER BY sort_order ASC, id ASC
+            """
+        ).fetchall()
+
+        return render_template(
+            "chat.html",
+            faq=faq,
+        )
+
+    @app.route("/telegram/qr.png")
+    def telegram_qr_png():
+        """Serve QR code for the Telegram channel as PNG."""
+        if qrcode is None:
+            abort(404)
+
+        channel_url = get_telegram_channel_url()
+        if not channel_url:
+            abort(404)
+
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=8,
+            border=2,
+        )
+        qr.add_data(channel_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        img_io = BytesIO()
+        img.save(img_io, format="PNG")
+        img_io.seek(0)
+
+        return send_file(
+            img_io,
+            mimetype="image/png",
+            as_attachment=False,
+            download_name="telegram_qr.png",
+        )
 
     @app.route("/eintragen", methods=["POST"])
     def eintragen():
@@ -843,9 +1361,18 @@ def create_app(test_config=None):
         for slot_key in selected_slots:
             cookie_name = SIGNUP_COOKIE_PREFIX + slot_key
 
-            if not is_admin_user and request.cookies.get(cookie_name):
-                blocked_cookie.append(SLOT_LABEL.get(slot_key, slot_key))
-                continue
+            if not is_admin_user:
+                            cookie_value = request.cookies.get(cookie_name)
+                            current_count = 0
+                            if cookie_value:
+                                try:
+                                    current_count = int(cookie_value)
+                                except (ValueError, TypeError):
+                                    current_count = 0
+
+                            if current_count >= get_max_entries_per_device():
+                                blocked_cookie.append(SLOT_LABEL.get(slot_key, slot_key))
+                                continue
 
             slot_row = db.execute(
                 "SELECT * FROM slots WHERE slot_key = ?",
@@ -979,13 +1506,22 @@ def create_app(test_config=None):
         max_age = 60 * 60 * 24 * 7
 
         for _, slot_key in added + waitlisted:
-            response.set_cookie(
-                SIGNUP_COOKIE_PREFIX + slot_key,
-                "1",
-                max_age=max_age,
-                httponly=True,
-                samesite="Lax",
-            )
+                    cookie_name = SIGNUP_COOKIE_PREFIX + slot_key
+                    prior = 0
+                    raw_cookie = request.cookies.get(cookie_name)
+                    if raw_cookie:
+                        try:
+                            prior = int(raw_cookie)
+                        except (ValueError, TypeError):
+                            prior = 0
+                    new_count = min(prior + 1, get_max_entries_per_device())
+                    response.set_cookie(
+                        cookie_name,
+                        str(new_count),
+                        max_age=max_age,
+                        httponly=True,
+                        samesite="Lax",
+                    )
 
         return response
 
@@ -1033,6 +1569,27 @@ def create_app(test_config=None):
             for slot in slots
         }
 
+        db = get_db()
+        contact_messages = db.execute(
+            """
+                    SELECT id, name, email, recipient, contact_channel, contact_value,
+                           message, is_read, created_at
+                    FROM contact_messages
+                    ORDER BY is_read ASC, created_at DESC
+                    """
+                ).fetchall()
+        unread_messages_count = db.execute(
+            "SELECT COUNT(*) AS c FROM contact_messages WHERE is_read = 0"
+        ).fetchone()["c"]
+
+        faq_entries = db.execute(
+            """
+            SELECT id, question, answer, sort_order
+            FROM faq_entries
+            ORDER BY sort_order ASC, id ASC
+            """
+        ).fetchall()
+
         return render_template(
             "admin_dashboard.html",
             slots=slots,
@@ -1047,7 +1604,95 @@ def create_app(test_config=None):
             weekdays=WEEKDAY_NAMES,
             signup_open=is_signup_open(),
             signup_lock_cfg=signup_lock_settings(),
+            telegram_channel_url=get_telegram_channel_url(),
+            homebrew_url=get_homebrew_url(),
+            homebrew_image=get_homebrew_image(),
+            paypal_url=get_paypal_url(),
+            paypal_image=get_paypal_image(),
+            americana_url=get_americana_url(),
+            americana_text=get_americana_text(),
+            contact_messages=contact_messages,
+            unread_messages_count=unread_messages_count,
+            faq_entries=faq_entries,
         )
+
+    @app.route("/admin/telegram-channel/update", methods=["POST"])
+    @admin_required
+    def admin_update_telegram_channel():
+        channel_url = request.form.get("telegram_channel_url", "").strip()
+        set_setting_value("telegram_channel_url", channel_url)
+        flash("Telegram-Kanal-Link aktualisiert.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/links/update", methods=["POST"])
+    @admin_required
+    def admin_update_links():
+        set_setting_value("homebrew_url", request.form.get("homebrew_url", "").strip())
+        set_setting_value("homebrew_image", request.form.get("homebrew_image", "homebrew.png").strip())
+        set_setting_value("paypal_url", request.form.get("paypal_url", "").strip())
+        set_setting_value("paypal_image", request.form.get("paypal_image", "Designer_Paypal_2.jpeg").strip())
+        set_setting_value("americana_url", request.form.get("americana_url", "").strip())
+        set_setting_value("americana_text", request.form.get("americana_text", "").strip())
+        flash("Links aktualisiert.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/messages/<int:message_id>/read", methods=["POST"])
+    @admin_required
+    def admin_mark_message_read(message_id):
+        db = get_db()
+        db.execute(
+            "UPDATE contact_messages SET is_read = 1 WHERE id = ?",
+            (message_id,),
+        )
+        db.commit()
+        flash("Nachricht als gelesen markiert.", "info")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/messages/<int:message_id>/delete", methods=["POST"])
+    @admin_required
+    def admin_delete_message(message_id):
+        db = get_db()
+        db.execute("DELETE FROM contact_messages WHERE id = ?", (message_id,))
+        db.commit()
+        flash("Nachricht geloescht.", "info")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/faq/add", methods=["POST"])
+    @admin_required
+    def admin_faq_add():
+        question = request.form.get("question", "").strip()
+        answer = request.form.get("answer", "").strip()
+        sort_order = request.form.get("sort_order", "0").strip()
+
+        if not question or not answer:
+            flash("Bitte Frage und Antwort angeben.", "danger")
+            return redirect(url_for("admin_dashboard"))
+
+        try:
+            sort_order = int(sort_order)
+        except ValueError:
+            sort_order = 0
+
+        db = get_db()
+        db.execute(
+            """
+            INSERT INTO faq_entries (question, answer, sort_order)
+            VALUES (?, ?, ?)
+            """,
+            (question, answer, sort_order),
+        )
+        db.commit()
+        flash("FAQ-Eintrag hinzugefuegt.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/faq/<int:faq_id>/delete", methods=["POST"])
+    @admin_required
+    def admin_faq_delete(faq_id):
+        db = get_db()
+        db.execute("DELETE FROM faq_entries WHERE id = ?", (faq_id,))
+        db.commit()
+        flash("FAQ-Eintrag geloescht.", "info")
+        return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/slot/<int:slot_id>/update", methods=["POST"])
     @admin_required
@@ -1168,6 +1813,69 @@ def create_app(test_config=None):
                 return redirect(url_for("admin_dashboard"))
 
         flash("Anmeldung geloescht.", "info")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/waitlist/<int:signup_id>/confirm", methods=["POST"])
+    @admin_required
+    def admin_confirm_waitlist(signup_id):
+        """Bestaetigt einen Wartelisten-Eintrag (bleibt auf der Warteliste)."""
+        db = get_db()
+        signup = db.execute(
+            "SELECT * FROM signups WHERE id = ? AND status = 'waitlist'",
+            (signup_id,),
+        ).fetchone()
+
+        if signup is None:
+            flash("Wartelisten-Eintrag nicht gefunden.", "danger")
+            return redirect(url_for("admin_dashboard"))
+
+        db.execute(
+            "UPDATE signups SET admin_confirmed = 1 WHERE id = ?",
+            (signup_id,),
+        )
+        db.commit()
+        flash(f"{signup['name']} wurde bestaetigt (bleibt auf der Warteliste).", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/waitlist/<int:signup_id>/promote", methods=["POST"])
+    @admin_required
+    def admin_promote_waitlist(signup_id):
+        """Bestaetigt einen Wartelisten-Eintrag und setzt ihn direkt auf die Liste."""
+        db = get_db()
+        signup = db.execute(
+            "SELECT * FROM signups WHERE id = ? AND status = 'waitlist'",
+            (signup_id,),
+        ).fetchone()
+
+        if signup is None:
+            flash("Wartelisten-Eintrag nicht gefunden.", "danger")
+            return redirect(url_for("admin_dashboard"))
+
+        slot_row = db.execute(
+            "SELECT * FROM slots WHERE id = ?",
+            (signup["slot_id"],),
+        ).fetchone()
+
+        confirmed_count = db.execute(
+            "SELECT COUNT(*) AS c FROM signups "
+            "WHERE slot_id = ? AND status = 'confirmed'",
+            (signup["slot_id"],),
+        ).fetchone()["c"]
+
+        db.execute(
+            "UPDATE signups SET status = 'confirmed', admin_confirmed = 1 WHERE id = ?",
+            (signup_id,),
+        )
+        db.commit()
+
+        if slot_row and confirmed_count >= slot_row["max_players"]:
+            flash(
+                f"{signup['name']} wurde direkt auf die Liste gesetzt "
+                f"(Achtung: Slot war bereits voll).",
+                "info",
+            )
+        else:
+            flash(f"{signup['name']} wurde direkt auf die Liste gesetzt.", "success")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/users", methods=["GET"])
