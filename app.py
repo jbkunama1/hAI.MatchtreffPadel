@@ -2,6 +2,7 @@ import os
 import sqlite3
 import sys
 import logging
+import hashlib
 from logging_config import setup_logging
 from datetime import datetime, timedelta
 
@@ -57,7 +58,7 @@ from flask import (
     session,
     url_for,
 )
-from werkzeug.security import generate_password_hash
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 
@@ -104,6 +105,156 @@ def create_app(test_config=None):
 
     with app.app_context():
         init_db(SEED_ADMIN_USERS)
+
+        # Einstellungen fuer den Loesch-PIN.
+        DELETE_PIN_MIN_ATTEMPTS = int(
+            os.environ.get("DELETE_PIN_MAX_FAILED_ATTEMPTS", "3")
+        )
+        DELETE_PIN_LOCK_MINUTES = float(
+            os.environ.get("DELETE_PIN_LOCK_MINUTES", "15")
+        )
+        DELETE_PIN_IP_ATTEMPTS = int(
+            os.environ.get("DELETE_PIN_IP_WINDOW_ATTEMPTS", "10")
+        )
+        DELETE_PIN_IP_WINDOW_MINUTES = float(
+            os.environ.get("DELETE_PIN_IP_WINDOW_MINUTES", "15")
+        )
+        DELETE_PIN_CLIENT_SALT = os.environ.get(
+            "DELETE_PIN_CLIENT_SALT", "matchtreff-delete-pin"
+        ).encode("utf-8")
+
+        def _ip_hash():
+            """Stabiler, nicht-reversibler Hash der Client-IP fuer Rate-Limiting."""
+            return hashlib.sha256(
+                DELETE_PIN_CLIENT_SALT + request.remote_addr.encode("utf-8")
+            ).hexdigest()
+
+        def _normalize_pin(pin):
+            """Akzeptiert '1234', '1 2 3 4' oder '1-2-3-4' -> '1234'."""
+            if pin is None:
+                return None
+            digits = [ch for ch in str(pin).strip() if ch.isdigit()]
+            if len(digits) != 4:
+                return None
+            return "".join(digits)
+
+        def _is_delete_locked(signup_id):
+            """True wenn fuer diesen Eintrag + IP der PIN gesperrt ist."""
+            db = get_db()
+            row = db.execute(
+                """
+                SELECT locked_until
+                FROM signup_delete_pin_attempts
+                WHERE signup_id = ? AND ip_hash = ?
+                """,
+                (signup_id, _ip_hash()),
+            ).fetchone()
+            if not row or not row["locked_until"]:
+                return False
+            try:
+                locked_until = datetime.fromisoformat(str(row["locked_until"]))
+            except ValueError:
+                return False
+            return datetime.now() < locked_until
+
+        def _remaining_pin_attempts(signup_id):
+            db = get_db()
+            row = db.execute(
+                """
+                SELECT failed_attempts, locked_until
+                FROM signup_delete_pin_attempts
+                WHERE signup_id = ? AND ip_hash = ?
+                """,
+                (signup_id, _ip_hash()),
+            ).fetchone()
+            if row and row["locked_until"]:
+                try:
+                    if datetime.now() < datetime.fromisoformat(str(row["locked_until"])):
+                        return 0
+                except ValueError:
+                    pass
+            if not row:
+                return DELETE_PIN_MIN_ATTEMPTS
+            remaining = DELETE_PIN_MIN_ATTEMPTS - row["failed_attempts"]
+            return max(0, remaining)
+
+        def _record_pin_failure(signup_id):
+            db = get_db()
+            now = datetime.now()
+            row = db.execute(
+                """
+                SELECT failed_attempts
+                FROM signup_delete_pin_attempts
+                WHERE signup_id = ? AND ip_hash = ?
+                """,
+                (signup_id, _ip_hash()),
+            ).fetchone()
+
+            if row:
+                failed = row["failed_attempts"] + 1
+                locked_until = (
+                    now + timedelta(minutes=DELETE_PIN_LOCK_MINUTES)
+                    if failed >= DELETE_PIN_MIN_ATTEMPTS
+                    else None
+                )
+                db.execute(
+                    """
+                    UPDATE signup_delete_pin_attempts
+                    SET failed_attempts = ?, locked_until = ?,
+                        last_attempt_at = CURRENT_TIMESTAMP
+                    WHERE signup_id = ? AND ip_hash = ?
+                    """,
+                    (failed, locked_until, signup_id, _ip_hash()),
+                )
+            else:
+                locked_until = (
+                    now + timedelta(minutes=DELETE_PIN_LOCK_MINUTES)
+                    if DELETE_PIN_MIN_ATTEMPTS <= 1
+                    else None
+                )
+                db.execute(
+                    """
+                    INSERT INTO signup_delete_pin_attempts (
+                        signup_id, ip_hash, failed_attempts, locked_until
+                    )
+                    VALUES (?, ?, 1, ?)
+                    """,
+                    (signup_id, _ip_hash(), locked_until),
+                )
+            db.commit()
+
+        def _clear_pin_attempts(signup_id):
+            db = get_db()
+            db.execute(
+                "DELETE FROM signup_delete_pin_attempts WHERE signup_id = ?",
+                (signup_id,),
+            )
+            db.commit()
+
+        def _ip_rate_limited():
+            """Grobes IP-Rate-Limiting: max. X Versuche in Y Minuten pro IP."""
+            db = get_db()
+            recent = db.execute(
+                """
+                SELECT COUNT(*) AS c
+                FROM signup_delete_ip_attempts
+                WHERE ip_hash = ? AND attempted_at > datetime('now', ?)
+                """,
+                (
+                    _ip_hash(),
+                    f"-{DELETE_PIN_IP_WINDOW_MINUTES} minutes",
+                ),
+            ).fetchone()["c"]
+
+            if recent >= DELETE_PIN_IP_ATTEMPTS:
+                return True
+
+            db.execute(
+                "INSERT INTO signup_delete_ip_attempts (ip_hash) VALUES (?)",
+                (_ip_hash(),),
+            )
+            db.commit()
+            return False
 
     def next_thursday():
         today = datetime.today().date()
@@ -448,6 +599,10 @@ def create_app(test_config=None):
         name = request.form.get("name", "").strip()
         selected_slots = request.form.getlist("slots")
         is_member = 1 if request.form.get("is_member") else 0
+        delete_pin = _normalize_pin(request.form.get("delete_pin", ""))
+        delete_pin_hash = (
+            generate_password_hash(delete_pin) if delete_pin else None
+        )
 
         if not name:
             flash("Bitte einen Namen eingeben.", "danger")
@@ -560,9 +715,10 @@ def create_app(test_config=None):
                         name,
                         name_normalized,
                         status,
-                        is_member
+                        is_member,
+                        delete_pin_hash
                     )
-                    VALUES (?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?)
                     """,
                     (
                         slot_row["id"],
@@ -570,6 +726,7 @@ def create_app(test_config=None):
                         name_normalized,
                         status,
                         is_member,
+                        delete_pin_hash,
                     ),
                 )
                 db.commit()
@@ -640,6 +797,144 @@ def create_app(test_config=None):
             )
 
         return response
+
+    @app.route("/loeschen", methods=["GET", "POST"])
+    def loeschen():
+        """Eintrag ueber Name + Loesch-PIN stornieren."""
+        db = get_db()
+        ctx_name = session.get("delete_pin_context_name", "").strip()
+        name = request.form.get("name", "").strip() or ctx_name
+        current_signup = None
+
+        if name:
+            norm = normalize_name(name)
+            current_signup = db.execute(
+                """
+                SELECT *
+                FROM signups
+                WHERE name_normalized = ?
+                ORDER BY created_at ASC
+                LIMIT 1
+                """,
+                (norm,),
+            ).fetchone()
+
+        if request.method == "POST":
+            if _ip_rate_limited():
+                flash(
+                    "Zu viele Loeschversuche von dieser IP. "
+                    "Bitte versuche es spaeter erneut.",
+                    "danger",
+                )
+                return redirect(url_for("loeschen"))
+
+            if not name or not current_signup:
+                session["delete_pin_context_name"] = name
+                flash("Kein passender Eintrag gefunden.", "danger")
+                return redirect(url_for("loeschen"))
+
+            if not current_signup["delete_pin_hash"]:
+                session["delete_pin_context_name"] = name
+                flash(
+                    "Fuer diesen Eintrag wurde kein Loesch-PIN gesetzt. "
+                    "Bitte wende dich an einen Administrator.",
+                    "danger",
+                )
+                return redirect(url_for("loeschen"))
+
+            if _is_delete_locked(current_signup["id"]):
+                flash(
+                    "Der Loesch-PIN ist voruebergehend gesperrt. "
+                    "Bitte versuche es in ein paar Minuten erneut.",
+                    "danger",
+                )
+                return redirect(url_for("loeschen"))
+
+            pin_input = _normalize_pin(request.form.get("pin", ""))
+            if not pin_input:
+                return render_template(
+                    "loeschen.html",
+                    name=current_signup["name"],
+                    current_signup=current_signup,
+                    pin_set=True,
+                    remaining=_remaining_pin_attempts(current_signup["id"]),
+                )
+
+            pin_ok = check_password_hash(
+                current_signup["delete_pin_hash"], pin_input
+            )
+
+            if pin_ok:
+                slot_id = current_signup["slot_id"]
+                was_confirmed = current_signup["status"] == "confirmed"
+                signup_name = current_signup["name"]
+
+                db.execute(
+                    "DELETE FROM signups WHERE id = ?",
+                    (current_signup["id"],),
+                )
+                db.commit()
+                _clear_pin_attempts(current_signup["id"])
+                session.pop("delete_pin_context_name", None)
+
+                if was_confirmed:
+                    next_waiting = db.execute(
+                        """
+                        SELECT *
+                        FROM signups
+                        WHERE slot_id = ? AND status = 'waitlist'
+                        ORDER BY created_at ASC
+                        LIMIT 1
+                        """,
+                        (slot_id,),
+                    ).fetchone()
+                    if next_waiting:
+                        db.execute(
+                            "UPDATE signups SET status = 'confirmed' WHERE id = ?",
+                            (next_waiting["id"],),
+                        )
+                        db.commit()
+                        flash(
+                            "Eintrag von " + signup_name + " geloescht. "
+                            + next_waiting["name"]
+                            + " ist von der Warteliste nachgerueckt.",
+                            "info",
+                        )
+                        return redirect(url_for("index"))
+
+                flash("Eintrag geloescht.", "info")
+                return redirect(url_for("index"))
+
+            _record_pin_failure(current_signup["id"])
+            remaining = _remaining_pin_attempts(current_signup["id"])
+            session["delete_pin_context_name"] = name
+            if remaining <= 0:
+                flash(
+                    "Zu viele Fehlversuche. Der Loesch-PIN ist jetzt gesperrt.",
+                    "danger",
+                )
+            else:
+                flash(
+                    "Falsche PIN. "
+                    + str(remaining)
+                    + " Versuch(e) verbleiben.",
+                    "danger",
+                )
+            return render_template(
+                "loeschen.html",
+                name=current_signup["name"],
+                current_signup=current_signup,
+                pin_set=True,
+                remaining=remaining,
+            )
+
+        return render_template(
+            "loeschen.html",
+            name=name,
+            current_signup=current_signup,
+            pin_set=bool(current_signup and current_signup["delete_pin_hash"]),
+            remaining=DELETE_PIN_MIN_ATTEMPTS,
+        )
 
     @app.route("/admin/login", methods=["GET", "POST"])
     def admin_login():

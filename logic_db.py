@@ -86,8 +86,30 @@ def init_db(seed_admin_users):
             is_active INTEGER NOT NULL DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-        """
-    )
+
+                CREATE TABLE IF NOT EXISTS signup_delete_pin_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    signup_id INTEGER NOT NULL,
+                    ip_hash TEXT NOT NULL,
+                    failed_attempts INTEGER NOT NULL DEFAULT 1,
+                    locked_until TIMESTAMP,
+                    last_attempt_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(signup_id, ip_hash)
+                );
+
+                CREATE TABLE IF NOT EXISTS signup_delete_ip_attempts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ip_hash TEXT NOT NULL,
+                    attempted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+                """
+            )
+
+    columns = [row[1] for row in db.execute("PRAGMA table_info(signups)").fetchall()]
+    if "delete_pin_hash" not in columns:
+        db.execute(
+            "ALTER TABLE signups ADD COLUMN delete_pin_hash TEXT"
+        )
 
     columns = [row[1] for row in db.execute("PRAGMA table_info(signups)").fetchall()]
     if "is_member" not in columns:
