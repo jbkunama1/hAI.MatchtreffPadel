@@ -22,6 +22,7 @@ services:
       - ADMIN_PASSWORD_PATRICK=${ADMIN_PASSWORD_PATRICK}
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
       - matchtreff_data:/app/instance
     restart: unless-stopped
@@ -35,6 +36,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
       - MATCHTREFF_DB_PATH=/app/instance/matchtreff.sqlite3
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
       - matchtreff_data:/app/instance
     restart: unless-stopped
@@ -52,6 +54,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - ADMIN_TELEGRAM_IDS=${ADMIN_TELEGRAM_IDS}
       - MATCHTREFF_DB_PATH=/app/instance/matchtreff.sqlite3
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
       - matchtreff_data:/app/instance
     restart: unless-stopped
