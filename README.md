@@ -298,10 +298,10 @@ Bei Timeouts helfen die bereits vorgesehenen Massnahmen im Projekt:
 | Funktion | Web-App | Telegram-Bot |
 |---|---|---|
 | Slot-Belegung ansehen | Startseite | `/start` → Belegung anzeigen |
-| Anmelden | Formular mit Name + Slot-Auswahl | `/start` → "Anmelden" → Inline-Buttons |
+| Anmelden | Formular mit Name + Slot-Auswahl (+ optionaler Loesch-PIN) | `/start` → "Anmelden" → Inline-Buttons |
 | Eintrag bearbeiten | Admin-Dashboard | - |
 | Max. Plaetze setzen | Admin-Dashboard | Admin-Menue → "Max. Spieler setzen" |
-| Anmeldung loeschen | Admin-Dashboard | Admin-Menue → "Nutzer loeschen" |
+| Anmeldung loeschen | Admin-Dashboard oder Stornier-Seite mit Loesch-PIN | Admin-Menue → "Nutzer loeschen" |
 | Reset | Admin-Dashboard | Admin-Menue → "Alle Anmeldungen zuruecksetzen" |
 | CSV-Export | Backup herunterladen | Admin-Menue → "Export (CSV)" |
 | Broadcast | - | Admin-Menue → "Broadcast an alle Nutzer" |
