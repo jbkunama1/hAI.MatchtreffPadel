@@ -437,6 +437,30 @@
 >
     <div class="admin-stack">
         <div class="admin-card">
+            <h2>📢 Banner-Anzeige</h2>
+            <p>
+                Lege fest, ob das grosse Logo-Banner oben auf der Seite
+                angezeigt werden soll.
+            </p>
+
+            <form method="post" action="{{ url_for('admin_update_banner_visibility') }}">
+                <div class="checkbox-row" style="margin-bottom: 1rem;">
+                    <input
+                        type="checkbox"
+                        id="show_banner"
+                        name="show_banner"
+                        {% if show_banner %}checked{% endif %}
+                    >
+                    <label for="show_banner" style="margin: 0;">
+                        Banner auf der Startseite anzeigen
+                    </label>
+                </div>
+
+                <button type="submit">Banner-Einstellung speichern</button>
+            </form>
+        </div>
+
+        <div class="admin-card">
             <h2>🎨 Design &amp; Hintergrund</h2>
 
             <form method="post" action="{{ url_for('admin_update_theme') }}">

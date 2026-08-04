@@ -28,7 +28,9 @@
 
     <div class="page-shell">
         <div class="card-root">
+                        {% if show_banner %}
             <img src="{{ url_for('static', filename='Logo_II_Banner.png') }}" alt="Matchtreff Padel Banner" class="site-banner">
+            {% endif %}
             <div style="display:flex; align-items:center; justify-content:space-between; gap:0.75rem; margin-bottom:0.75rem; flex-wrap:wrap;">
                 <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
                     <img src="{{ url_for('static', filename='Logo_I_Matchtreff.png') }}" alt="Matchtreff Padel Logo" style="height:64px; width:auto;">

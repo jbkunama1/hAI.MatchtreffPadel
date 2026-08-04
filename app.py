@@ -88,6 +88,8 @@ SIGNUP_DEFAULT_OPEN_HOUR = 13
 SIGNUP_DEFAULT_OPEN_MINUTE = 0
 APP_TZ = ZoneInfo("Europe/Berlin")
 
+DEFAULT_SHOW_BANNER = "1"  # Banner auf der Startseite sichtbar (1=ja, 0=aus)
+
 DEFAULT_INTRO_TEXT = (
     "Anmeldung fuer Donnerstag, {next_thursday}. Trag einfach deinen Namen ein "
     "und waehle einen oder beide Slots. Pro Geraet kann man sich pro Slot nur "
@@ -378,6 +380,7 @@ def create_app(test_config=None):
             "signup_lock_enabled": DEFAULT_SIGNUP_LOCK_ENABLED,
             "signup_lock_manual_open": DEFAULT_SIGNUP_LOCK_MANUAL_OPEN,
             "signup_lock_auto_open_at": DEFAULT_SIGNUP_LOCK_AUTO_OPEN_AT,
+            "show_banner": DEFAULT_SHOW_BANNER,
         }
 
         for key, value in setting_defaults.items():
@@ -713,6 +716,13 @@ def create_app(test_config=None):
         except (KeyError, IndexError):
             return text_template
 
+         def get_show_banner():
+        db = get_db()
+        row = db.execute(
+            "SELECT value FROM settings WHERE key = 'show_banner'"
+        ).fetchone()
+        return (row["value"] if row else DEFAULT_SHOW_BANNER) == "1"
+
     def get_raw_intro_text():
         db = get_db()
         row = db.execute(
@@ -744,6 +754,7 @@ def create_app(test_config=None):
             "current_bg_style": bg_style_key,
             "bg_styles": BG_STYLES,
             "intro_text": get_intro_text(),
+            "show_banner": get_show_banner(),
         }
 
     @app.route("/")
@@ -1371,6 +1382,14 @@ def create_app(test_config=None):
             )
 
         db.commit()
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/banner/update", methods=["POST"])
+    @admin_required
+    def admin_update_banner_visibility():
+        show_banner = "1" if request.form.get("show_banner") else "0"
+        set_setting_value("show_banner", show_banner)
+        flash("Banner-Sichtbarkeit aktualisiert.", "success")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/waitlist-settings/update", methods=["POST"])
