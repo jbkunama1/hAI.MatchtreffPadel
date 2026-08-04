@@ -716,7 +716,7 @@ def create_app(test_config=None):
         except (KeyError, IndexError):
             return text_template
 
-         def get_show_banner():
+    def get_show_banner():
         db = get_db()
         row = db.execute(
             "SELECT value FROM settings WHERE key = 'show_banner'"
