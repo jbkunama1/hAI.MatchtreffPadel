@@ -4,7 +4,7 @@ import sys
 import logging
 import hashlib
 from logging_config import setup_logging
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from functools import wraps
 from io import BytesIO
 from zoneinfo import ZoneInfo
@@ -23,7 +23,7 @@ from flask import (
     url_for,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
-from logic_auth import admin_required
+from logic_auth import admin_required, authenticate_admin
 try:
     import qrcode
 except ImportError:
@@ -55,6 +55,8 @@ SLOT_DEFINITIONS = [
     {"key": "slot_b", "label": "Tarde: 20:00 - 22:00 Uhr"},
 ]
 SLOT_LABEL = {slot["key"]: slot["label"] for slot in SLOT_DEFINITIONS}
+DEFAULT_SLOT_CLOSE_ENABLED = "1"
+DEFAULT_SLOT_CLOSE_TIMES = {slot["key"]: (18, 0) for slot in SLOT_DEFINITIONS}
 
 WAITLIST_LIMIT = 4
 DEFAULT_SLOT_SELECTION = "both"
@@ -436,11 +438,21 @@ def create_app(test_config=None):
                 first_name TEXT,
                 role TEXT NOT NULL DEFAULT 'user',
                 is_member_default INTEGER NOT NULL DEFAULT 1,
-                is_active INTEGER NOT NULL DEFAULT 1,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            );
+                                is_active INTEGER NOT NULL DEFAULT 1,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                            );
 
-                        CREATE TABLE IF NOT EXISTS contact_messages (
+                            CREATE TABLE IF NOT EXISTS signup_delete_pin_attempts (
+                                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                                signup_id INTEGER NOT NULL,
+                                ip_hash TEXT NOT NULL,
+                                failed_attempts INTEGER NOT NULL DEFAULT 1,
+                                locked_until TIMESTAMP,
+                                last_attempt_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                UNIQUE(signup_id, ip_hash)
+                            );
+
+                                        CREATE TABLE IF NOT EXISTS contact_messages (
                             id INTEGER PRIMARY KEY AUTOINCREMENT,
                             name TEXT NOT NULL DEFAULT '',
                             email TEXT NOT NULL DEFAULT '',
@@ -472,6 +484,10 @@ def create_app(test_config=None):
             db.execute(
                 "ALTER TABLE signups ADD COLUMN is_member INTEGER NOT NULL DEFAULT 1"
             )
+        if "delete_pin_hash" not in columns:
+                    db.execute(
+                        "ALTER TABLE signups ADD COLUMN delete_pin_hash TEXT"
+                    )
 
         # Admin-Bestaetigung fuer Wartelisten-Eintraege
         # 0 = noch nicht bestaetigt, 1 = von Admin bestaetigt (bleibt auf Warteliste)
@@ -798,10 +814,19 @@ def create_app(test_config=None):
     app.jinja_env.filters["format_intro"] = format_intro_text
 
     def next_thursday():
-        today = datetime.today().date()
+        # Get current time in app timezone
+        now = datetime.now(APP_TZ)
+        today = now.date()
+        
+        # Calculate days until Thursday (3)
+        # If it's Thursday, show today's date
+        # If it's Friday before 06:00, still show yesterday's date (Thursday)
+        if today.weekday() == 3:
+            return today
+        elif today.weekday() == 4 and now.hour < 6:
+            return today - timedelta(days=1)
+            
         days_ahead = (3 - today.weekday()) % 7
-        if days_ahead == 0:
-            days_ahead = 7
         return today + timedelta(days=days_ahead)
 
     def get_waitlist_limit():
@@ -958,6 +983,70 @@ def create_app(test_config=None):
         if cfg["auto_open_at"] and cfg["auto_open_at"] <= datetime.now():
             return True
         return False
+
+    def _parse_hhmm(value):
+        """'HH:MM' -> (h, m). None bei ungueltig."""
+        if not value:
+            return None
+        parts = value.split(":")
+        if len(parts) != 2:
+            return None
+        try:
+            h, m = int(parts[0]), int(parts[1])
+        except ValueError:
+            return None
+        if 0 <= h <= 23 and 0 <= m <= 59:
+            return h, m
+        return None
+
+    def slot_close_info():
+        """Pro-slot-Anmeldeschluss am Eventtag (naechster Donnerstag).
+
+        Default: Startzeit des jeweiligen Slots. Admins koennen je Slot eine
+        abweichende Zeit hinterlegen; dann wird der Anmeldefrist-Hinweis
+        auf der Startseite (klein) angezeigt.
+        """
+        db = get_db()
+        enabled = (
+            get_setting_value("slot_close_enabled", DEFAULT_SLOT_CLOSE_ENABLED) == "1"
+        )
+        event_date = next_thursday()
+        now = datetime.now(APP_TZ)
+
+        slots_info = {}
+        any_passed = False
+        any_custom = False
+
+        for slot in SLOT_DEFINITIONS:
+            key = slot["key"]
+            raw = get_setting_value(f"slot_close_time_{key}", "").strip()
+            custom = bool(raw)
+            hhmm = _parse_hhmm(raw)
+            if hhmm is None:
+                hh, mm = DEFAULT_SLOT_CLOSE_TIMES.get(key, (18, 0))
+            else:
+                hh, mm = hhmm
+            deadline = datetime.combine(
+                event_date, time(hh, mm), tzinfo=APP_TZ
+            )
+            closed = deadline <= now
+            any_passed = any_passed or closed
+            any_custom = any_custom or custom
+            slots_info[key] = {
+                "label": slot["label"],
+                "deadline": deadline,
+                "closed": closed,
+                "custom": custom,
+                "close_time_raw": raw,
+            }
+
+        return {
+            "enabled": enabled,
+            "slots": slots_info,
+            "any_passed": any_passed,
+            "any_custom": any_custom,
+            "event_date": event_date,
+        }
 
     def get_automatik_settings():
         return {
@@ -1185,7 +1274,8 @@ def create_app(test_config=None):
             is_admin=bool(session.get("is_admin")),
             signup_open=is_signup_open(),
             signup_lock_cfg=signup_lock_settings(),
-        )
+                        slot_close=slot_close_info(),
+                    )
 
     @app.route("/info")
     def info_page():
@@ -1504,21 +1594,33 @@ def create_app(test_config=None):
             )
             return redirect(url_for("index"))
 
+        slot_close = slot_close_info() if not is_admin_user else None
+
         for slot_key in selected_slots:
             cookie_name = SIGNUP_COOKIE_PREFIX + slot_key
 
-            if not is_admin_user:
-                            cookie_value = request.cookies.get(cookie_name)
-                            current_count = 0
-                            if cookie_value:
-                                try:
-                                    current_count = int(cookie_value)
-                                except (ValueError, TypeError):
-                                    current_count = 0
+            if (
+                slot_close is not None
+                and slot_close["enabled"]
+                and slot_close["slots"][slot_key]["closed"]
+            ):
+                blocked_duplicate.append(
+                    f"{SLOT_LABEL.get(slot_key, slot_key)} (Anmeldefrist abgelaufen)"
+                )
+                continue
 
-                            if current_count >= get_max_entries_per_device():
-                                blocked_cookie.append(SLOT_LABEL.get(slot_key, slot_key))
-                                continue
+            if not is_admin_user:
+                cookie_value = request.cookies.get(cookie_name)
+                current_count = 0
+                if cookie_value:
+                    try:
+                        current_count = int(cookie_value)
+                    except (ValueError, TypeError):
+                        current_count = 0
+
+                if current_count >= get_max_entries_per_device():
+                    blocked_cookie.append(SLOT_LABEL.get(slot_key, slot_key))
+                    continue
 
             slot_row = db.execute(
                 "SELECT * FROM slots WHERE slot_key = ?",
@@ -1680,6 +1782,7 @@ def create_app(test_config=None):
         ctx_name = session.get("delete_pin_context_name", "").strip()
         name = request.form.get("name", "").strip() or ctx_name
         current_signup = None
+        slot_closed = False
 
         if name:
             norm = normalize_name(name)
@@ -1694,6 +1797,19 @@ def create_app(test_config=None):
                 (norm,),
             ).fetchone()
 
+            slot_closed = False
+            if current_signup:
+                slot_row = db.execute(
+                    "SELECT slot_key FROM slots WHERE id = ?",
+                    (current_signup["slot_id"],),
+                ).fetchone()
+                close_cfg = slot_close_info()
+                slot_closed = bool(
+                    slot_row
+                    and close_cfg["enabled"]
+                    and close_cfg["slots"][slot_row["slot_key"]]["closed"]
+                )
+
         if request.method == "POST":
             if _ip_rate_limited():
                 flash(
@@ -1706,6 +1822,25 @@ def create_app(test_config=None):
             if not name or not current_signup:
                 session["delete_pin_context_name"] = name
                 flash("Kein passender Eintrag gefunden.", "danger")
+                return redirect(url_for("loeschen"))
+
+            slot_row = db.execute(
+                "SELECT slot_key FROM slots WHERE id = ?",
+                (current_signup["slot_id"],),
+            ).fetchone()
+            close_cfg = slot_close_info()
+            if (
+                slot_row
+                and close_cfg["enabled"]
+                and close_cfg["slots"][slot_row["slot_key"]]["closed"]
+            ):
+                session["delete_pin_context_name"] = ""
+                flash(
+                    "Die Anmeldefrist fuer diesen Slot ist abgelaufen. "
+                    "Ein Loeschen ist nicht mehr moeglich. "
+                    "Bitte wende dich an einen Administrator.",
+                    "danger",
+                )
                 return redirect(url_for("loeschen"))
 
             if not current_signup["delete_pin_hash"]:
@@ -1733,6 +1868,7 @@ def create_app(test_config=None):
                     current_signup=current_signup,
                     pin_set=True,
                     remaining=_remaining_pin_attempts(current_signup["id"]),
+                    slot_closed=slot_closed,
                 )
 
             pin_ok = check_password_hash(
@@ -1801,6 +1937,7 @@ def create_app(test_config=None):
                 current_signup=current_signup,
                 pin_set=True,
                 remaining=remaining,
+                slot_closed=slot_closed,
             )
 
         return render_template(
@@ -1809,6 +1946,7 @@ def create_app(test_config=None):
             current_signup=current_signup,
             pin_set=bool(current_signup and current_signup["delete_pin_hash"]),
             remaining=DELETE_PIN_MIN_ATTEMPTS,
+            slot_closed=slot_closed,
         )
 
     @app.route("/admin/login", methods=["GET", "POST"])
@@ -1895,6 +2033,7 @@ def create_app(test_config=None):
             contact_messages=contact_messages,
             unread_messages_count=unread_messages_count,
             faq_entries=faq_entries,
+            slot_close=slot_close_info(),
         )
 
     @app.route("/admin/telegram-channel/update", methods=["POST"])
@@ -2537,6 +2676,32 @@ def create_app(test_config=None):
                 flash("Automatische Oeffnung geplant.", "success")
             else:
                 flash("Bitte ein Datum und Uhrzeit angeben.", "danger")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/slot-close/update", methods=["POST"])
+    @admin_required
+    def admin_update_slot_close():
+        """Anmeldeschluss je Slot (optional). Leer = Standardzeit (Slot-Start)."""
+        enabled = "1" if request.form.get("slot_close_enabled") else "0"
+        set_setting_value("slot_close_enabled", enabled)
+
+        for slot in SLOT_DEFINITIONS:
+            key = slot["key"]
+            raw = request.form.get(f"slot_close_time_{key}", "").strip()
+            hhmm = _parse_hhmm(raw) if raw else None
+            if raw and hhmm is None:
+                flash(
+                    f"Ungueltige Anmeldefrist fuer {slot['label']}. "
+                    "Bitte im Format HH:MM angeben.",
+                    "danger",
+                )
+                return redirect(url_for("admin_dashboard"))
+            set_setting_value(f"slot_close_time_{key}", raw)
+
+        flash(
+            "Anmeldefrist-Einstellungen gespeichert. Leere Felder = Standard.",
+            "success",
+        )
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/backup/download")

@@ -57,7 +57,15 @@
             >
         </div>
 
-        {% if current_signup and pin_set %}
+        {% if current_signup and slot_closed %}
+            <div class="pin-help">
+                🔒 Die Anmeldefrist fuer diesen Slot ist abgelaufen. Ein Loeschen
+                ist nicht mehr moeglich. Bitte wende dich an einen Administrator.
+            </div>
+            <button class="btn-accent" type="submit" disabled>
+                🗑️ Eintrag unwiderruflich loeschen
+            </button>
+        {% elif current_signup and pin_set %}
             <div class="field-note form-group">
                 <label for="pin">🔒 Loesch-PIN</label>
                 <p class="pin-help">
