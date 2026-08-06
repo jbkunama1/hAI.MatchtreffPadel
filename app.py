@@ -257,10 +257,19 @@ def create_app(test_config=None):
             return False
 
     def next_thursday():
-        today = datetime.today().date()
+        # Get current time in app timezone
+        now = datetime.now(APP_TZ)
+        today = now.date()
+        
+        # Calculate days until Thursday (3)
+        # If it's Thursday, show today's date
+        # If it's Friday before 06:00, still show yesterday's date (Thursday)
+        if today.weekday() == 3:
+            return today
+        elif today.weekday() == 4 and now.hour < 6:
+            return today - timedelta(days=1)
+            
         days_ahead = (3 - today.weekday()) % 7
-        if days_ahead == 0:
-            days_ahead = 7
         return today + timedelta(days=days_ahead)
 
     def get_waitlist_limit():
