@@ -46,12 +46,12 @@ def read_config():
     conn.row_factory = sqlite3.Row
     result = {
         "reset_enabled": True,
-        "reset_weekday": 4,
+        "reset_weekday": 5,
         "reset_hour": 6,
         "reset_minute": 0,
         "notify_interval_minutes": 60,
         "reminder_enabled": True,
-        "reminder_weekday": 3,
+        "reminder_weekday": 4,
         "reminder_hour": 12,
         "reminder_minute": 0,
     }
