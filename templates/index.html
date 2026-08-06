@@ -633,9 +633,29 @@
         {% endfor %}
     </div>
 
-    <button class="btn-accent" type="submit" {% if not signup_open and not is_admin %}disabled{% endif %}>
-        ✅ Verbindlich eintragen
-    </button>
+    <div class="form-group">
+        <label for="delete_pin">🔒 Loesch-PIN (freiwillig)</label>
+        <input
+            class="form-control"
+            type="password"
+            id="delete_pin"
+            name="delete_pin"
+            value=""
+            inputmode="numeric"
+            pattern="[0-9]*"
+            maxlength="4"
+            placeholder="4-stellige PIN fuer spateres Loeschen"
+            autocomplete="off"
+        >
+        <div class="slot-meta" style="margin-top: 0.35rem;">
+            Optional: Ohne PIN kannst du deinen Eintrag nicht selbst wieder
+            loeschen. Er wird nur gehasht gespeichert.
+        </div>
+    </div>
+
+        <button class="btn-accent" type="submit" {% if not signup_open and not is_admin %}disabled{% endif %}>
+            ✅ Verbindlich eintragen
+        </button>
 </form>
 
 <div class="content-divider" aria-hidden="true">
@@ -649,17 +669,20 @@
     <div class="slot-title">
         🎾 {{ slot.label }}
     </div>
-
     <div class="slot-meta">
         {{ slot.count }} von {{ slot.max_players }} Plaetze belegt
-
         {% if slot.full %}
             · 🔴 Slot ist voll
         {% endif %}
-
         {% if slot.waitlist_count > 0 %}
             · ⏳ Warteliste {{ slot.waitlist_count }}/{{ waitlist_limit }}
         {% endif %}
+    </div>
+    <div class="slot-actions">
+        {% if is_admin %}
+            <a class="btn-soft" href="{{ url_for('admin_slot_edit', slot_id=slot.id) }}">Eintrag bearbeiten</a>
+        {% endif %}
+        <a class="btn-soft" href="{{ url_for('loeschen') }}">Eintrag bearbeiten/löschen</a>
     </div>
 
     <ul class="player-list">

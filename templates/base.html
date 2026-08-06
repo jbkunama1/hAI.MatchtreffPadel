@@ -59,8 +59,8 @@
                 <a class="btn-soft" href="{{ url_for('index') }}">Startseite</a>
                 <a class="btn-soft" href="{{ url_for('liste_ansicht') }}">📋 Liste ansehen</a>
                 <a class="btn-soft" href="{{ url_for('ueber_uns') }}">ℹ️ Über uns</a>
-                                <a class="btn-soft" href="{{ url_for('chat') }}">💬 Chat / Hilfe</a>
-                                <a class="btn-soft" href="{{ url_for('downloads') }}">⬇️ Downloads</a>
+                <a class="btn-soft" href="{{ url_for('chat') }}">💬 Chat / Hilfe</a>
+                <a class="btn-soft" href="{{ url_for('downloads') }}">⬇️ Downloads</a>
                 {% if telegram_channel_url %}
                     <a class="btn-soft" href="{{ telegram_channel_url }}" target="_blank" rel="noopener">📲 Telegram</a>
                     <button type="button" class="btn-soft" onclick="openTelegramQr()">📷 QR-Code</button>

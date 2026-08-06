@@ -14,7 +14,6 @@ Benachrichtigung mit Bestaetigen/Entfernen-Buttons.
 
 import csv
 import io
-import logging
 import os
 import sqlite3
 from typing import Optional
@@ -30,6 +29,10 @@ from telegram.ext import (
     filters,
 )
 
+from logging_config import setup_logging
+
+logger = setup_logging(name="matchtreff.telegram_bot")
+
 DB_PATH = os.getenv("MATCHTREFF_DB_PATH", "instance/matchtreff.sqlite3")
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 ADMIN_TELEGRAM_IDS = {
@@ -43,12 +46,6 @@ DEFAULT_WAITLIST_LIMIT = 4
 DEFAULT_SLOT_SELECTION = "both"
 DEFAULT_WAITLIST_MODE = "with_waitlist"
 WAITLIST_MODES = {"with_waitlist", "open_for_all", "no_waitlist", "guests_only"}
-
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
-    level=logging.INFO,
-)
-logger = logging.getLogger("matchtreff.telegram_bot")
 
 # Conversation-States
 (

@@ -4,13 +4,16 @@ Enthaelt alle Job-Funktionen des Automatik-Containers. Die tatsaechliche
 Einplanung und der Config-Watcher laufen in scheduler.py::main().
 """
 
-import json
 import os
 import sqlite3
-import sys
-import urllib.request
 from datetime import datetime
 from zoneinfo import ZoneInfo
+
+from logging_config import setup_logging
+from logic_settings import normalize_name
+from logic_telegram import telegram_api_call
+
+logger = setup_logging(name="matchtreff.scheduler_jobs")
 
 # Zeitzone des Schedulers (matches APScheduler-Konfiguration).
 SCHED_TZ = ZoneInfo("Europe/Berlin")
@@ -41,24 +44,6 @@ def set_setting(conn, key, value):
     )
 
 
-def normalize_name(name: str) -> str:
-    return " ".join(str(name).strip().split()).lower()
-
-
-def telegram_api_call(method, payload, token):
-    if not token:
-        return None
-    url = f"https://api.telegram.org/bot{token}/{method}"
-    data = json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
-    try:
-        with urllib.request.urlopen(req, timeout=8) as resp:
-            return json.loads(resp.read().decode("utf-8"))
-    except Exception as exc:
-        print(f"[WARN] Telegram-API-Aufruf fehlgeschlagen ({method}): {exc}", file=sys.stderr)
-        return None
-
-
 def notify_admins(text, token, admin_ids):
     for admin_id in admin_ids:
         telegram_api_call("sendMessage", {"chat_id": admin_id, "text": text}, token)
@@ -70,7 +55,7 @@ def weekly_reset(db_path, token, admin_ids):
 
     reset_enabled = get_setting(conn, "reset_enabled", "1") == "1"
     if not reset_enabled:
-        print("[Scheduler] Automatischer Reset ist deaktiviert (reset_enabled=0) - uebersprungen.")
+        logger.info("Automatischer Reset ist deaktiviert (reset_enabled=0) - uebersprungen.")
         conn.close()
         return
 
@@ -92,7 +77,7 @@ def weekly_reset(db_path, token, admin_ids):
         token,
         admin_ids,
     )
-    print(f"[Scheduler] Reset ausgefuehrt am {now_str}")
+    logger.info("Reset ausgefuehrt am %s", now_str)
 
 
 def digest_new_signups(db_path, token, admin_ids):
@@ -142,7 +127,7 @@ def digest_new_signups(db_path, token, admin_ids):
     set_setting(conn, "digest_last_sent_at", latest_created)
     conn.commit()
     conn.close()
-    print(f"[Scheduler] Digest gesendet, {len(new_signups)} neue Anmeldung(en) bis {latest_created}")
+    logger.info("Digest gesendet, %s neue Anmeldung(en) bis %s", len(new_signups), latest_created)
 
 
 def reminder_participants(db_path, token, admin_ids):
@@ -152,7 +137,7 @@ def reminder_participants(db_path, token, admin_ids):
 
     reminder_enabled = get_setting(conn, "reminder_enabled", "1") == "1"
     if not reminder_enabled:
-        print("[Scheduler] Reminder ist deaktiviert (reminder_enabled=0) - uebersprungen.")
+        logger.info("Reminder ist deaktiviert (reminder_enabled=0) - uebersprungen.")
         conn.close()
         return
 
@@ -172,7 +157,7 @@ def reminder_participants(db_path, token, admin_ids):
     ).fetchall()
 
     if not rows:
-        print("[Scheduler] Keine Anmeldungen fuer den Reminder vorhanden.")
+        logger.info("Keine Anmeldungen fuer den Reminder vorhanden.")
         conn.close()
         return
 
@@ -222,4 +207,4 @@ def reminder_participants(db_path, token, admin_ids):
             sent += 1
 
     conn.close()
-    print(f"[Scheduler] Reminder gesendet: {sent}/{len(rows)} Teilnehmer, Status an Admins.")
+    logger.info("Reminder gesendet: %s/%s Teilnehmer, Status an Admins.", sent, len(rows))
