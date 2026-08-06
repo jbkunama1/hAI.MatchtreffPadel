@@ -26,7 +26,7 @@ DEFAULT_SHOW_BANNER = "1"
 
 # Automatik / Scheduler Defaults
 DEFAULT_RESET_ENABLED = "1"
-DEFAULT_RESET_WEEKDAY = "4"  # 0=Montag ... 4=Freitag
+DEFAULT_RESET_WEEKDAY = "3"  # 0=Montag ... 3=Donnerstag
 DEFAULT_RESET_HOUR = "6"
 DEFAULT_RESET_MINUTE = "0"
 DEFAULT_NOTIFY_INTERVAL_MINUTES = "60"
@@ -46,8 +46,8 @@ SIGNUP_DEFAULT_OPEN_MINUTE = 0
 APP_TZ = ZoneInfo("Europe/Berlin")
 
 DEFAULT_INTRO_TEXT = (
-    "Anmeldung fuer Donnerstag, {next_thursday}. Trag einfach deinen Namen ein "
-    "und waehle einen oder beide Slots. Pro Geraet kann man sich pro Slot nur "
+    "Anmeldung für Donnerstag, {next_thursday}. Trag einfach deinen Namen ein "
+    "und wähle einen oder beide Slots. Pro Gerät kann man sich pro Slot nur "
     "einmal eintragen."
 )
 
