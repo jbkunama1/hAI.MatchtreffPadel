@@ -757,6 +757,60 @@
                                     <button class="btn-accent" type="submit">⏰ Automatische Freigabe planen</button>
                                 </form>
                             </div>
+
+                            <div class="admin-card">
+                                <h3>🔔 Anmeldefrist je Slot</h3>
+
+                                <p class="meta-text">
+                                    Anmeldung und Loeschen schliessen automatisch am
+                                    Eventtag ({{ slot_close.event_date.strftime("%d.%m.%Y") }})
+                                    zu den hier eingestellten Uhrzeiten.
+                                    Leere Felder = Standard
+                                    (Slot A / Slot B). Abweichende Zeiten
+                                    erscheinen klein auf der Startseite.
+                                </p>
+
+                                <form method="post" action="{{ url_for('admin_update_slot_close') }}">
+                                    <div class="form-group">
+                                        <label>
+                                            <input
+                                                type="checkbox"
+                                                name="slot_close_enabled"
+                                                {% if slot_close.enabled %}checked{% endif %}
+                                            >
+                                            Automatischen Anmeldeschluss aktivieren
+                                        </label>
+                                    </div>
+
+                                    {% for slot in slots %}
+                                        {% set close = slot_close.slots[slot.slot_key] %}
+                                        <p>
+                                            <label for="slot-close-{{ slot.slot_key }}">
+                                                Anmeldefrist {{ slot.label }}
+                                            </label><br>
+
+                                            <input
+                                                class="form-control"
+                                                type="time"
+                                                id="slot-close-{{ slot.slot_key }}"
+                                                name="slot_close_time_{{ slot.slot_key }}"
+                                                value="{{ close.close_time_raw }}"
+                                            >
+                                            <span class="meta-text">
+                                                {% if close.custom %}
+                                                    (abweichend, wird auf der Startseite angezeigt)
+                                                {% else %}
+                                                    (Standard: {{ slot_close.slots[slot.slot_key].deadline.strftime("%H:%M Uhr") }})
+                                                {% endif %}
+                                            </span>
+                                        </p>
+                                    {% endfor %}
+
+                                    <button type="submit">
+                                        Anmeldefrist-Einstellungen speichern
+                                    </button>
+                                </form>
+                            </div>
                         </div>
                     </div>
                 </section>

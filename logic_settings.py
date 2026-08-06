@@ -2,10 +2,13 @@ from zoneinfo import ZoneInfo
 
 # Statische Definitionen
 SLOT_DEFINITIONS = [
-    {"key": "slot_a", "label": "Temprano: 18:00 - 20:00 Uhr"},
-    {"key": "slot_b", "label": "Tarde: 20:00 - 22:00 Uhr"},
+    {"key": "slot_a", "label": "Temprano: 18:00 - 20:00 Uhr", "start": (18, 0)},
+    {"key": "slot_b", "label": "Tarde: 20:00 - 22:00 Uhr", "start": (20, 0)},
 ]
 SLOT_LABEL = {slot["key"]: slot["label"] for slot in SLOT_DEFINITIONS}
+
+# Standard-Anmeldeschluss = Startzeit des jeweiligen Slots.
+DEFAULT_SLOT_CLOSE_TIMES = {slot["key"]: slot["start"] for slot in SLOT_DEFINITIONS}
 
 WAITLIST_LIMIT = 4
 DEFAULT_SLOT_SELECTION = "both"
@@ -40,6 +43,11 @@ WEEKDAY_NAMES = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Sam
 DEFAULT_SIGNUP_LOCK_ENABLED = "1"
 DEFAULT_SIGNUP_LOCK_MANUAL_OPEN = "0"
 DEFAULT_SIGNUP_LOCK_AUTO_OPEN_AT = ""
+
+# Anmeldeschluss je Slot (pro Eventtag = naechster Donnerstag).
+# Leerer Eintrag in den Settings = Standardzeit (kein Hinweis auf der Startseite).
+DEFAULT_SLOT_CLOSE_ENABLED = "1"
+DEFAULT_SLOT_CLOSE_TIMES = {slot["key"]: slot["start"] for slot in SLOT_DEFINITIONS}
 SIGNUP_DEFAULT_OPEN_WEEKDAY = 1  # 0=Mo ... 1=Di
 SIGNUP_DEFAULT_OPEN_HOUR = 13
 SIGNUP_DEFAULT_OPEN_MINUTE = 0
@@ -158,5 +166,8 @@ def get_setting_defaults():
         "signup_lock_enabled": DEFAULT_SIGNUP_LOCK_ENABLED,
         "signup_lock_manual_open": DEFAULT_SIGNUP_LOCK_MANUAL_OPEN,
         "signup_lock_auto_open_at": DEFAULT_SIGNUP_LOCK_AUTO_OPEN_AT,
-        "show_banner": DEFAULT_SHOW_BANNER,
+                "slot_close_enabled": DEFAULT_SLOT_CLOSE_ENABLED,
+                "slot_close_time_slot_a": "",
+                "slot_close_time_slot_b": "",
+                "show_banner": DEFAULT_SHOW_BANNER,
     }
