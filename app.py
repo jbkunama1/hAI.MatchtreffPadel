@@ -13,6 +13,7 @@ from flask import (
     Flask,
     abort,
     flash,
+    g,
     make_response,
     redirect,
     render_template,
@@ -22,6 +23,7 @@ from flask import (
     url_for,
 )
 from werkzeug.security import check_password_hash, generate_password_hash
+from logic_auth import admin_required
 try:
     import qrcode
 except ImportError:
@@ -29,6 +31,7 @@ except ImportError:
 
 
 _REQUIRED_ENV = ["SECRET_KEY", "ADMIN_PASSWORD_ADMIN", "ADMIN_PASSWORD_DANIEL"]
+logger = logging.getLogger("matchtreff.web")
 _missing = [name for name in _REQUIRED_ENV if not os.environ.get(name, "").strip()]
 if _missing:
     missing_list = ", ".join(_missing)
@@ -358,8 +361,6 @@ def notify_admins_guest_signup(signup_id, name, slot_label, status):
             },
         )
 
-=======
->>>>>>> origin/main
 
 def create_app(test_config=None):
     app = Flask(__name__)
@@ -373,8 +374,20 @@ def create_app(test_config=None):
 
     os.makedirs(app.instance_path, exist_ok=True)
 
+    def get_db():
+        if "db" not in g:
+            g.db = sqlite3.connect(
+                app.config["DATABASE"],
+                detect_types=sqlite3.PARSE_DECLTYPES,
+                timeout=10,
+            )
+            g.db.row_factory = sqlite3.Row
+            g.db.execute("PRAGMA foreign_keys = ON")
+            g.db.execute("PRAGMA journal_mode = WAL")
+            g.db.execute("PRAGMA busy_timeout = 8000")
+        return g.db
+
     @app.teardown_appcontext
-<<<<<<< HEAD
     def close_db(exception=None):
         db = g.pop("db", None)
         if db is not None:
@@ -595,13 +608,9 @@ def create_app(test_config=None):
             )
 
         db.commit()
-=======
-    def _close_db(exception=None):
-        close_db(exception)
->>>>>>> origin/main
 
     with app.app_context():
-        init_db(SEED_ADMIN_USERS)
+        init_db()
 
         # Einstellungen fuer den Loesch-PIN.
         DELETE_PIN_MIN_ATTEMPTS = int(
