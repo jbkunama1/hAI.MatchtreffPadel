@@ -115,6 +115,14 @@
         margin-top: 0;
     }
 
+        /* Kleiner Anmeldefrist-Hinweis (nur bei abweichenden Zeiten) */
+        .anmeld-frist-note {
+            margin: 0 0 0.9rem;
+            font-size: 0.82rem;
+            line-height: 1.5;
+            opacity: 0.8;
+        }
+
     /* Rahmen um den gesamten Anmeldebereich */
     .signup-frame {
         margin: 1.25rem 0 1.5rem;
@@ -560,6 +568,12 @@
 <div class="signup-frame">
 <h2 class="signup-heading">📝 Jetzt anmelden</h2>
 
+{% if not is_admin and slot_close.enabled and slot_close.any_custom %}
+<p class="anmeld-frist-note">
+    📅 Anmeldefrist: {% for s in slots %}{% if slot_close.slots[s.slot_key].custom %}{{ slot_close.slots[s.slot_key].label }} · {{ slot_close.slots[s.slot_key].deadline.strftime("%d.%m.%Y, %H:%M Uhr") }}{% if not loop.last %}<br>{% endif %}{% endif %}{% endfor %}
+</p>
+{% endif %}
+
 {% if is_admin %}
 <div class="admin-multi-note">
     👑 Admin-Modus: Cookie-Blockade aufgehoben – du kannst vom selben Geraet mehrere Personen eintragen.
@@ -619,34 +633,38 @@
         <label>🕒 Slot-Auswahl</label>
 
         {% for slot in slots %}
-        <label class="slot-toggle-card {% if (not is_admin and cookie_locked[slot.slot_key]) or (slot.waitlist_full and slot.full) %}disabled{% endif %}">
-            <input
-                type="checkbox"
-                name="slots"
-                value="{{ slot.slot_key }}"
-                {% if (not is_admin and cookie_locked[slot.slot_key]) or (slot.waitlist_full and slot.full) %}disabled{% endif %}
-            >
-            <span class="slot-toggle-main">
-                <span class="slot-toggle-check" aria-hidden="true">✓</span>
-                <span class="slot-toggle-label">🎾 {{ slot.label }}</span>
-            </span>
-            <span class="slot-toggle-meta">
-                <span>{{ slot.count }}/{{ slot.max_players }} Plaetze</span>
+                    <label class="slot-toggle-card {% if (not is_admin and cookie_locked[slot.slot_key]) or (slot.waitlist_full and slot.full) or (not is_admin and slot_close.enabled and slot_close.slots[slot.slot_key].closed) %}disabled{% endif %}">
+                        <input
+                            type="checkbox"
+                            name="slots"
+                            value="{{ slot.slot_key }}"
+                            {% if (not is_admin and cookie_locked[slot.slot_key]) or (slot.waitlist_full and slot.full) or (not is_admin and slot_close.enabled and slot_close.slots[slot.slot_key].closed) %}disabled{% endif %}
+                        >
+                        <span class="slot-toggle-main">
+                            <span class="slot-toggle-check" aria-hidden="true">✓</span>
+                            <span class="slot-toggle-label">🎾 {{ slot.label }}</span>
+                        </span>
+                        <span class="slot-toggle-meta">
+                            <span>{{ slot.count }}/{{ slot.max_players }} Plaetze</span>
 
-                {% if slot.full %}
-                    <span>🔴 VOLL</span>
-                {% endif %}
+                            {% if not is_admin and slot_close.enabled and slot_close.slots[slot.slot_key].closed %}
+                                <span>🔒 Anmeldefrist abgelaufen</span>
+                            {% endif %}
 
-                {% if slot.waitlist_count > 0 or slot.full %}
-                    <span>⏳ Warteliste {{ slot.waitlist_count }}/{{ waitlist_limit }}</span>
-                {% endif %}
+                            {% if slot.full %}
+                                <span>🔴 VOLL</span>
+                            {% endif %}
 
-                {% if not is_admin and cookie_locked[slot.slot_key] %}
-                    <span>✅ Bereits eingetragen</span>
-                {% endif %}
-            </span>
-        </label>
-        {% endfor %}
+                            {% if slot.waitlist_count > 0 or slot.full %}
+                                <span>⏳ Warteliste {{ slot.waitlist_count }}/{{ waitlist_limit }}</span>
+                            {% endif %}
+
+                            {% if not is_admin and cookie_locked[slot.slot_key] %}
+                                <span>✅ Bereits eingetragen</span>
+                            {% endif %}
+                        </span>
+                    </label>
+                {% endfor %}
     </div>
 
     <div class="form-group">
