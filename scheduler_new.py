@@ -151,7 +151,8 @@ def reminder_participants(db_path, token, admin_ids):
         JOIN slots sl ON sl.id = s.slot_id
         LEFT JOIN telegram_users tu
                ON tu.first_name IS NOT NULL
-              AND replace(lower(trim(tu.first_name)), ' ', '') = s.name_normalized
+                      AND replace(lower(trim(tu.first_name)), ' ', '')
+                          = replace(s.name_normalized, ' ', '')
         ORDER BY sl.id, s.status, s.name
         """
     ).fetchall()
