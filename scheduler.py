@@ -19,7 +19,11 @@ import time
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
+from logging_config import setup_logging
+
 import scheduler_new as jobs
+
+logger = setup_logging(name="matchtreff.scheduler")
 
 DB_PATH = os.environ.get(
     "MATCHTREFF_DB_PATH", os.path.join("instance", "matchtreff.sqlite3")
@@ -42,12 +46,12 @@ def read_config():
     conn.row_factory = sqlite3.Row
     result = {
         "reset_enabled": True,
-        "reset_weekday": 4,
+        "reset_weekday": 5,
         "reset_hour": 6,
         "reset_minute": 0,
         "notify_interval_minutes": 60,
         "reminder_enabled": True,
-        "reminder_weekday": 3,
+        "reminder_weekday": 4,
         "reminder_hour": 12,
         "reminder_minute": 0,
     }
@@ -64,7 +68,7 @@ def read_config():
                     except (TypeError, ValueError):
                         pass
     except sqlite3.Error as exc:
-        print(f"[Scheduler] Fehler beim Lesen der DB: {exc}", flush=True)
+        logger.error("Fehler beim Lesen der DB: %s", exc)
     finally:
         conn.close()
     return result
@@ -75,7 +79,7 @@ def _wrap(job_func):
         try:
             job_func(DB_PATH, TOKEN, ADMIN_IDS)
         except Exception as exc:  # pragma: no cover - defensive
-            print(f"[Scheduler] Fehler im Job: {exc}", flush=True)
+            logger.exception("Fehler im Job: %s", exc)
 
     return wrapper
 
@@ -132,14 +136,13 @@ def reschedule(scheduler, cfg, wl_mode_text):
             replace_existing=True,
         )
 
-    print(
-        "[Scheduler] Jobs geplant. "
+    logger.info(
+        "Jobs geplant. "
         f"Reset={'AN' if cfg['reset_enabled'] else 'AUS'} "
         f"(Wochentag {cfg['reset_weekday']} {cfg['reset_hour']:02d}:{cfg['reset_minute']:02d}), "
         f"Digest alle {cfg['notify_interval_minutes']} Min., "
         f"Reminder={'AN' if cfg['reminder_enabled'] else 'AUS'} "
-        f"(Wochentag {cfg['reminder_weekday']} {cfg['reminder_hour']:02d}:{cfg['reminder_minute']:02d}).",
-        flush=True,
+        f"(Wochentag {cfg['reminder_weekday']} {cfg['reminder_hour']:02d}:{cfg['reminder_minute']:02d})."
     )
 
 
@@ -160,10 +163,8 @@ def monitor_config(scheduler):
 
 def main():
     if not TOKEN:
-        print(
-            "[Scheduler] WARNUNG: TELEGRAM_BOT_TOKEN nicht gesetzt - "
-            "Benachrichtigungen deaktiviert.",
-            flush=True,
+        logger.warning(
+            "TELEGRAM_BOT_TOKEN nicht gesetzt - Benachrichtigungen deaktiviert."
         )
 
     scheduler = BlockingScheduler(timezone="Europe/Berlin")
@@ -180,11 +181,11 @@ def main():
     t = threading.Thread(target=monitor_config, args=(scheduler,), daemon=True)
     t.start()
 
-    print("[Scheduler] gestartet.", flush=True)
+    logger.info("Scheduler gestartet.")
     try:
         scheduler.start()
     except (KeyboardInterrupt, SystemExit):
-        print("[Scheduler] beendet.")
+        logger.info("Scheduler beendet.")
 
 
 if __name__ == "__main__":

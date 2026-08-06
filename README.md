@@ -203,7 +203,7 @@ Es gibt zwei gleichwertige Wege: **Stack aus dem Git-Repository selbst bauen** (
 2. **Add stack** waehlen.
 3. Als Build-Methode **Repository** auswaehlen.
 4. Repo `https://github.com/jbkunama1/hAI.MatchtreffPadel` und `docker-compose.yml` eintragen.
-5. `SECRET_KEY`, `ADMIN_PASSWORD_*`, `TELEGRAM_BOT_TOKEN` und `ADMIN_TELEGRAM_IDS` als Umgebungsvariablen setzen.
+5. `SECRET_KEY`, `ADMIN_PASSWORD_*`, `TELEGRAM_BOT_TOKEN`, `ADMIN_TELEGRAM_IDS` und optional `LOG_LEVEL` (INFO/DEBUG/WARNING/ERROR) als Umgebungsvariablen setzen.
 6. Stack deployen oder spaeter per GitOps / Pull and redeploy aktualisieren.
 
 #### Methode B: Git-Stack mit fertigem GHCR-Image (empfohlen, kein Build)
@@ -214,7 +214,7 @@ Das Image ist bereits fertig gebaut und liegt in der GitHub Container Registry (
 2. **Add stack** waehlen.
 3. Als Build-Methode **Repository** auswaehlen.
 4. Repo `https://github.com/jbkunama1/hAI.MatchtreffPadel` und **Compose path `ghcr-docker-compose.yml`** eintragen (Reference `refs/heads/main`).
-5. `SECRET_KEY`, `ADMIN_PASSWORD_*`, `TELEGRAM_BOT_TOKEN` und `ADMIN_TELEGRAM_IDS` als Umgebungsvariablen setzen.
+5. `SECRET_KEY`, `ADMIN_PASSWORD_*`, `TELEGRAM_BOT_TOKEN`, `ADMIN_TELEGRAM_IDS` und optional `LOG_LEVEL` (INFO/DEBUG/WARNING/ERROR) als Umgebungsvariablen setzen.
 6. **Deploy the stack** klicken. Portainer zieht das fertige Image automatisch (kein Build).
 7. Um zu aktualisieren: Stack waehlen, dann **Actions → Pull and redeploy** (holt dann auch das neueste Image).
 
@@ -298,10 +298,10 @@ Bei Timeouts helfen die bereits vorgesehenen Massnahmen im Projekt:
 | Funktion | Web-App | Telegram-Bot |
 |---|---|---|
 | Slot-Belegung ansehen | Startseite | `/start` → Belegung anzeigen |
-| Anmelden | Formular mit Name + Slot-Auswahl | `/start` → "Anmelden" → Inline-Buttons |
+| Anmelden | Formular mit Name + Slot-Auswahl (+ optionaler Loesch-PIN) | `/start` → "Anmelden" → Inline-Buttons |
 | Eintrag bearbeiten | Admin-Dashboard | - |
 | Max. Plaetze setzen | Admin-Dashboard | Admin-Menue → "Max. Spieler setzen" |
-| Anmeldung loeschen | Admin-Dashboard | Admin-Menue → "Nutzer loeschen" |
+| Anmeldung loeschen | Admin-Dashboard oder Stornier-Seite mit Loesch-PIN | Admin-Menue → "Nutzer loeschen" |
 | Reset | Admin-Dashboard | Admin-Menue → "Alle Anmeldungen zuruecksetzen" |
 | CSV-Export | Backup herunterladen | Admin-Menue → "Export (CSV)" |
 | Broadcast | - | Admin-Menue → "Broadcast an alle Nutzer" |

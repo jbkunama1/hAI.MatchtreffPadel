@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+
+{% block title %}Anmeldung loeschen - Matchtreff Padel{% endblock %}
+
+{% block content %}
+<style>
+    .cancel-heading {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.25rem;
+    }
+
+    .cancel-card {
+        margin: 1rem 0;
+        padding: 1rem;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 0.9rem;
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .cancel-meta {
+        display: block;
+        margin: 0.2rem 0 0.8rem;
+        color: inherit;
+        opacity: 0.85;
+        font-size: 0.9rem;
+    }
+
+    .pin-help {
+        margin: 0.35rem 0 0.9rem;
+        font-size: 0.85rem;
+        opacity: 0.8;
+    }
+</style>
+
+<h2 class="cancel-heading">🗑️ Anmeldung stornieren</h2>
+
+<p class="cancel-meta">
+    Gib den Namen deines Eintrags und deinen bei der Anmeldung gesetzten
+    Loesch-PIN ein, um die Anmeldung zu stornieren.
+</p>
+
+<div class="cancel-card">
+    <form action="{{ url_for('loeschen') }}" method="post">
+        <div class="form-group">
+            <label for="name">👤 Dein Name</label>
+            <input
+                class="form-control"
+                type="text"
+                id="name"
+                name="name"
+                placeholder="Vor- und Nachname"
+                autocomplete="name"
+                value="{{ name }}"
+                required
+            >
+        </div>
+
+        {% if current_signup and slot_closed %}
+            <div class="pin-help">
+                🔒 Die Anmeldefrist fuer diesen Slot ist abgelaufen. Ein Loeschen
+                ist nicht mehr moeglich. Bitte wende dich an einen Administrator.
+            </div>
+            <button class="btn-accent" type="submit" disabled>
+                🗑️ Eintrag unwiderruflich loeschen
+            </button>
+        {% elif current_signup and pin_set %}
+            <div class="field-note form-group">
+                <label for="pin">🔒 Loesch-PIN</label>
+                <p class="pin-help">
+                    Gib den bei der Anmeldung gesetzten PIN ein, um den
+                    Eintrag zu loeschen.
+                    {% if remaining is defined %}
+                        Noch {{ remaining }} Versuch(e).
+                    {% endif %}
+                </p>
+                <input
+                    class="form-control"
+                    type="password"
+                    id="pin"
+                    name="pin"
+                    value=""
+                    inputmode="numeric"
+                    pattern="[0-9]*"
+                    maxlength="4"
+                    placeholder="4-stellige PIN"
+                    autocomplete="off"
+                    required
+                >
+            </div>
+            <button class="btn-accent" type="submit">
+                🗑️ Eintrag unwiderruflich loeschen
+            </button>
+        {% elif current_signup %}
+            <div class="pin-help">
+                Fuer diesen Eintrag wurde kein Loesch-PIN gesetzt. Bitte wende
+                dich an einen Administrator.
+            </div>
+            <button class="btn-accent" type="submit" disabled>
+                🗑️ Eintrag unwiderruflich loeschen
+            </button>
+        {% else %}
+            <div class="pin-help">
+                Nach Eingabe deines Namens wird geprueft, ob ein
+                Loesch-PIN gesetzt ist.
+            </div>
+            <button class="btn-accent" type="submit">
+                ➡️ Weiter
+            </button>
+        {% endif %}
+    </form>
+</div>
+{% endblock %}
