@@ -65,13 +65,13 @@ Start mit `/start`, alle weiteren Aktionen laufen ueber Inline-Buttons. `Gäste`
 
 ## Aktueller Funktionsstand
 
-- **Kein Pending-Status mehr:** Mitglied- und Gast-Anmeldungen werden sofort eingetragen.
-- **Gast-Benachrichtigung per Telegram:** Admins erhalten bei Gast-Anmeldungen direkte Hinweise.
-- **Bildergalerie im Admin-Panel:** Bilder aus `static/pictures/` koennen als Hintergrund uebernommen werden (mit Vorschau).
-- **Groessere Hintergrund-Icons:** Padel-Ball-Icons wurden deutlich vergroessert.
-- **Automatisches Donnerstagsdatum:** `{next_thursday}` wird bei Seitenaufruf dynamisch ersetzt.
-- **Warteliste mit Auto-Nachruecken:** Freie Plaetze werden automatisch aufgefuellt.
-- **Dark Mode / Theme-Steuerung:** Einstellungen gelten global fuer alle Besucher.
+- **Bestätigte Anmeldungen:** Anmeldungen, die von einem Admin offiziell bestätigt wurden, erhalten auf der öffentlichen Liste eine grüne Kennzeichnung.
+- **Kommentarfeld:** Nutzer können nun Kommentare unter der Liste hinterlassen.
+- **Download-Bereich:** Admins können Dateien (z. B. Bilder oder APKs) für alle Nutzer zum Download bereitstellen.
+- **Chat/Hilfe-System:** Internes Nachrichtensystem, um Admins direkt zu kontaktieren, ergänzt um ein FAQ-Modul.
+- **Domain-Übersicht:** Auflistung aller Domains auf der Über-uns-Seite.
+- **Padel Americana Ad:** Werbung für die App auf der Über-uns-Seite.
+- **Warteliste-Modi:** Admins können entscheiden, ob eine Bestätigung den Nutzer auf der Warteliste belässt oder direkt auf die Liste befördert.
 
 ## Slots
 

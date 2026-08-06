@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Chat / Hilfe - Matchtreff Padel{% endblock %}
+
+{% block content %}
+<style>
+    .chat-head {
+        text-align: center;
+        margin-bottom: 1.1rem;
+    }
+
+    .chat-card {
+        margin: 1.1rem 0;
+        padding: 1.1rem;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .chat-card h2 {
+        margin-top: 0;
+    }
+
+    .faq-item {
+        margin: 0.5rem 0;
+        padding: 0.7rem 0.8rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 0.8rem;
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .faq-item .faq-q {
+        font-weight: 800;
+        margin-bottom: 0.3rem;
+    }
+
+    .faq-item .faq-a {
+        opacity: 0.92;
+        line-height: 1.5;
+        white-space: pre-line;
+    }
+</style>
+
+<div class="chat-head">
+    <h1>💬 Chat & Hilfe</h1>
+    <p style="opacity: 0.85;">
+        Stelle deine Fragen an das Orga-Team oder schau zuerst in die
+        haeufig gestellten Fragen (FAQ) unten.
+    </p>
+</div>
+
+<div class="chat-card">
+    <h2>📨 Nachricht an das Orga-Team</h2>
+
+    <p class="about-text">
+        Bitte gib an, wie wir dir antworten koennen
+        (Telegram, WhatsApp oder E-Mail), damit wir zurueckmelden koennen.
+    </p>
+
+    <form method="post" action="{{ url_for('chat') }}">
+        <div class="form-group">
+            <label for="chat-name">👤 Dein Name (optional)</label>
+            <input
+                class="form-control"
+                type="text"
+                id="chat-name"
+                name="name"
+                placeholder="Vor- und Nachname"
+                autocomplete="name"
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="chat-channel">📞 Wie koennen wir dich erreichen?</label>
+            <select class="form-control" id="chat-channel" name="contact_channel" required>
+                <option value="">— Bitte waehlen —</option>
+                <option value="Telegram">Telegram</option>
+                <option value="WhatsApp">WhatsApp</option>
+                <option value="E-Mail">E-Mail</option>
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="chat-value">
+                Dein Kontakt-Wert (Telegram-Name, Telefonnummer oder E-Mail)
+            </label>
+            <input
+                class="form-control"
+                type="text"
+                id="chat-value"
+                name="contact_value"
+                placeholder="z. B. @deinname, +49 123 456789 oder name@beispiel.de"
+                required
+            >
+        </div>
+
+        <div class="form-group">
+            <label for="chat-message">💬 Deine Nachricht</label>
+            <textarea
+                class="form-control"
+                id="chat-message"
+                name="message"
+                rows="5"
+                placeholder="Deine Frage / dein Anliegen ..."
+                required
+            ></textarea>
+        </div>
+
+        <button class="btn-accent" type="submit">📨 Nachricht senden</button>
+    </form>
+</div>
+
+<div class="chat-card">
+    <h2>❓ Haeufige Fragen (FAQ)</h2>
+
+    {% if faq %}
+        {% for item in faq %}
+        <div class="faq-item">
+            <div class="faq-q">❓ {{ item.question }}</div>
+            <div class="faq-a">{{ item.answer }}</div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <p>Noch keine FAQ-Eintraege vorhanden.</p>
+    {% endif %}
+</div>
+{% endblock %}

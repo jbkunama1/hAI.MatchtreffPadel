@@ -21,7 +21,7 @@
     </style>
 </head>
 <body>
-    <div class="bg-bubbles {% if current_bg_style == 'logo' %}bg-style-logo{% endif %}" aria-hidden="true">
+    <div class="bg-bubbles {% if current_bg_style == 'logo' %}bg-style-logo{% endif %}{% if current_theme.background_image %} on-image{% endif %}" aria-hidden="true">
         <span></span><span></span><span></span><span></span>
         <span></span><span></span><span></span><span></span>
     </div>
@@ -57,7 +57,14 @@
             <div class="stack-label">Navigation</div>
             <div class="nav-row">
                 <a class="btn-soft" href="{{ url_for('index') }}">Startseite</a>
-                <a class="btn-soft" href="{{ url_for('loeschen') }}">Anmeldung stornieren</a>
+                <a class="btn-soft" href="{{ url_for('liste_ansicht') }}">📋 Liste ansehen</a>
+                <a class="btn-soft" href="{{ url_for('ueber_uns') }}">ℹ️ Über uns</a>
+                <a class="btn-soft" href="{{ url_for('chat') }}">💬 Chat / Hilfe</a>
+                <a class="btn-soft" href="{{ url_for('downloads') }}">⬇️ Downloads</a>
+                {% if telegram_channel_url %}
+                    <a class="btn-soft" href="{{ telegram_channel_url }}" target="_blank" rel="noopener">📲 Telegram</a>
+                    <button type="button" class="btn-soft" onclick="openTelegramQr()">📷 QR-Code</button>
+                {% endif %}
                 {% if is_admin %}
                     <a class="btn-soft" href="{{ url_for('admin_dashboard') }}">Admin-Bereich ({{ admin_username }})</a>
                     <a class="btn-soft" href="{{ url_for('admin_logout') }}">Admin-Logout</a>
@@ -67,5 +74,54 @@
             </div>
         </div>
     </div>
+
+    <dialog id="telegram-qr-dialog" class="qr-modal">
+        <div class="qr-modal-close">
+            <button type="button" onclick="closeTelegramQr()" aria-label="Schliessen">✕</button>
+        </div>
+
+        <h2>📲 Telegram-Kanal</h2>
+
+        {% if telegram_channel_url %}
+        <p>
+            Scanne den Code oder tippe auf den Link:
+        </p>
+
+        <div class="qr-modal-image">
+            <img src="{{ url_for('telegram_qr_png') }}" alt="QR-Code zum Telegram-Kanal">
+        </div>
+
+        <p style="word-break: break-all;">
+            <a href="{{ telegram_channel_url }}" target="_blank" rel="noopener">
+                {{ telegram_channel_url }}
+            </a>
+        </p>
+
+        <a class="btn-accent" href="{{ telegram_channel_url }}" target="_blank" rel="noopener">
+            Zum Telegram-Kanal
+        </a>
+        {% else %}
+        <p>Kein Telegram-Kanal konfiguriert.</p>
+        {% endif %}
+    </dialog>
+
+    <script>
+        function openTelegramQr() {
+            var dialog = document.getElementById("telegram-qr-dialog");
+            if (dialog) { dialog.showModal(); }
+        }
+        function closeTelegramQr() {
+            var dialog = document.getElementById("telegram-qr-dialog");
+            if (dialog) { dialog.close(); }
+        }
+        document.addEventListener("click", function (event) {
+            var dialog = document.getElementById("telegram-qr-dialog");
+            if (!dialog || !dialog.open) { return; }
+            var rect = dialog.getBoundingClientRect();
+            var inside = event.clientX >= rect.left && event.clientX <= rect.right &&
+                         event.clientY >= rect.top && event.clientY <= rect.bottom;
+            if (!inside) { dialog.close(); }
+        });
+    </script>
 </body>
 </html>

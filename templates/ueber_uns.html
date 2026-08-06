@@ -1,0 +1,296 @@
+{% extends "base.html" %}
+
+{% block title %}Über uns - Matchtreff Padel{% endblock %}
+
+{% block content %}
+<style>
+    .about-card {
+        margin: 1.1rem 0;
+        padding: 1.1rem;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: 1rem;
+        background: rgba(255, 255, 255, 0.06);
+    }
+
+    .about-card h2 {
+        margin-top: 0;
+    }
+
+    .about-text {
+        line-height: 1.6;
+        opacity: 0.95;
+    }
+
+    .about-team {
+        list-style: none;
+        margin: 0.7rem 0 0;
+        padding: 0;
+    }
+
+    .about-team li {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0.35rem 0;
+        padding: 0.5rem 0.7rem;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        border-radius: 0.8rem;
+        background: rgba(255, 255, 255, 0.05);
+    }
+
+    .about-team .avatar {
+        flex: 0 0 1.8rem;
+        width: 1.8rem;
+        height: 1.8rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        color: #06111f;
+        background: linear-gradient(
+            135deg,
+            var(--accent, #38bdf8),
+            var(--accent2, #818cf8)
+        );
+        font-weight: 800;
+    }
+
+    .contact-form .form-group {
+        margin-bottom: 1rem;
+    }
+
+    .about-paypal-img,
+    .about-homebrew-img {
+        max-width: 220px;
+        height: auto;
+        border-radius: 0.8rem;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+    }
+</style>
+
+<h1>🏓 Über uns</h1>
+
+<div class="about-card">
+    <h2>Wer wir sind</h2>
+
+    <p class="about-text">
+        Der <strong>MATCHTREFF SILBER</strong> ist ein woechentliches Padel-Treffen
+        (jeden Donnerstag) im Tennis-Club Padel (&quot;TPC&quot;). Wir organisieren
+        Spiele auf Silber-Niveau und treffen uns in einem freundlichen, sportlichen
+        Rahmen. Das Angebot richtet sich an Spieler, die regelmässig Spass am
+        Padel-Sport haben.
+    </p>
+
+    <p class="about-text">
+        TPCG-Mitglieder zahlen pro Teilnahme einen kleinen Beitrag (2 Euro) fuer
+        die Organisation (z. B. Baelle). Gaeste (Nicht-Mitglieder) sind herzlich
+        willkommen und zahlen pauschal 15 Euro. TCG-Mitglieder haben bei der
+        Platzvergabe Vorrang.
+    </p>
+</div>
+
+<div class="about-card">
+    <h2>Das Orga-Team</h2>
+
+    <ul class="about-team">
+        {% for name in orga_team %}
+        <li>
+            <span class="avatar">⭐</span>
+            {{ name }}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+
+<div class="about-card">
+    <h2>🌐 Unsere Seiten</h2>
+
+    <p class="about-text">
+        Der Matchtreff ist ueber mehrere Adressen erreichbar. Unsere Hauptseite
+        findest du unter <strong>matchtreff.padeln.de</strong>.
+    </p>
+
+    <ul class="about-team">
+        <li>
+            <a href="https://matchtreff.padeln.de" target="_blank" rel="noopener">
+                🏠 matchtreff.padeln.de
+            </a>
+            <span style="opacity: 0.7;">(Hauptseite)</span>
+        </li>
+        <li>
+            <a href="https://matchtreff.freizeit-padel.de" target="_blank" rel="noopener">
+                🌍 matchtreff.freizeit-padel.de
+            </a>
+        </li>
+        <li>
+            <a href="https://matchtreff.freizeitpadel.de" target="_blank" rel="noopener">
+                🌍 matchtreff.freizeitpadel.de
+            </a>
+        </li>
+    </ul>
+</div>
+
+<div class="about-card">
+    <h2>📮 Nachricht an das Orga-Team</h2>
+
+    <p class="about-text">
+        Du hast eine Frage, ein Anliegen oder moechtest dich abmelden? Die Nachricht
+        wird direkt an das Orga-Team weitergeleitet. Du kannst optional eine
+            bestimmte Person auswaehlen. Bitte gib an, wie wir dir antworten koennen
+            (Telegram, WhatsApp oder E-Mail).
+        </p>
+
+    <form class="contact-form" method="post" action="{{ url_for('ueber_uns') }}">
+        <div class="form-group">
+            <label for="contact-name">👤 Dein Name</label>
+            <input
+                class="form-control"
+                type="text"
+                id="contact-name"
+                name="name"
+                placeholder="Vor- und Nachname"
+                autocomplete="name"
+            >
+        </div>
+
+        <div class="form-group">
+                    <label for="contact-channel">📞 Wie koennen wir dir antworten? (Pflicht)</label>
+                    <select
+                        class="form-control"
+                        id="contact-channel"
+                        name="contact_channel"
+                        required
+                    >
+                        <option value="">— Bitte waehlen —</option>
+                        <option value="Telegram">Telegram</option>
+                        <option value="WhatsApp">WhatsApp</option>
+                        <option value="E-Mail">E-Mail</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="contact-value">
+                        Dein Kontakt-Wert (Telegram-Name, Telefonnummer oder E-Mail)
+                    </label>
+                    <input
+                        class="form-control"
+                        type="text"
+                        id="contact-value"
+                        name="contact_value"
+                        placeholder="z. B. @deinname, +49 123 456789 oder name@beispiel.de"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="contact-recipient">Empfaenger</label>
+            <select class="form-control" id="contact-recipient" name="recipient">
+                <option value="">— An das ganze Orga-Team —</option>
+                {% for name in orga_team %}
+                <option value="{{ name }}">{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div class="form-group">
+            <label for="contact-message">💬 Deine Nachricht</label>
+            <textarea
+                class="form-control"
+                id="contact-message"
+                name="message"
+                rows="5"
+                placeholder="Deine Nachricht an das Orga-Team ..."
+                required
+            ></textarea>
+        </div>
+
+        <button class="btn-accent" type="submit">📨 Nachricht senden</button>
+    </form>
+</div>
+
+{% if paypal_url %}
+<div class="about-card">
+    <h2>💳 Unterstuetzung / PayPal</h2>
+
+    <p class="about-text">
+        Du kannst den Matchtreff gerne unterstuetzen. Jeder Beitrag hilft
+        bei der Organisation (z. B. Baelle und Equipment).
+    </p>
+
+    <p>
+        <a
+            class="btn-accent"
+            href="{{ paypal_url }}"
+            target="_blank"
+            rel="noopener"
+        >
+            Jetzt mit PayPal unterstuetzen
+        </a>
+    </p>
+
+    {% if paypal_image %}
+    <p>
+        <img
+            class="about-paypal-img"
+            src="{{ url_for('static', filename='pictures/' + paypal_image) }}"
+            alt="PayPal-Spende"
+        >
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if americana_url or americana_text %}
+<div class="about-card">
+    <h2>📱 Padel Americana App</h2>
+
+    {% if americana_text %}
+    <p class="about-text">{{ americana_text }}</p>
+    {% endif %}
+
+    {% if americana_url %}
+    <p>
+        <a
+            class="btn-accent"
+            href="{{ americana_url }}"
+            target="_blank"
+            rel="noopener"
+        >
+            Zur Padel Americana App
+        </a>
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+
+{% if homebrew_url %}
+<div class="about-card">
+    <h2>🍺 Homebrew</h2>
+
+    <p class="about-text">
+        Mehr zu unserem Homebrew findest du hier:
+    </p>
+
+    <p>
+        <a
+            class="btn-accent"
+            href="{{ homebrew_url }}"
+            target="_blank"
+            rel="noopener"
+        >
+            Zum Homebrew
+        </a>
+    </p>
+
+    {% if homebrew_image %}
+    <p>
+        <img
+            class="about-homebrew-img"
+            src="{{ url_for('static', filename=homebrew_image) }}"
+            alt="Homebrew"
+        >
+    </p>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}
