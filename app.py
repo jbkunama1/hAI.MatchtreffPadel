@@ -728,7 +728,11 @@ def create_app(test_config=None):
         for slot_key in selected_slots:
             cookie_name = SIGNUP_COOKIE_PREFIX + slot_key
 
-            if slot_close is not None and slot_close["slots"][slot_key]["closed"]:
+            if (
+                slot_close is not None
+                and slot_close["enabled"]
+                and slot_close["slots"][slot_key]["closed"]
+            ):
                 blocked_duplicate.append(
                     f"{SLOT_LABEL.get(slot_key, slot_key)} (Anmeldefrist abgelaufen)"
                 )

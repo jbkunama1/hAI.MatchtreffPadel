@@ -78,7 +78,21 @@ def test_signup_requires_open_lock_for_normal_user(client, tmp_path):
     assert b"gesperrt" in resp.data
 
 
-def test_signup_open_lock_normal_user_can_signup(client, tmp_path, monkeypatch):
+def test_signup_after_deadline_blocked_when_slot_close_enabled(client, tmp_path):
+    # slot_close_enabled=1 (Default) und Deadline vorbei -> Block.
+    db_path = str(tmp_path / "matchtreff.sqlite3")
+    _set_setting(db_path, "signup_lock_manual_open", "1")
+
+    resp = client.post(
+        "/eintragen",
+        data={"name": "Testspieler", "slots": ["slot_a"], "is_member": "1"},
+        follow_redirects=True,
+    )
+    assert b"Anmeldefrist abgelaufen" in resp.data
+    assert _db_rows(db_path, "SELECT COUNT(*) FROM signups")[0][0] == 0
+
+
+def test_signup_open_lock_normal_user_can_signup(client, tmp_path):
     db_path = str(tmp_path / "matchtreff.sqlite3")
 
     def _open():
@@ -95,6 +109,7 @@ def test_signup_open_lock_normal_user_can_signup(client, tmp_path, monkeypatch):
     # App-Neustart noetig, da get_db() per Request eh frisch liest - es reicht,
     # das Setting zu setzen und dann ueber die Route zu signupen.
     _open()
+    _disable_slot_close(db_path)
 
     resp = client.post(
         "/eintragen",
@@ -108,6 +123,7 @@ def test_signup_adds_row_and_sets_cookie(client, tmp_path):
     db_path = str(tmp_path / "matchtreff.sqlite3")
     # Liste oeffnen
     _set_setting(db_path, "signup_lock_manual_open", "1")
+    _disable_slot_close(db_path)
 
     resp = client.post(
         "/eintragen",
@@ -127,6 +143,7 @@ def test_signup_adds_row_and_sets_cookie(client, tmp_path):
 def test_signup_duplicate_is_blocked(client, tmp_path):
     db_path = str(tmp_path / "matchtreff.sqlite3")
     _set_setting(db_path, "signup_lock_manual_open", "1")
+    _disable_slot_close(db_path)
 
     client.post(
         "/eintragen",
@@ -152,6 +169,7 @@ def test_signup_duplicate_is_blocked(client, tmp_path):
 def test_signup_moves_to_waitlist_when_slot_full(client, tmp_path):
     db_path = str(tmp_path / "matchtreff.sqlite3")
     _set_setting(db_path, "signup_lock_manual_open", "1")
+    _disable_slot_close(db_path)
     # Maximal 1 Spieler pro Slot
     _set_slot_max(db_path, "slot_a", 1)
 
@@ -267,6 +285,11 @@ def _set_setting(db_path: Path, key: str, value: str) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+def _disable_slot_close(db_path: Path) -> None:
+    """Disable slot-close deadlines so signup flow isn't blocked by time-based closures."""
+    _set_setting(db_path, "slot_close_enabled", "0")
 
 
 def _set_slot_max(db_path: Path, slot_key: str, max_players: int) -> None:
