@@ -1,5 +1,9 @@
 ![Matchtreff Padel Banner](Logo_II_Banner.png)
 
+<a href="https://www.buymeacoffee.com/highfish">
+<img src="https://cdn.buymeacoffee.com/buttons/default-orange.png" alt="Buy Me A Coffee" height="41" width="174">
+</a>
+
 # hAI.MatchtreffPadel - Padel Matchtreff Anmeldung
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
@@ -310,3 +314,4 @@ Bei Timeouts helfen die bereits vorgesehenen Massnahmen im Projekt:
 ## Lizenz
 
 MIT License - siehe `LICENSE`.
+
