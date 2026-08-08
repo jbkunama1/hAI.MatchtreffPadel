@@ -608,6 +608,21 @@ def create_app(test_config=None):
                             sort_order INTEGER NOT NULL DEFAULT 0,
                             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                         );
+
+                        CREATE TABLE IF NOT EXISTS checkins (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            slot_id INTEGER NOT NULL,
+                            signup_id INTEGER,
+                            name TEXT NOT NULL,
+                            status TEXT NOT NULL DEFAULT 'open',
+                            paid INTEGER NOT NULL DEFAULT 0,
+                            note TEXT NOT NULL DEFAULT '',
+                            is_extra INTEGER NOT NULL DEFAULT 0,
+                            sort_order INTEGER NOT NULL DEFAULT 0,
+                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                            UNIQUE(slot_id, signup_id),
+                            UNIQUE(slot_id, name)
+                        );
                         """
         )
 
@@ -1269,6 +1284,38 @@ def create_app(test_config=None):
             """,
             (slot_id, status),
         ).fetchall()
+
+    def sync_checkins_with_signups(db, slot_id):
+        """Uebernimmt bestaetigte Anmeldungen als Check-in-Zeilen,
+        solange dort noch keine Zeile fuer die Anmeldung existiert."""
+        signups = db.execute(
+            """
+            SELECT id, name FROM signups
+            WHERE slot_id = ? AND status = 'confirmed'
+            ORDER BY is_member DESC, created_at ASC
+            """,
+            (slot_id,),
+        ).fetchall()
+
+        # Bereits angelegte Zeilen (weder geloescht noch als Extra markiert)
+        existing = {
+            row["signup_id"]: row
+            for row in db.execute(
+                "SELECT * FROM checkins WHERE slot_id = ? AND is_extra = 0",
+                (slot_id,),
+            ).fetchall()
+            if row["signup_id"] is not None
+        }
+
+        for signup in signups:
+            if signup["id"] not in existing:
+                db.execute(
+                    "INSERT OR IGNORE INTO checkins "
+                    "(slot_id, signup_id, name, status, paid, note, is_extra) "
+                    "VALUES (?, ?, ?, 'open', 0, '', 0)",
+                    (slot_id, signup["id"], signup["name"]),
+                )
+        db.commit()
 
     def get_current_theme_key():
         db = get_db()
@@ -2866,6 +2913,153 @@ def create_app(test_config=None):
             as_attachment=True,
             download_name="anmeldeliste.pdf",
         )
+
+    @app.route("/admin/checkin/<int:slot_id>", methods=["GET", "POST"])
+    @admin_required
+    def admin_checkin(slot_id):
+        db = get_db()
+        slot = db.execute(
+            "SELECT * FROM slots WHERE id = ?", (slot_id,)
+        ).fetchone()
+
+        if slot is None:
+            flash("Slot nicht gefunden.", "danger")
+            return redirect(url_for("admin_dashboard"))
+
+        if request.method == "POST":
+            # Bestehende Zeilen: nur Notiz speichern.
+            # Status/bezahlt werden live per AJAX-Toggle auf der Seite gesetzt.
+            rows = db.execute(
+                "SELECT id FROM checkins WHERE slot_id = ? AND is_extra = 0",
+                (slot_id,),
+            ).fetchall()
+            for row in rows:
+                cid = row["id"]
+                note = request.form.get(f"note_{cid}", "").strip()[:300]
+                db.execute(
+                    "UPDATE checkins SET note = ? WHERE id = ?",
+                    (note, cid),
+                )
+
+            # Freie Extra-Felder (3): anlegen, aendern oder entfernen
+            for i in range(1, 4):
+                extra_id = request.form.get(f"extra_id_{i}", type=int)
+                extra_name = request.form.get(f"extra_name_{i}", "").strip()
+                present = request.form.get(f"extra_present_{i}")
+                paid = request.form.get(f"extra_paid_{i}")
+                note = request.form.get(f"extra_note_{i}", "").strip()[:300]
+                if extra_id:
+                    if extra_name:
+                        db.execute(
+                            "UPDATE checkins SET name = ?, status = ?, paid = ?, note = ? "
+                            "WHERE id = ? AND is_extra = 1",
+                            (extra_name,
+                             "present" if present else "open",
+                             1 if paid else 0,
+                             note,
+                             extra_id),
+                        )
+                    else:
+                        db.execute(
+                            "DELETE FROM checkins WHERE id = ? AND is_extra = 1",
+                            (extra_id,),
+                        )
+                elif extra_name:
+                    db.execute(
+                        "INSERT INTO checkins (slot_id, name, status, paid, note, is_extra) "
+                        "VALUES (?, ?, ?, ?, ?, 1)",
+                        (slot_id,
+                         extra_name,
+                         "present" if present else "open",
+                         1 if paid else 0,
+                         note),
+                    )
+            db.commit()
+            flash("Check-in-Liste gespeichert.", "success")
+            return redirect(url_for("admin_checkin", slot_id=slot_id))
+
+        sync_checkins_with_signups(db, slot_id)
+
+        entries = db.execute(
+            """
+            SELECT * FROM checkins
+            WHERE slot_id = ?
+            ORDER BY is_extra ASC, id ASC
+            """,
+            (slot_id,),
+        ).fetchall()
+        present_count = sum(1 for e in entries if e["status"] == "present")
+        paid_count = sum(1 for e in entries if e["paid"])
+
+        return render_template(
+            "admin_checkin.html",
+            slot=slot,
+            entries=entries,
+            event_date=next_thursday().strftime("%d.%m.%Y"),
+            present_count=present_count,
+            paid_count=paid_count,
+        )
+
+    @app.route("/admin/checkin/<int:slot_id>/toggle", methods=["POST"])
+    @admin_required
+    def admin_checkin_toggle(slot_id):
+        """Ajax-Toggle: status (anwesend/abwesend) oder paid (bezahlt)."""
+        db = get_db()
+        data = request.get_json(silent=True) or {}
+        try:
+            cid = int(data.get("checkin_id"))
+        except (TypeError, ValueError):
+            return {"ok": False, "error": "Ungueltige ID"}, 400
+        field = data.get("field")  # "status" oder "paid"
+        if field not in ("status", "paid"):
+            return {"ok": False, "error": "Ungueltiges Feld"}, 400
+
+        row = db.execute(
+            "SELECT * FROM checkins WHERE id = ? AND slot_id = ?",
+            (cid, slot_id),
+        ).fetchone()
+        if row is None:
+            return {"ok": False, "error": "Eintrag nicht gefunden"}, 404
+
+        if field == "status":
+            new_status = "open" if row["status"] == "present" else "present"
+            db.execute(
+                "UPDATE checkins SET status = ? WHERE id = ?",
+                (new_status, cid),
+            )
+        else:
+            new_paid = 0 if row["paid"] else 1
+            db.execute(
+                "UPDATE checkins SET paid = ? WHERE id = ?",
+                (new_paid, cid),
+            )
+        db.commit()
+        return {
+            "ok": True,
+            "status": row["status"] if field == "status" else None,
+            "paid": row["paid"] if field == "paid" else None,
+            "new_status": new_status if field == "status" else row["status"],
+            "new_paid": new_paid if field == "paid" else row["paid"],
+        }
+
+    @app.route("/admin/checkin/<int:slot_id>/reset", methods=["POST"])
+    @admin_required
+    def admin_checkin_reset(slot_id):
+        """Setzt die Liste zurueck (alle Status auf offen, Notizen leer)."""
+        db = get_db()
+        slot = db.execute(
+            "SELECT * FROM slots WHERE id = ?", (slot_id,)
+        ).fetchone()
+        if slot is None:
+            flash("Slot nicht gefunden.", "danger")
+            return redirect(url_for("admin_dashboard"))
+        db.execute(
+            "UPDATE checkins SET status = 'open', paid = 0, note = '' WHERE slot_id = ?",
+            (slot_id,),
+        )
+        db.commit()
+        flash("Check-in-Liste zurueckgesetzt.", "info")
+        return redirect(url_for("admin_checkin", slot_id=slot_id))
 
     @app.route("/admin/signups/clear", methods=["POST"])
     @admin_required
