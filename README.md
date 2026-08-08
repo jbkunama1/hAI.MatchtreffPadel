@@ -6,13 +6,13 @@
 
 # hAI.MatchtreffPadel - Padel Matchtreff Anmeldung
 
-![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/jbkunama1/hAI.MatchtreffPadel)
 [![GitHub stars](https://img.shields.io/github/stars/jbkunama1/hAI.MatchtreffPadel)](https://github.com/jbkunama1/hAI.MatchtreffPadel)
-![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
-![Docker ready](https://img.shields.io/badge/docker-ready-blue)
-![Backend: Flask](https://img.shields.io/badge/Backend-Flask-blue)
-![SQLite](https://img.shields.io/badge/Database-SQLite-07405E)
-![Telegram Bot](https://img.shields.io/badge/Bot-Telegram-26A5E4)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://github.com/jbkunama1/hAI.MatchtreffPadel)
+[![Docker ready](https://img.shields.io/badge/docker-ready-blue)](https://github.com/jbkunama1/hAI.MatchtreffPadel)
+[![Backend: Flask](https://img.shields.io/badge/Backend-Flask-blue)](https://github.com/jbkunama1/hAI.MatchtreffPadel)
+[![SQLite](https://img.shields.io/badge/Database-SQLite-07405E)](https://github.com/jbkunama1/hAI.MatchtreffPadel)
+[![Telegram Bot](https://img.shields.io/badge/Bot-Telegram-26A5E4)](https://github.com/jbkunama1/hAI.MatchtreffPadel)
 
 Flask-Webapp **und Telegram-Bot** mit gemeinsamem SQLite-Backend fuer den woechentlichen Padel-Matchtreff am Donnerstag. Die Anwendung ist fuer eine einfache Anmeldung ohne Spieler-Login ausgelegt und bietet gleichzeitig Admin-Steuerung, Warteliste, Automatik und Benachrichtigungen.
 
@@ -314,4 +314,3 @@ Bei Timeouts helfen die bereits vorgesehenen Massnahmen im Projekt:
 ## Lizenz
 
 MIT License - siehe `LICENSE`.
-
