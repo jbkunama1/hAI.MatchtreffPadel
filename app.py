@@ -364,6 +364,138 @@ def notify_admins_guest_signup(signup_id, name, slot_label, status):
         )
 
 
+def build_checklist_pdf(slots_data, event_date):
+    """Erzeugt eine A4-Anmeldeliste als PDF (reines Python, keine Abhängigkeit).
+
+    slots_data: Liste von dicts mit label, confirmed[], waitlist[]
+    event_date: str (z. B. "13.08.2026")
+    """
+    W, H = 595, 842  # DIN A4
+    M = 40
+    line_h = 17
+    checkbox = 10
+
+    def esc(s):
+        return s.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+    pages = []
+    ops = []
+
+    def start_blank_page():
+        """Aktuelle Seite abschliessen und mit leerer Seite neu beginnen."""
+        pages.append(ops)
+        return []
+
+    def text(size, bold, x, y, s):
+        font = "F2" if bold else "F1"
+        ops.append(
+            f"BT /{font} {size} Tf 1 0 0 1 {x} {y} Tm "
+            f"({esc(s.encode('latin-1', 'replace').decode('latin-1'))}) Tj ET"
+        )
+
+    y = H - M - 30
+    text(20, True, M, y, "MATCHTREFF PADEL - Anmeldeliste")
+    y -= 24
+    text(12, False, M, y, f"Donnerstag, {event_date}    Zum Abhaken (mit manuellen Notizen)")
+    y -= 22
+
+    for slot in slots_data:
+        if y < 90:
+            ops = start_blank_page()
+            y = H - M - 30
+        text(13, True, M, y, slot["label"])
+        y -= 18
+        for name in slot["confirmed"]:
+            if y < 55:
+                ops = start_blank_page()
+                y = H - M - 30
+            ops.append(f"{M} {y - 4} {checkbox} {checkbox} re S")
+            text(11, False, M + checkbox + 8, y, name)
+            y -= line_h
+        if slot["waitlist"]:
+            if y < 80:
+                ops = start_blank_page()
+                y = H - M - 30
+            text(11, True, M, y, "Warteliste:")
+            y -= 17
+            for name in slot["waitlist"]:
+                if y < 55:
+                    ops = start_blank_page()
+                    y = H - M - 30
+                ops.append(f"{M} {y - 4} {checkbox} {checkbox} re S")
+                text(11, False, M + checkbox + 8, y, name)
+                y -= line_h
+        y -= 14
+
+    # 4 Freifelder fuer manuelle Aenderungen
+    if y < 160:
+        ops = start_blank_page()
+        y = H - M - 30
+    text(12, True, M, y, "Freifelder (manuelle Notizen)")
+    y -= 20
+    for i in range(4):
+        ops.append(f"{M} {y - 8} {W - M} 0.6 re S")
+        text(10, False, M, y, f"Name {i + 1}:")
+        y -= 26
+
+    pages.append(ops)
+
+    # --- PDF-Assemblierung (deterministische Objekt-IDs) ---
+    n = len(pages)
+    # Objekt-IDs: 1 Catalog, 2 Pages, 3..3+n-1 Seiten, 3+n..3+2n-1 Contents, dann Fonts
+    page_id = 3
+    content_base = 3 + n
+    font1_id = 3 + 2 * n
+    font2_id = 4 + 2 * n
+
+    def obj(obj_id, payload):
+        return f"{obj_id} 0 obj\n".encode("latin-1") + payload + b"\nendobj\n"
+
+    kids = " ".join(f"{page_id + i} 0 R" for i in range(n))
+    body_parts = [
+        obj(1, b"<< /Type /Catalog /Pages 2 0 R >>"),
+        obj(2, f"<< /Type /Pages /Kids [{kids}] /Count {n} >>".encode("latin-1")),
+    ]
+    for i, page_ops in enumerate(pages):
+        body_parts.append(
+            obj(
+                page_id + i,
+                f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 {W} {H}] "
+                f"/Resources << /Font << /F1 {font1_id} 0 R /F2 {font2_id} 0 R >> >> "
+                f"/Contents {content_base + i} 0 R >>".encode("latin-1"),
+            )
+        )
+    for i, page_ops in enumerate(pages):
+        stream = "\n".join(page_ops).encode("latin-1")
+        body_parts.append(
+            obj(
+                content_base + i,
+                f"<< /Length {len(stream)} >>\nstream\n".encode("latin-1")
+                + stream
+                + b"\nendstream",
+            )
+        )
+    body_parts.append(obj(font1_id, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"))
+    body_parts.append(obj(font2_id, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>"))
+
+    header = b"%PDF-1.4\n"
+    body = b"".join(body_parts)
+    offsets = []
+    pos = len(header)
+    for part in body_parts:
+        offsets.append(pos)
+        pos += len(part)
+    xref_pos = pos
+    xref = b"xref\n0 " + str(len(body_parts) + 1).encode() + b"\n"
+    xref += b"0000000000 65535 f \n"
+    xref += b"".join(f"{off:010d} 00000 n \n".encode() for off in offsets)
+    trailer = (
+        f"trailer\n<< /Size {len(body_parts) + 1} /Root 1 0 R >>\n"
+        f"startxref\n{xref_pos}\n%%EOF\n"
+    ).encode("latin-1")
+    return header + body + xref + trailer
+
+
 def create_app(test_config=None):
     app = Flask(__name__)
     app.config.from_mapping(
@@ -2711,6 +2843,28 @@ def create_app(test_config=None):
             app.config["DATABASE"],
             as_attachment=True,
             download_name="matchtreff_backup.sqlite3",
+        )
+
+    @app.route("/admin/export/pdf")
+    @admin_required
+    def admin_export_pdf():
+        slots_list = get_slots_with_counts()
+        event_date = next_thursday().strftime("%d.%m.%Y")
+        data = []
+        for slot in slots_list:
+            confirmed = [s["name"] for s in get_signups_for_slot(slot["id"], "confirmed")]
+            waitlist = [s["name"] for s in get_signups_for_slot(slot["id"], "waitlist")]
+            data.append({
+                "label": slot["label"],
+                "confirmed": confirmed,
+                "waitlist": waitlist,
+            })
+        pdf = build_checklist_pdf(data, event_date)
+        return send_file(
+            BytesIO(pdf),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name="anmeldeliste.pdf",
         )
 
     @app.route("/admin/signups/clear", methods=["POST"])

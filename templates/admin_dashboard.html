@@ -76,6 +76,16 @@
         background: rgba(255, 255, 255, 0.07);
     }
 
+    .admin-dialog {
+        padding: 1.5rem;
+        border-radius: 1rem;
+        background: rgba(15, 23, 42, 0.95);
+        color: inherit;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        max-width: 800px;
+        width: 90%;
+    }
+
     .admin-tabpanel[hidden] {
         display: none !important;
     }
@@ -189,6 +199,8 @@
 <h1>⚙️ Admin-Dashboard</h1>
 
 <div class="admin-tabs">
+        <button type="button" class="btn-soft" onclick="document.getElementById('admin-guide-dialog').showModal();">🛈 Admin‑Guide</button>
+        <a class="btn-accent" href="{{ url_for('admin_export_pdf') }}">📄 Anmeldeliste als PDF</a>
     <div class="admin-tablist" role="tablist" aria-label="Admin-Bereiche">
         <button
             class="admin-tab is-active"
@@ -280,7 +292,15 @@
     </div>
 </div>
 
-<p class="admin-intro">
+
+    <dialog id="admin-guide-dialog" class="admin-dialog">
+        <h2>🛈 Admin‑Guide</h2>
+        <div class="admin-guide-content" style="max-height:70vh; overflow:auto; padding:1rem;">
+            {% include 'ADMIN_GUIDE.md' %}
+        </div>
+        <button type="button" class="btn-soft" onclick="document.getElementById('admin-guide-dialog').close();">Schließen</button>
+    </dialog>
+
     Hier verwaltest du Slots, Anmeldungen, Wartelisten, Design und Systemdaten.
     Die Warteliste ist aktuell auf
     <strong>{{ waitlist_limit }}</strong> Eintraege pro Slot begrenzt.
