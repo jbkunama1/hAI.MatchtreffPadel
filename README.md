@@ -241,6 +241,7 @@ Beim ersten Start werden initiale Admins ueber Umgebungsvariablen angelegt. Die 
 | `Cosme` | `ADMIN_PASSWORD_COSME` |
 | `Sascha` | `ADMIN_PASSWORD_SASCHA` |
 | `Patrick` | `ADMIN_PASSWORD_PATRICK` |
+| `Dominik` | `ADMIN_PASSWORD_DOMINIK` |
 
 Weitere Admins lassen sich spaeter im Bereich `/admin/users` anlegen. Der letzte verbleibende Admin kann nicht geloescht werden, und ein Admin kann sich nicht selbst entfernen.
 
