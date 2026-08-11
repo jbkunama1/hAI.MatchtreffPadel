@@ -48,6 +48,7 @@ SEED_ADMIN_USERS = {
     "Cosme": os.environ.get("ADMIN_PASSWORD_COSME"),
     "Sascha": os.environ.get("ADMIN_PASSWORD_SASCHA"),
     "Patrick": os.environ.get("ADMIN_PASSWORD_PATRICK"),
+    "Dominik": os.environ.get("ADMIN_PASSWORD_DOMINIK"),
 }
 
 SLOT_DEFINITIONS = [
@@ -715,7 +716,9 @@ def create_app(test_config=None):
                 """
                 INSERT INTO admin_users (username, password_hash, created_by)
                 VALUES (?, ?, ?)
-                ON CONFLICT(username) DO NOTHING
+                ON CONFLICT(username) DO UPDATE SET
+                    password_hash = excluded.password_hash,
+                    created_by = excluded.created_by
                 """,
                 (seed_name, generate_password_hash(seed_password), "system"),
             )
