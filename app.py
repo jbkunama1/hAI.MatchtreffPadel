@@ -1084,6 +1084,10 @@ def create_app(test_config=None):
         if auto_open_at_raw:
             try:
                 auto_open_at = datetime.fromisoformat(auto_open_at_raw)
+                if auto_open_at.tzinfo is None:
+                    # datetime-local liefert naive Zeit in der Zeitzone des
+                    # Browsers (Admin) -> als APP_TZ interpretieren.
+                    auto_open_at = auto_open_at.replace(tzinfo=APP_TZ)
             except (ValueError, TypeError):
                 auto_open_at = None
 
@@ -1133,7 +1137,7 @@ def create_app(test_config=None):
             return True
         if cfg["manual_open"]:
             return True
-        if cfg["auto_open_at"] and cfg["auto_open_at"] <= datetime.now():
+        if cfg["auto_open_at"] and cfg["auto_open_at"] <= datetime.now(APP_TZ):
             return True
         return False
 
