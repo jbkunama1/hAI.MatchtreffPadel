@@ -80,6 +80,16 @@ def test_signup_requires_open_lock_for_normal_user(client, tmp_path):
     assert b"gesperrt" in resp.data
 
 
+def test_homepage_ok_when_auto_open_scheduled(client, tmp_path):
+    # Regression: GET / crashte mit 500 (TypeError aware vs naive),
+    # sobald eine Auto-Oeffnung geplant und die Liste noch geschlossen ist.
+    db_path = str(tmp_path / "matchtreff.sqlite3")
+    future = datetime.now(ZoneInfo("Europe/Berlin")) + timedelta(hours=2)
+    _set_setting(db_path, "signup_lock_auto_open_at", future.strftime("%Y-%m-%dT%H:%M"))
+    _disable_slot_close(db_path)
+
+    resp = client.get("/")
+    assert resp.status_code == 200
 def test_auto_open_past_in_app_tz_opens_list(client, tmp_path):
     # auto_open_at als naive Berlin-Zeit (wie vom datetime-local Input).
     # Container laeuft auf UTC -> nur mit APP_TZ-Vergleich oeffnet die Liste

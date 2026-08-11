@@ -1163,7 +1163,7 @@ def create_app(test_config=None):
         # kein gesicherter Oeffnungszeitpunkt -> keine Sperre erzwingen.
         if cfg["manual_open"]:
             return None
-        if cfg["auto_open_at"] and cfg["auto_open_at"] <= datetime.now():
+        if cfg["auto_open_at"] and cfg["auto_open_at"] <= datetime.now(APP_TZ):
             return cfg["auto_open_at"]
         return None
 
