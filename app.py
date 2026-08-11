@@ -67,6 +67,7 @@ WAITLIST_MODES = {
     "open_for_all",
     "no_waitlist",
     "guests_only",
+    "member_priority_24h",
 }
 
 DEFAULT_MAX_PLAYERS = 14
@@ -705,6 +706,7 @@ def create_app(test_config=None):
             "signup_lock_enabled": DEFAULT_SIGNUP_LOCK_ENABLED,
             "signup_lock_manual_open": DEFAULT_SIGNUP_LOCK_MANUAL_OPEN,
             "signup_lock_auto_open_at": DEFAULT_SIGNUP_LOCK_AUTO_OPEN_AT,
+            "signup_lock_opened_at": "",
             "show_banner": DEFAULT_SHOW_BANNER,
             "max_entries_per_device": str(DEFAULT_MAX_ENTRIES_PER_DEVICE),
             "telegram_channel_url": os.environ.get("TELEGRAM_CHANNEL_URL", ""),
@@ -1141,6 +1143,41 @@ def create_app(test_config=None):
             return True
         return False
 
+    def signup_open_time():
+        """Wann die Liste (zuletzt) geoeffnet wurde - Basis fuer die 24h-Sperre
+        von Nichtmitgliedern im Modus 'member_priority_24h'.
+
+        None, wenn der Oeffnungszeitpunkt nicht bestimmbar ist (dann greift
+        keine 24h-Sperre, damit Gaeste nicht unbegruendet ausgesperrt werden).
+        """
+        cfg = signup_lock_settings()
+        if not cfg["enabled"]:
+            return None
+        opened_raw = get_setting_value("signup_lock_opened_at", "")
+        if opened_raw:
+            try:
+                return datetime.fromisoformat(opened_raw)
+            except (ValueError, TypeError):
+                pass
+        # Manuelle Freigabe ohne aufgezeichneten Zeitpunkt (Altbestaende):
+        # kein gesicherter Oeffnungszeitpunkt -> keine Sperre erzwingen.
+        if cfg["manual_open"]:
+            return None
+        if cfg["auto_open_at"] and cfg["auto_open_at"] <= datetime.now():
+            return cfg["auto_open_at"]
+        return None
+
+    def guest_delay_active():
+        """True, wenn der Modus 'member_priority_24h' aktiv ist."""
+        return get_waitlist_mode() == "member_priority_24h"
+
+    def guest_allowed_at():
+        """Zeitpunkt, ab dem sich Nichtmitglieder eintragen duerfen (oder None)."""
+        open_time = signup_open_time()
+        if open_time is None:
+            return None
+        return open_time + timedelta(hours=24)
+
     def _parse_hhmm(value):
         """'HH:MM' -> (h, m). None bei ungueltig."""
         if not value:
@@ -1461,6 +1498,8 @@ def create_app(test_config=None):
                         slot_close=slot_close_info(),
                         admin_status_visible=get_admin_status_visible(),
                         admin_status_options=ADMIN_STATUS_OPTIONS,
+                        guest_delay_active=guest_delay_active(),
+                        guest_allowed_at=guest_allowed_at(),
                     )
 
     @app.route("/info")
@@ -1781,6 +1820,21 @@ def create_app(test_config=None):
                 "danger",
             )
             return redirect(url_for("index"))
+
+        # Modus 'member_priority_24h': Nichtmitglieder erst 24h nach Oeffnung.
+        if (
+            not is_admin_user
+            and not is_member
+            and waitlist_mode == "member_priority_24h"
+        ):
+            allowed_at = guest_allowed_at()
+            if allowed_at is not None and datetime.now() < allowed_at:
+                flash(
+                    "Nichtmitglieder koennen sich erst 24 Stunden nach "
+                    "Oeffnung der Liste eintragen.",
+                    "danger",
+                )
+                return redirect(url_for("index"))
 
         slot_close = slot_close_info() if not is_admin_user else None
 
@@ -2880,10 +2934,15 @@ def create_app(test_config=None):
         if action == "open":
             set_setting_value("signup_lock_manual_open", "1")
             set_setting_value("signup_lock_auto_open_at", "")
+            set_setting_value(
+                "signup_lock_opened_at",
+                datetime.now(APP_TZ).replace(tzinfo=None).isoformat(),
+            )
             flash("Anmeldung manuell geoeffnet.", "success")
         elif action == "close":
             set_setting_value("signup_lock_manual_open", "0")
             set_setting_value("signup_lock_auto_open_at", "")
+            set_setting_value("signup_lock_opened_at", "")
             flash("Anmeldung gesperrt.", "success")
         elif action == "auto":
             auto_raw = request.form.get("auto_open_datetime", "").strip()
@@ -2895,6 +2954,7 @@ def create_app(test_config=None):
                     return redirect(url_for("admin_dashboard"))
                 set_setting_value("signup_lock_manual_open", "0")
                 set_setting_value("signup_lock_auto_open_at", auto_raw)
+                set_setting_value("signup_lock_opened_at", "")
                 flash("Automatische Oeffnung geplant.", "success")
             else:
                 flash("Bitte ein Datum und Uhrzeit angeben.", "danger")

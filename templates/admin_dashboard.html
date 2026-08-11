@@ -749,7 +749,11 @@
                 werden weitere Anmeldungen abgelehnt.<br><br>
 
                 <strong>Warteliste fuer Gaeste:</strong> Gaeste kommen auf
-                die Warteliste; Mitglieder werden direkt bestaetigt.
+                die Warteliste; Mitglieder werden direkt bestaetigt.<br><br>
+
+                <strong>Mitglieder zuerst (24h):</strong> Ab Oeffnung der Liste
+                koennen sich Mitglieder sofort eintragen; Nichtmitglieder erst
+                24 Stunden spaeter.
             </div>
 
             <form
@@ -811,6 +815,13 @@
                             {% if waitlist_mode == "guests_only" %}selected{% endif %}
                         >
                             Warteliste fuer Gaeste
+                        </option>
+
+                        <option
+                            value="member_priority_24h"
+                            {% if waitlist_mode == "member_priority_24h" %}selected{% endif %}
+                        >
+                            Mitglieder zuerst (Gäste erst nach 24 h)
                         </option>
                     </select>
                 </p>
