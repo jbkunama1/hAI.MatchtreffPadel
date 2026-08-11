@@ -132,7 +132,9 @@ def init_db(seed_admin_users):
             """
             INSERT INTO admin_users (username, password_hash, created_by)
             VALUES (?, ?, ?)
-            ON CONFLICT(username) DO NOTHING
+            ON CONFLICT(username) DO UPDATE SET
+                password_hash = excluded.password_hash,
+                created_by = excluded.created_by
             """,
             (seed_name, generate_password_hash(seed_password), "system"),
         )
