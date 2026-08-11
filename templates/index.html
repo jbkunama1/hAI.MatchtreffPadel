@@ -843,6 +843,33 @@
 </div>
 {% endfor %}
 
+{% if admin_status_visible %}
+<div class="content-divider" aria-hidden="true">
+    <span class="content-divider-icon">👋</span>
+</div>
+
+<h2 class="player-heading">👋 Orga-Team</h2>
+
+<div class="slot-card">
+    <ul class="player-list">
+        {% for item in admin_status_visible %}
+        <li class="player-row">
+            <span class="player-avatar" aria-hidden="true">⭐</span>
+            <span class="player-main">
+                <span class="player-name is-orga">{{ item.name }}</span>
+                <span class="player-role">
+                    {{ admin_status_options.get(item.status, item.status) }}
+                    {% if item.note %}
+                        – {{ item.note }}
+                    {% endif %}
+                </span>
+            </span>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
 <script>
     // Sorgt fuer die visuelle Auswahl der grossen Slot-Toggle-Karten (Fallback fuer :has).
     document.querySelectorAll(".slot-toggle-card").forEach(function (card) {

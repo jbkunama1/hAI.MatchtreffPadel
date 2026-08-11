@@ -253,7 +253,7 @@ BG_STYLES = {
     "logo": "Padel-Ball-Icons",
 }
 
-ORGA_TEAM = ["Daniel", "Cosme", "Sascha", "Patrick"]
+ORGA_TEAM = ["Daniel", "Cosme", "Sascha", "Patrick", "Dominik"]
 
 
 def normalize_name(name: str) -> str:
@@ -265,6 +265,16 @@ def normalize_name(name: str) -> str:
 
 
 ORGA_TEAM_NORMALIZED = {normalize_name(name) for name in ORGA_TEAM}
+
+# Status-Optionen fuer das Orga-Team (admin_status Tabelle)
+# "" = Anwesend/eingeplant, "zuschauen" = ohne Slot, sonst Abwesenheit
+ADMIN_STATUS_OPTIONS = {
+    "": "Anwesend / eingeplant",
+    "zuschauen": "Zuschauen (ohne Slot)",
+    "nein": "Nicht da",
+    "urlaub": "Urlaub",
+    "krank": "Krank",
+}
 
 
 SLOT_ICONS = {
@@ -563,6 +573,14 @@ def create_app(test_config=None):
                 password_hash TEXT NOT NULL,
                 created_by TEXT,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+
+            CREATE TABLE IF NOT EXISTS admin_status (
+                name_normalized TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT '',
+                note TEXT NOT NULL DEFAULT '',
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
 
             CREATE TABLE IF NOT EXISTS telegram_users (
@@ -1068,6 +1086,10 @@ def create_app(test_config=None):
         if auto_open_at_raw:
             try:
                 auto_open_at = datetime.fromisoformat(auto_open_at_raw)
+                if auto_open_at.tzinfo is None:
+                    # datetime-local liefert naive Zeit in der Zeitzone des
+                    # Browsers (Admin) -> als APP_TZ interpretieren.
+                    auto_open_at = auto_open_at.replace(tzinfo=APP_TZ)
             except (ValueError, TypeError):
                 auto_open_at = None
 
@@ -1117,7 +1139,7 @@ def create_app(test_config=None):
             return True
         if cfg["manual_open"]:
             return True
-        if cfg["auto_open_at"] and cfg["auto_open_at"] <= datetime.now():
+        if cfg["auto_open_at"] and cfg["auto_open_at"] <= datetime.now(APP_TZ):
             return True
         return False
 
@@ -1310,6 +1332,33 @@ def create_app(test_config=None):
             (slot_id, status),
         ).fetchall()
 
+    def get_admin_statuses():
+        """Liefert {name_normalized: row} aus der admin_status Tabelle."""
+        db = get_db()
+        rows = db.execute(
+            "SELECT name_normalized, name, status, note FROM admin_status"
+        ).fetchall()
+        return {row["name_normalized"]: dict(row) for row in rows}
+
+    def get_admin_status_list():
+        """Status-Eintraege fuer alle Orga-Mitglieder (fuer Dashboard + Anzeige)."""
+        statuses = get_admin_statuses()
+        result = []
+        for name in ORGA_TEAM:
+            norm = normalize_name(name)
+            entry = statuses.get(norm, {"name": name, "status": "", "note": ""})
+            entry["name_normalized"] = norm
+            result.append(entry)
+        return result
+
+    def get_admin_status_visible():
+        """Nur Orga-Mitglieder mit gesetztem Status (fuer Startseite + Liste)."""
+        return [
+            entry
+            for entry in get_admin_status_list()
+            if entry["status"] and entry["status"] != ""
+        ]
+
     def get_current_theme_key():
         db = get_db()
         row = db.execute(
@@ -1447,6 +1496,8 @@ def create_app(test_config=None):
             signup_open=is_signup_open(),
             signup_lock_cfg=signup_lock_settings(),
                         slot_close=slot_close_info(),
+                        admin_status_visible=get_admin_status_visible(),
+                        admin_status_options=ADMIN_STATUS_OPTIONS,
                         guest_delay_active=guest_delay_active(),
                         guest_allowed_at=guest_allowed_at(),
                     )
@@ -1500,6 +1551,8 @@ def create_app(test_config=None):
             signups_by_slot=signups_by_slot,
             waitlist_limit=get_waitlist_limit(),
             comments=comments,
+            admin_status_visible=get_admin_status_visible(),
+            admin_status_options=ADMIN_STATUS_OPTIONS,
         )
 
     @app.route("/downloads", methods=["GET", "POST"])
@@ -2223,7 +2276,41 @@ def create_app(test_config=None):
             unread_messages_count=unread_messages_count,
             faq_entries=faq_entries,
             slot_close=slot_close_info(),
+            admin_status_list=get_admin_status_list(),
+            admin_status_options=ADMIN_STATUS_OPTIONS,
         )
+
+    @app.route("/admin/status/update", methods=["POST"])
+    @admin_required
+    def admin_update_status():
+        name = request.form.get("name", "").strip()
+        status = request.form.get("status", "").strip()
+        note = request.form.get("note", "").strip()
+
+        if not name:
+            flash("Name fehlt.", "danger")
+            return redirect(url_for("admin_dashboard"))
+
+        if status not in ADMIN_STATUS_OPTIONS:
+            status = ""
+
+        name_normalized = normalize_name(name)
+        db = get_db()
+        db.execute(
+            """
+            INSERT INTO admin_status (name_normalized, name, status, note)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT(name_normalized) DO UPDATE SET
+                name = excluded.name,
+                status = excluded.status,
+                note = excluded.note,
+                updated_at = CURRENT_TIMESTAMP
+            """,
+            (name_normalized, name, status, note),
+        )
+        db.commit()
+        flash(f"Status fuer {name} aktualisiert.", "success")
+        return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/telegram-channel/update", methods=["POST"])
     @admin_required

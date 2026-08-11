@@ -9,6 +9,7 @@ Jeder Test bekommt eine frische App mit eigener Temp-DB.
 import sqlite3
 from datetime import datetime, timedelta
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -71,6 +72,37 @@ def test_signup_without_name_is_rejected(client):
 
 def test_signup_requires_open_lock_for_normal_user(client, tmp_path):
     # Standard-Konfiguration: signup_lock_enabled=1, nicht manuell geoeffnet.
+    resp = client.post(
+        "/eintragen",
+        data={"name": "Testspieler", "slots": ["slot_a"], "is_member": "1"},
+        follow_redirects=True,
+    )
+    assert b"gesperrt" in resp.data
+
+
+def test_auto_open_past_in_app_tz_opens_list(client, tmp_path):
+    # auto_open_at als naive Berlin-Zeit (wie vom datetime-local Input).
+    # Container laeuft auf UTC -> nur mit APP_TZ-Vergleich oeffnet die Liste
+    # zum gewaehlten Zeitpunkt, nicht erst 2h spaeter.
+    db_path = str(tmp_path / "matchtreff.sqlite3")
+    past = datetime.now(ZoneInfo("Europe/Berlin")) - timedelta(minutes=5)
+    _set_setting(db_path, "signup_lock_auto_open_at", past.strftime("%Y-%m-%dT%H:%M"))
+    _disable_slot_close(db_path)
+
+    resp = client.post(
+        "/eintragen",
+        data={"name": "Testspieler", "slots": ["slot_a"], "is_member": "1"},
+        follow_redirects=True,
+    )
+    assert b"Eingetragen" in resp.data
+
+
+def test_auto_open_future_in_app_tz_stays_closed(client, tmp_path):
+    db_path = str(tmp_path / "matchtreff.sqlite3")
+    future = datetime.now(ZoneInfo("Europe/Berlin")) + timedelta(hours=2)
+    _set_setting(db_path, "signup_lock_auto_open_at", future.strftime("%Y-%m-%dT%H:%M"))
+    _disable_slot_close(db_path)
+
     resp = client.post(
         "/eintragen",
         data={"name": "Testspieler", "slots": ["slot_a"], "is_member": "1"},

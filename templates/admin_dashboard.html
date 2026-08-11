@@ -506,6 +506,53 @@
             </div>
         </div>
         {% endfor %}
+
+        <div class="admin-card">
+            <h2>👥 Orga-Team Status</h2>
+            <p class="meta-text">
+                Tragt ein, ob ihr zuschaut (ohne Slot), nicht da seid, im Urlaub
+                oder krank. Diese Angaben erscheinen unter der Spielerliste und
+                zaehlen nicht zu den Slot-Plaetzen.
+            </p>
+
+            {% for entry in admin_status_list %}
+            <form
+                class="admin-status-form"
+                method="post"
+                action="{{ url_for('admin_update_status') }}"
+                style="border-top: 1px solid var(--border-color, #333); padding: 0.75rem 0;"
+            >
+                <input type="hidden" name="name" value="{{ entry.name }}">
+                <p style="margin: 0 0 0.35rem;">
+                    <strong>{{ entry.name }}</strong>
+                </p>
+
+                <select class="form-control" name="status">
+                    {% for value, label in admin_status_options.items() %}
+                    <option
+                        value="{{ value }}"
+                        {% if entry.status == value %}selected{% endif %}
+                    >
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+
+                <input
+                    class="form-control"
+                    type="text"
+                    name="note"
+                    value="{{ entry.note }}"
+                    placeholder="Notiz (optional)"
+                    style="margin-top: 0.35rem;"
+                >
+
+                <button type="submit" style="margin-top: 0.35rem;">
+                    Status speichern
+                </button>
+            </form>
+            {% endfor %}
+        </div>
     </div>
 </section>
 

@@ -245,6 +245,24 @@
 <p style="text-align:center; opacity:0.85;">Aktuell sind keine Slots konfiguriert.</p>
 {% endfor %}
 
+{% if admin_status_visible %}
+<div class="liste-slot">
+    <h2>👋 Orga-Team</h2>
+    <ul class="liste-list">
+        {% for item in admin_status_visible %}
+        <li class="liste-row">
+            <span class="liste-position">⭐</span>
+            <span class="liste-name">{{ item.name }}</span>
+            <span class="liste-tag orga">
+                {{ admin_status_options.get(item.status, item.status) }}
+                {% if item.note %}– {{ item.note }}{% endif %}
+            </span>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
 <div class="liste-slot" id="comments">
     <h2>💬 Kommentare</h2>
     <p style="opacity: 0.85; font-size: 0.9rem;">

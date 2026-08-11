@@ -138,7 +138,7 @@ THEMES = {
 }
 
 BG_STYLES = {"bubbles": "Farbige Blasen", "logo": "Padel-Ball-Icons"}
-ORGA_TEAM = ["Daniel", "Cosme", "Sascha", "Patrick"]
+ORGA_TEAM = ["Daniel", "Cosme", "Sascha", "Patrick", "Dominik"]
 
 
 def normalize_name(name: str) -> str:
