@@ -18,6 +18,7 @@ WAITLIST_MODES = {
     "open_for_all",
     "no_waitlist",
     "guests_only",
+    "member_priority_24h",
 }
 
 DEFAULT_MAX_PLAYERS = 14
@@ -166,6 +167,7 @@ def get_setting_defaults():
         "signup_lock_enabled": DEFAULT_SIGNUP_LOCK_ENABLED,
         "signup_lock_manual_open": DEFAULT_SIGNUP_LOCK_MANUAL_OPEN,
         "signup_lock_auto_open_at": DEFAULT_SIGNUP_LOCK_AUTO_OPEN_AT,
+        "signup_lock_opened_at": "",
                 "slot_close_enabled": DEFAULT_SLOT_CLOSE_ENABLED,
                 "slot_close_time_slot_a": "",
                 "slot_close_time_slot_b": "",

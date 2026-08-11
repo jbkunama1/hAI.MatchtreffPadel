@@ -66,6 +66,7 @@ def weekly_reset(db_path, token, admin_ids):
     # neue Woche wieder standardmaessig (manuell durch Admin) freigeschaltet wird.
     set_setting(conn, "signup_lock_manual_open", "0")
     set_setting(conn, "signup_lock_auto_open_at", "")
+    set_setting(conn, "signup_lock_opened_at", "")
 
     now_str = datetime.now(SCHED_TZ).strftime(SQLITE_TS_FMT)
     set_setting(conn, "last_auto_reset_at", now_str)

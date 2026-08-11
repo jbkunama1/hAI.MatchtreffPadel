@@ -650,6 +650,17 @@
             Mitglieder werden bei der Platzvergabe bevorzugt.
             Nicht-Mitglieder koennen sich trotzdem eintragen.
         </div>
+
+        {% if guest_delay_active %}
+        <div class="slot-meta" style="margin-top: 0.35rem; font-weight: 600;">
+            ⏳ Hinweis: Nichtmitglieder koennen sich erst 24 Stunden nach
+            Oeffnung der Liste eintragen
+            {% if guest_allowed_at %}
+                (ab {{ guest_allowed_at.strftime("%d.%m.%Y, %H:%M Uhr") }})
+            {% endif %}
+            .
+        </div>
+        {% endif %}
     </div>
 
     <div class="form-group">

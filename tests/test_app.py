@@ -7,6 +7,7 @@ Jeder Test bekommt eine frische App mit eigener Temp-DB.
 """
 
 import sqlite3
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -90,6 +91,78 @@ def test_signup_after_deadline_blocked_when_slot_close_enabled(client, tmp_path)
     )
     assert b"Anmeldefrist abgelaufen" in resp.data
     assert _db_rows(db_path, "SELECT COUNT(*) FROM signups")[0][0] == 0
+
+
+def test_member_priority_24h_blocks_guest_before_delay(client, tmp_path):
+    db_path = str(tmp_path / "matchtreff.sqlite3")
+    _set_setting(db_path, "signup_lock_manual_open", "1")
+    _set_setting(db_path, "waitlist_mode", "member_priority_24h")
+    _set_setting(
+        db_path, "signup_lock_opened_at", datetime.now().isoformat()
+    )
+    _disable_slot_close(db_path)
+
+    resp = client.post(
+        "/eintragen",
+        data={"name": "Gast", "slots": ["slot_a"], "is_member": ""},
+        follow_redirects=True,
+    )
+    assert b"24 Stunden" in resp.data
+    assert _db_rows(db_path, "SELECT COUNT(*) FROM signups")[0][0] == 0
+
+
+def test_member_priority_24h_allows_member_immediately(client, tmp_path):
+    db_path = str(tmp_path / "matchtreff.sqlite3")
+    _set_setting(db_path, "signup_lock_manual_open", "1")
+    _set_setting(db_path, "waitlist_mode", "member_priority_24h")
+    _set_setting(
+        db_path, "signup_lock_opened_at", datetime.now().isoformat()
+    )
+    _disable_slot_close(db_path)
+
+    resp = client.post(
+        "/eintragen",
+        data={"name": "Mitglied", "slots": ["slot_a"], "is_member": "1"},
+        follow_redirects=True,
+    )
+    assert b"Eingetragen" in resp.data
+    assert _db_rows(
+        db_path,
+        "SELECT COUNT(*) FROM signups WHERE name = 'Mitglied'",
+    )[0][0] == 1
+
+
+def test_member_priority_24h_allows_guest_after_delay(client, tmp_path):
+    db_path = str(tmp_path / "matchtreff.sqlite3")
+    _set_setting(db_path, "signup_lock_manual_open", "1")
+    _set_setting(db_path, "waitlist_mode", "member_priority_24h")
+    # Liste wurde vor mehr als 24h geoeffnet.
+    _set_setting(
+        db_path,
+        "signup_lock_opened_at",
+        (datetime.now() - timedelta(hours=25)).isoformat(),
+    )
+    _disable_slot_close(db_path)
+
+    resp = client.post(
+        "/eintragen",
+        data={"name": "Gast", "slots": ["slot_a"], "is_member": ""},
+        follow_redirects=True,
+    )
+    assert b"Eingetragen" in resp.data
+    assert _db_rows(
+        db_path,
+        "SELECT COUNT(*) FROM signups WHERE name = 'Gast'",
+    )[0][0] == 1
+
+
+def test_member_priority_24h_notice_shown_on_index(client, tmp_path):
+    db_path = str(tmp_path / "matchtreff.sqlite3")
+    _set_setting(db_path, "waitlist_mode", "member_priority_24h")
+
+    resp = client.get("/")
+    assert resp.status_code == 200
+    assert b"Nichtmitglieder koennen sich erst 24 Stunden" in resp.data
 
 
 def test_signup_open_lock_normal_user_can_signup(client, tmp_path):
