@@ -28,7 +28,7 @@ jobs:
           npm i -D testdriverai vitest >/dev/null 2>&1 || echo "warn: npm install skipped"
 
       - name: Authenticate to TestDriver (OIDC)
-        uses: testdriverai/action@stable
+        uses: testdriverai/action@1.1.3
 
       - name: Run TestDriver tests
         run: |
