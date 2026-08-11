@@ -1060,17 +1060,17 @@ def create_app(test_config=None):
             ),
         )
 
-        def set_setting_value(key, value):
-            db = get_db()
-            db.execute(
-                """
-                INSERT INTO settings (key, value)
-                VALUES (?, ?)
-                ON CONFLICT(key) DO UPDATE SET value = excluded.value
-                """,
-                (key, value),
-            )
-            db.commit()
+    def set_setting_value(key, value):
+        db = get_db()
+        db.execute(
+            """
+            INSERT INTO settings (key, value)
+            VALUES (?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value
+            """,
+            (key, value),
+        )
+        db.commit()
 
     def signup_lock_settings():
         enabled = get_setting_value(
