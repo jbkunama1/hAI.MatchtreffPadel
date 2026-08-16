@@ -756,9 +756,10 @@
     </div>
     <div class="slot-actions">
         {% if is_admin %}
-            <a class="btn-soft" href="{{ url_for('admin_dashboard') }}">Eintrag bearbeiten</a>
+            <a class="btn-soft" href="{{ url_for('admin_dashboard') }}">Eintrag bearbeiten (Adminmenü)</a>
+        {% else %}
+            <a class="btn-soft" href="{{ url_for('loeschen') }}">Eintrag bearbeiten/löschen</a>
         {% endif %}
-        <a class="btn-soft" href="{{ url_for('loeschen') }}">Eintrag bearbeiten/löschen</a>
     </div>
 
     <ul class="player-list">
@@ -843,7 +844,7 @@
 </div>
 {% endfor %}
 
-{% if admin_status_visible %}
+{% if admin_status_visible or admin_signup_entries %}
 <div class="content-divider" aria-hidden="true">
     <span class="content-divider-icon">👋</span>
 </div>
@@ -862,6 +863,18 @@
                     {% if item.note %}
                         – {{ item.note }}
                     {% endif %}
+                </span>
+            </span>
+        </li>
+        {% endfor %}
+        {% for item in admin_signup_entries %}
+        <li class="player-row">
+            <span class="player-avatar" aria-hidden="true">✅</span>
+            <span class="player-main">
+                <span class="player-name is-orga">{{ item.name }}</span>
+                <span class="player-role">
+                    Eingetragen: {{ item.date_label }} um
+                    {{ item.slots | join(" und ") }}
                 </span>
             </span>
         </li>

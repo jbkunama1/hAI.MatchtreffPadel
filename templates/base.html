@@ -18,6 +18,34 @@
         .btn-accent {
             background: linear-gradient(135deg, {{ current_theme.accent }}, {{ current_theme.accent2 }});
         }
+
+        .americana-banner {
+            margin-top: 1.5rem;
+            text-align: center;
+            padding: 0.75rem 1rem;
+            border-top: 1px solid var(--border-subtle, rgba(255, 255, 255, 0.12));
+            background: var(--background-panel, rgba(15, 23, 42, 0.42));
+            border-radius: 0.8rem;
+            box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+        }
+        .americana-banner a {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            background: linear-gradient(135deg, #38bdf8, #818cf8);
+            color: #fff;
+            font-weight: 700;
+            text-decoration: none;
+            border-radius: 999px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease;
+        }
+        .americana-banner a:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(56, 189, 248, 0.35);
+        }
+        .americana-banner .usa-text {
+            font-size: 0.95rem;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -58,9 +86,11 @@
             <div class="nav-row">
                 <a class="btn-soft" href="{{ url_for('index') }}">Startseite</a>
                 <a class="btn-soft" href="{{ url_for('liste_ansicht') }}">📋 Liste ansehen</a>
-                <a class="btn-soft" href="{{ url_for('ueber_uns') }}">ℹ️ Über uns</a>
-                <a class="btn-soft" href="{{ url_for('chat') }}">💬 Chat / Hilfe</a>
+                <a class="btn-soft" href="{{ url_for('ueber_uns') }}">ℹ️ Über uns / Hilfe / Chat</a>
                 <a class="btn-soft" href="{{ url_for('downloads') }}">⬇️ Downloads</a>
+                {% if telegram_contact %}
+                    <a class="btn-soft" href="mailto:{{ telegram_contact }}">📧 Kontakt</a>
+                {% endif %}
                 {% if telegram_channel_url %}
                     <a class="btn-soft" href="{{ telegram_channel_url }}" target="_blank" rel="noopener">📲 Telegram</a>
                     <button type="button" class="btn-soft" onclick="openTelegramQr()">📷 QR-Code</button>
@@ -72,6 +102,14 @@
                     <a class="btn-soft" href="{{ url_for('admin_login') }}">Admin-Login</a>
                 {% endif %}
             </div>
+
+            {% if americana_url and americana_text %}
+            <div class="americana-banner">
+                <a href="{{ americana_url }}" target="_blank" rel="noopener">
+                    <span class="usa-text">{{ americana_text }}</span>
+                </a>
+            </div>
+            {% endif %}
         </div>
     </div>
 
