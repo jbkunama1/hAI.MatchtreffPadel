@@ -723,104 +723,6 @@
 </section>
 
 
-                            <hr class="admin-divider">
-
-                            <div class="admin-card">
-                                <h2>⏳ Wartelisten-Einstellungen</h2>
-
-                                <div class="info-box">
-                                    <strong>Mit Warteliste:</strong> Ist ein Slot voll, werden
-                                    weitere Anmeldungen auf die Warteliste gesetzt.<br><br>
-
-                                    <strong>Für alle offen:</strong> Alle Anmeldungen werden
-                                    bestätigt; es gibt kein Limit.<br><br>
-
-                                    <strong>Ohne Warteliste:</strong> Bei einem vollen Slot
-                                    werden weitere Anmeldungen abgelehnt.<br><br>
-
-                                    <strong>Warteliste für Gäste:</strong> Gäste kommen auf
-                                    die Warteliste; Mitglieder werden direkt bestätigt.<br><br>
-
-                                    <strong>Mitglieder zuerst (24h):</strong> Ab Öffnung der Liste
-                                    können sich Mitglieder sofort eintragen; Nichtmitglieder erst
-                                    24 Stunden später.
-                                </div>
-
-                                <form
-                                    method="post"
-                                    action="{{ url_for('admin_update_waitlist_settings') }}"
-                                >
-                                    <input
-                                        type="hidden"
-                                        name="slot_selection"
-                                        value="{{ slot_selection }}"
-                                    >
-
-                                    <p>
-                                        <label for="waitlist-limit">
-                                            Wartelisten-Größe pro Slot
-                                        </label><br>
-
-                                        <input
-                                            class="form-control"
-                                            type="number"
-                                            min="0"
-                                            id="waitlist-limit"
-                                            name="waitlist_limit"
-                                            value="{{ waitlist_limit }}"
-                                        >
-                                    </p>
-
-                                    <p>
-                                        <label for="waitlist-mode">Wartelisten-Modus</label><br>
-
-                                        <select
-                                            class="form-control"
-                                            id="waitlist-mode"
-                                            name="waitlist_mode"
-                                        >
-                                            <option
-                                                value="with_waitlist"
-                                                {% if waitlist_mode == "with_waitlist" %}selected{% endif %}
-                                            >
-                                                Mit Warteliste
-                                            </option>
-
-                                            <option
-                                                value="open_for_all"
-                                                {% if waitlist_mode == "open_for_all" %}selected{% endif %}
-                                            >
-                                                Für alle offen (kein Limit)
-                                            </option>
-
-                                            <option
-                                                value="no_waitlist"
-                                                {% if waitlist_mode == "no_waitlist" %}selected{% endif %}
-                                            >
-                                                Ohne Warteliste
-                                            </option>
-
-                                            <option
-                                                value="guests_only"
-                                                {% if waitlist_mode == "guests_only" %}selected{% endif %}
-                                            >
-                                                Warteliste für Gäste
-                                            </option>
-
-                                            <option
-                                                value="member_priority_24h"
-                                                {% if waitlist_mode == "member_priority_24h" %}selected{% endif %}
-                                            >
-                                                Mitglieder zuerst (Gäste erst nach 24 h)
-                                            </option>
-                                        </select>
-                                    </p>
-
-                                    <button type="submit">
-                                        Wartelisten-Einstellungen speichern
-                                    </button>
-                                </form>
-                            </div>
 
 <section
     class="admin-tabpanel"
@@ -942,6 +844,104 @@
                                     </button>
                                 </form>
                             </div>
+                        </div>
+                        <hr class="admin-divider">
+
+                        <div class="admin-card">
+                            <h2>⏳ Wartelisten-Einstellungen</h2>
+
+                            <div class="info-box">
+                                <strong>Mit Warteliste:</strong> Ist ein Slot voll, werden
+                                weitere Anmeldungen auf die Warteliste gesetzt.<br><br>
+
+                                <strong>Für alle offen:</strong> Alle Anmeldungen werden
+                                bestätigt; es gibt kein Limit.<br><br>
+
+                                <strong>Ohne Warteliste:</strong> Bei einem vollen Slot
+                                werden weitere Anmeldungen abgelehnt.<br><br>
+
+                                <strong>Warteliste für Gäste:</strong> Gäste kommen auf
+                                die Warteliste; Mitglieder werden direkt bestätigt.<br><br>
+
+                                <strong>Mitglieder zuerst (24h):</strong> Ab Öffnung der Liste
+                                können sich Mitglieder sofort eintragen; Nichtmitglieder erst
+                                24 Stunden später.
+                            </div>
+
+                            <form
+                                method="post"
+                                action="{{ url_for('admin_update_waitlist_settings') }}"
+                            >
+                                <input
+                                    type="hidden"
+                                    name="slot_selection"
+                                    value="{{ slot_selection }}"
+                                >
+
+                                <p>
+                                    <label for="waitlist-limit">
+                                        Wartelisten-Größe pro Slot
+                                    </label><br>
+
+                                    <input
+                                        class="form-control"
+                                        type="number"
+                                        min="0"
+                                        id="waitlist-limit"
+                                        name="waitlist_limit"
+                                        value="{{ waitlist_limit }}"
+                                    >
+                                </p>
+
+                                <p>
+                                    <label for="waitlist-mode">Wartelisten-Modus</label><br>
+
+                                    <select
+                                        class="form-control"
+                                        id="waitlist-mode"
+                                        name="waitlist_mode"
+                                    >
+                                        <option
+                                            value="with_waitlist"
+                                            {% if waitlist_mode == "with_waitlist" %}selected{% endif %}
+                                        >
+                                            Mit Warteliste
+                                        </option>
+
+                                        <option
+                                            value="open_for_all"
+                                            {% if waitlist_mode == "open_for_all" %}selected{% endif %}
+                                        >
+                                            Für alle offen (kein Limit)
+                                        </option>
+
+                                        <option
+                                            value="no_waitlist"
+                                            {% if waitlist_mode == "no_waitlist" %}selected{% endif %}
+                                        >
+                                            Ohne Warteliste
+                                        </option>
+
+                                        <option
+                                            value="guests_only"
+                                            {% if waitlist_mode == "guests_only" %}selected{% endif %}
+                                        >
+                                            Warteliste für Gäste
+                                        </option>
+
+                                        <option
+                                            value="member_priority_24h"
+                                            {% if waitlist_mode == "member_priority_24h" %}selected{% endif %}
+                                        >
+                                            Mitglieder zuerst (Gäste erst nach 24 h)
+                                        </option>
+                                    </select>
+                                </p>
+
+                                <button type="submit">
+                                    Wartelisten-Einstellungen speichern
+                                </button>
+                            </form>
                         </div>
                     </div>
                 </section>
