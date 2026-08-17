@@ -63,7 +63,7 @@ def write_txt_backup(db_path):
     conn = get_conn(db_path)
     try:
         slots = conn.execute(
-            "SELECT id, label, target, date, opening_hour, closing_hour "
+            "SELECT id, slot_key, label, max_players "
             "FROM slots ORDER BY id"
         ).fetchall()
         signups = conn.execute(
@@ -81,9 +81,8 @@ def write_txt_backup(db_path):
         ]
         for slot in slots:
             lines.append(
-                f"[{slot['id']}] {slot['label']} | Ziel: {slot['target']} | "
-                f"Datum: {slot['date']} | Oeffnung: {slot['opening_hour']} "
-                f"bis {slot['closing_hour']}"
+                f"[{slot['id']}] {slot['label']} | "
+                f"Max. Spieler: {slot['max_players']}"
             )
 
         lines += ["", "===== ANMELDUNGEN ====="]
@@ -115,7 +114,12 @@ def weekly_reset(db_path, token, admin_ids):
         return
 
     # DB vor dem Reset sichern (eigene Connection, da conn gleich schreibt).
-    backup_path = write_txt_backup(db_path)
+    # Ein Backup-Fehler darf den Reset nicht blockieren.
+    try:
+        backup_path = write_txt_backup(db_path)
+    except Exception:
+        logger.exception("TXT-Backup fehlgeschlagen - Reset wird trotzdem fortgesetzt.")
+        backup_path = None
     conn.execute("DELETE FROM signups")
 
     # Nach dem Reset: Anmeldesperre zuruecksetzen auf Standard (geschlossen).
@@ -130,12 +134,13 @@ def weekly_reset(db_path, token, admin_ids):
     conn.commit()
     conn.close()
 
+    backup_note = f"Sicherung: {backup_path}" if backup_path else "Sicherung fehlgeschlagen (Details im Log)."
     notify_admins(
-            f"Automatischer Reset ausgefuehrt am {now_str} - alle Anmeldungen wurden geloescht.\n"
-            f"Sicherung: {backup_path}",
-            token,
-            admin_ids,
-        )
+        f"Automatischer Reset ausgefuehrt am {now_str} - alle Anmeldungen wurden geloescht.\n"
+        f"{backup_note}",
+        token,
+        admin_ids,
+    )
     logger.info("Reset ausgefuehrt am %s", now_str)
 
 
