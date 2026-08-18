@@ -196,8 +196,16 @@
         {% endif %}
     </div>
 
-    {% if signups_by_slot[slot.id].confirmed %}
-    <ul class="liste-list">
+    <div class="liste-actions" style="justify-content: flex-start;">
+            {% if is_admin %}
+                <a class="btn-soft" href="{{ url_for('admin_dashboard') }}">Eintrag bearbeiten (Adminmenü)</a>
+            {% else %}
+                <a class="btn-soft" href="{{ url_for('loeschen') }}">Eintrag bearbeiten/löschen</a>
+            {% endif %}
+        </div>
+
+            {% if signups_by_slot[slot.id].confirmed %}
+        <ul class="liste-list">
         {% for signup in signups_by_slot[slot.id].confirmed %}
         <li class="liste-row">
             <span class="liste-position">{{ loop.index }}</span>
@@ -245,7 +253,7 @@
 <p style="text-align:center; opacity:0.85;">Aktuell sind keine Slots konfiguriert.</p>
 {% endfor %}
 
-{% if admin_status_visible %}
+{% if admin_status_visible or admin_signup_entries %}
 <div class="liste-slot">
     <h2>👋 Orga-Team</h2>
     <ul class="liste-list">
@@ -256,6 +264,16 @@
             <span class="liste-tag orga">
                 {{ admin_status_options.get(item.status, item.status) }}
                 {% if item.note %}– {{ item.note }}{% endif %}
+            </span>
+        </li>
+        {% endfor %}
+        {% for item in admin_signup_entries %}
+        <li class="liste-row">
+            <span class="liste-position">✅</span>
+            <span class="liste-name">{{ item.name }}</span>
+            <span class="liste-tag orga">
+                Eingetragen: {{ item.date_label }} um
+                {{ item.slots | join(" und ") }}
             </span>
         </li>
         {% endfor %}

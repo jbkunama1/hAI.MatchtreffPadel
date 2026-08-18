@@ -17,6 +17,7 @@ import io
 import os
 import sqlite3
 from typing import Optional
+from werkzeug.security import generate_password_hash
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
@@ -60,7 +61,8 @@ WAITLIST_MODES = {"with_waitlist", "open_for_all", "no_waitlist", "guests_only"}
     MAX_VALUE,
     BROADCAST_TEXT,
     VERIFY_CODE,
-) = range(11)
+    SIGNUP_PIN, # Added for optional delete PIN during signup
+) = range(12)
 
 
 def get_conn() -> sqlite3.Connection:
@@ -91,9 +93,26 @@ def _ensure_schema(conn: sqlite3.Connection) -> None:
     )
     conn.commit()
 
+    # Ensure delete_pin_hash column exists in signups table
+    cursor = conn.execute("PRAGMA table_info(signups)")
+    columns = [row["name"] for row in cursor.fetchall()]
+    if "delete_pin_hash" not in columns:
+        conn.execute("ALTER TABLE signups ADD COLUMN delete_pin_hash TEXT")
+        conn.commit()
+
 
 def normalize_name(name: str) -> str:
     return " ".join(name.strip().split()).lower()
+
+
+def normalize_pin(pin: Optional[str]) -> Optional[str]:
+    """Akzeptiert '1234', '1 2 3 4' oder '1-2-3-4' -> '1234'."""
+    if pin is None:
+        return None
+    digits = [ch for ch in str(pin).strip() if ch.isdigit()]
+    if len(digits) != 4:
+        return None
+    return "".join(digits)
 
 
 def get_setting(conn: sqlite3.Connection, key: str, default: str) -> str:
@@ -332,6 +351,39 @@ def build_csv_bytes() -> bytes:
                     row["created_at"],
                 ]
             )
+    return buf.getvalue().encode("utf-8")
+
+
+def build_txt_backup_bytes() -> bytes:
+    """Erstellt einen Text-Backup-Dump aller Anmeldungen inkl. erweiterter Daten."""
+    buf = io.StringIO()
+    with get_conn() as conn:
+        slots = get_slots(conn)
+        if not slots:
+            return buf.getvalue().encode("utf-8")
+        header = "MATCHTREFF - ANMELDUNGEN (TXT-BACKUP)"
+        buf.write(header + "\n")
+        buf.write("=" * len(header) + "\n\n")
+        rows = conn.execute(
+            """
+            SELECT s.id, sl.label AS slot_label, s.name, s.status,
+                   s.is_member, s.created_at
+            FROM signups s
+            JOIN slots sl ON sl.id = s.slot_id
+            ORDER BY sl.id, s.created_at
+            """
+        ).fetchall()
+        for row in rows:
+            buf.write(
+                f"Slot: {row['slot_label']} | Status: {row['status']} | "
+                f"Mitglied: {'ja' if row['is_member'] else 'nein'} | "
+                f"Erstellt: {row['created_at']}\n"
+            )
+            buf.write(f"  Name: {row['name']}\n")
+            buf.write(f"  Signup-ID: {row['id']}\n")
+            buf.write("\n")
+        if not rows:
+            buf.write("Keine Anmeldungen vorhanden.\n")
     return buf.getvalue().encode("utf-8")
 
 
@@ -793,6 +845,7 @@ async def signup_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             )
             conn.commit()
             signup_id = cursor.lastrowid
+            context.user_data.setdefault("signup_ids", []).append(signup_id)
 
             if status == "confirmed":
                 added.append((slot["label"], signup_id))
@@ -825,9 +878,25 @@ async def signup_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if blocked:
         lines.append("⚠️ Nicht moeglich:\n" + "\n".join(f"- {b}" for b in blocked))
 
+    text = "\n\n".join(lines) if lines else "Keine Aenderung."
+    signup_ids = context.user_data.get("signup_ids", [])
+
+    # PIN-Abfrage nur, wenn tatsaechlich eine Anmeldung erstellt wurde
+    if signup_ids:
+        text += (
+            "\n\n🔐 Optional: Moechtest du eine 4-stellige Lösch-PIN setzen?\n"
+            "Damit kannst du deinen Eintrag spaeter in der Web-App selbst loeschen.\n\n"
+            "Sende die PIN jetzt als Textnachricht oder tippe auf 'Überspringen'."
+        )
+
     await query.edit_message_text(
-        "\n\n".join(lines) if lines else "Keine Aenderung.",
-        reply_markup=keyboard([[("Zurueck zum Menue", "mm:menu")]]),
+        text,
+        disable_web_page_preview=True,
+        reply_markup=(
+            keyboard([[("Ohne PIN weiter (Überspringen)", "su:pin_skip")]])
+            if signup_ids
+            else keyboard([[("Zurueck zum Menue", "mm:menu")]])
+        ),
     )
 
     # Gaeste an Admins melden (wie Web-App)
@@ -837,6 +906,60 @@ async def signup_confirm(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 context, signup_id, name, slot_label, "confirmed"
             )
 
+    return SIGNUP_PIN if signup_ids else ConversationHandler.END
+
+
+async def signup_pin(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    query = update.callback_query
+    pin_text = ""
+    skip = False
+
+    if query:
+        await query.answer()
+        if query.data == "su:pin_skip":
+            skip = True
+        else:
+            return SIGNUP_PIN
+    else:
+        pin_text = (update.message.text or "").strip()
+
+    signup_ids = context.user_data.get("signup_ids", [])
+    
+    if not skip:
+        normalized = normalize_pin(pin_text)
+        if not normalized:
+            await update.message.reply_text(
+                "Ungueltige PIN. Bitte sende genau 4 Ziffern (z.B. 1234) "
+                "oder tippe auf 'Überspringen'.",
+                reply_markup=keyboard([[("Überspringen", "su:pin_skip")]])
+            )
+            return SIGNUP_PIN
+        
+        pin_hash = generate_password_hash(normalized)
+        with get_conn() as conn:
+            for sid in signup_ids:
+                conn.execute(
+                    "UPDATE signups SET delete_pin_hash = ? WHERE id = ?",
+                    (pin_hash, sid)
+                )
+            conn.commit()
+
+    confirm_text = "✅ Anmeldung abgeschlossen."
+    if not skip:
+        confirm_text += " Deine Lösch-PIN wurde gespeichert."
+    
+    if query:
+        await query.edit_message_text(
+            confirm_text,
+            reply_markup=keyboard([[("Zurueck zum Menue", "mm:menu")]]),
+        )
+    else:
+        await update.message.reply_text(
+            confirm_text,
+            reply_markup=keyboard([[("Zurueck zum Menue", "mm:menu")]]),
+        )
+
+    context.user_data.pop("signup_ids", None)
     return ConversationHandler.END
 
 
@@ -860,6 +983,7 @@ async def cmd_admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         [("Max. Spieler setzen", "adm:setmax")],
         [("Alle Anmeldungen zuruecksetzen", "adm:reset")],
         [("Export (CSV)", "adm:export")],
+        [("Backup (TXT)", "adm:backup")],
         [("Einstellungen", "adm:settings")],
         [("Broadcast an alle Nutzer", "adm:broadcast")],
         [("Zurueck", "mm:menu")],
@@ -920,8 +1044,13 @@ async def callback_admin_menu(update: Update, context: ContextTypes.DEFAULT_TYPE
         )
         return
 
-    if data == "adm:settings":
-        return await cmd_settings(update, context)
+    if data == "adm:backup":
+        content = build_txt_backup_bytes()
+        await query.message.reply_document(
+            document=("matchtreff_backup.txt", io.BytesIO(content)),
+            caption="TXT-Backup aller Anmeldungen.",
+        )
+        return
 
     if data.startswith("adm:wl_mode:"):
         mode = data.split(":", 2)[2]
@@ -1336,6 +1465,10 @@ def main():
                 MEMBER: [CallbackQueryHandler(signup_member, pattern="^su:")],
                 SLOTS: [CallbackQueryHandler(signup_slots, pattern="^su:")],
                 CONFIRM: [CallbackQueryHandler(signup_confirm, pattern="^su:")],
+                SIGNUP_PIN: [
+                    CallbackQueryHandler(signup_pin, pattern="^su:pin_skip$"),
+                    MessageHandler(filters.TEXT & ~filters.COMMAND, signup_pin),
+                ],
             },
             fallbacks=[CommandHandler("cancel", cancel_cmd)],
             allow_reentry=True,
@@ -1420,7 +1553,7 @@ def main():
     application.add_handler(
         CallbackQueryHandler(
             callback_main_menu,
-            pattern="^(mm:|adm:menu|adm:list|adm:reset|adm:export|"
+            pattern="^(mm:|adm:menu|adm:list|adm:reset|adm:export|adm:backup|"
             "adm:settings|adm:wl_mode:|adm:slot_sel:|adm:back)",
         )
     )

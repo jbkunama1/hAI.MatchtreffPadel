@@ -49,6 +49,60 @@ def notify_admins(text, token, admin_ids):
         telegram_api_call("sendMessage", {"chat_id": admin_id, "text": text}, token)
 
 
+def write_txt_backup(db_path):
+    """Legt vor einem Reset eine TXT-Sicherung aller Anmeldungen ab.
+
+    Datei: backups/db_backup_DD.MM.YY.txt (neben der SQLite-DB).
+    """
+    backup_dir = os.path.join(os.path.dirname(os.path.abspath(db_path)), "backups")
+    os.makedirs(backup_dir, exist_ok=True)
+
+    date_str = datetime.now(SCHED_TZ).strftime("%d.%m.%y")
+    backup_path = os.path.join(backup_dir, f"db_backup_{date_str}.txt")
+
+    conn = get_conn(db_path)
+    try:
+        slots = conn.execute(
+            "SELECT id, slot_key, label, max_players "
+            "FROM slots ORDER BY id"
+        ).fetchall()
+        signups = conn.execute(
+            """SELECT s.id, sl.label AS slot_label, s.name, s.status,
+                      s.is_member, s.created_at
+               FROM signups s JOIN slots sl ON sl.id = s.slot_id
+               ORDER BY sl.id, s.created_at"""
+        ).fetchall()
+
+        lines = [
+            "MATCHTREFF - BACKUP VOR DEM WOECHENTLICHEN RESET",
+            f"Erstellt: {datetime.now(SCHED_TZ).strftime(SQLITE_TS_FMT)}",
+            "",
+            "===== SLOTS =====",
+        ]
+        for slot in slots:
+            lines.append(
+                f"[{slot['id']}] {slot['label']} | "
+                f"Max. Spieler: {slot['max_players']}"
+            )
+
+        lines += ["", "===== ANMELDUNGEN ====="]
+        for s in signups:
+            member = "Mitglied" if s["is_member"] else "Gast"
+            lines.append(
+                f"[{s['id']}] {s['slot_label']} | {s['name']} | {s['status']} "
+                f"| {member} | {s['created_at']}"
+            )
+        if not signups:
+            lines.append("(keine Anmeldungen)")
+
+        with open(backup_path, "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+        logger.info("TXT-Backup geschrieben: %s", backup_path)
+        return backup_path
+    finally:
+        conn.close()
+
+
 def weekly_reset(db_path, token, admin_ids):
     """Loescht ALLE Anmeldungen (signups) -> neue Woche, neuer Anfang."""
     conn = get_conn(db_path)
@@ -59,6 +113,13 @@ def weekly_reset(db_path, token, admin_ids):
         conn.close()
         return
 
+    # DB vor dem Reset sichern (eigene Connection, da conn gleich schreibt).
+    # Ein Backup-Fehler darf den Reset nicht blockieren.
+    try:
+        backup_path = write_txt_backup(db_path)
+    except Exception:
+        logger.exception("TXT-Backup fehlgeschlagen - Reset wird trotzdem fortgesetzt.")
+        backup_path = None
     conn.execute("DELETE FROM signups")
 
     # Nach dem Reset: Anmeldesperre zuruecksetzen auf Standard (geschlossen).
@@ -73,8 +134,10 @@ def weekly_reset(db_path, token, admin_ids):
     conn.commit()
     conn.close()
 
+    backup_note = f"Sicherung: {backup_path}" if backup_path else "Sicherung fehlgeschlagen (Details im Log)."
     notify_admins(
-        f"Automatischer Reset ausgefuehrt am {now_str} - alle Anmeldungen wurden geloescht.",
+        f"Automatischer Reset ausgefuehrt am {now_str} - alle Anmeldungen wurden geloescht.\n"
+        f"{backup_note}",
         token,
         admin_ids,
     )
@@ -112,7 +175,7 @@ def digest_new_signups(db_path, token, admin_ids):
         conn.close()
         return
 
-    lines = ["Neue Anmeldungen (Digest):", ""]
+    lines = ["Neue Anmeldungen:", ""]
     by_slot = {}
     for row in new_signups:
         key = (row["slot_label"], row["status"])

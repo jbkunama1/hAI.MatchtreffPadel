@@ -10,12 +10,12 @@
         border: 1px solid rgba(255, 255, 255, 0.18);
         border-radius: 1.1rem;
         background: rgba(15, 23, 42, 0.42);
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25); /* Stronger shadow */
     }
 
     .admin-tablist {
         display: flex;
-        gap: 0.4rem;
+        gap: 0.8rem; /* Increased gap for better visual separation */
         overflow-x: auto;
         padding: 0.1rem;
         scrollbar-width: thin;
@@ -70,7 +70,8 @@
 
     .admin-intro {
         margin: 0 0 1.25rem;
-        padding: 0.85rem 1rem;
+        padding: 1rem 1.2rem; /* Increased padding */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); /* Subtle shadow for intro */
         border-left: 4px solid var(--accent, #38bdf8);
         border-radius: 0.65rem;
         background: rgba(255, 255, 255, 0.07);
@@ -96,7 +97,7 @@
     }
 
     .admin-card {
-        padding: 1rem;
+        padding: 1.5rem; /* Increased padding */
         border-radius: 1rem;
         background: rgba(255, 255, 255, 0.06);
         border: 1px solid rgba(255, 255, 255, 0.12);
@@ -104,6 +105,8 @@
 
     .admin-card h2,
     .admin-card h3 {
+        font-weight: 800; /* Make headings bolder */
+        font-size: 1.6rem; /* Slightly larger headings */
         margin-top: 0;
     }
 
