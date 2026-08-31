@@ -1440,6 +1440,16 @@ async def post_init(application: Application) -> None:
     me = await application.bot.get_me()
     logger.info("Bot verbunden: @%s (id=%s)", me.username, me.id)
 
+    # German welcome message to admins on startup
+    admin_ids_raw = os.environ.get("ADMIN_TELEGRAM_IDS", "")
+    admin_ids = [item.strip() for item in admin_ids_raw.split(",") if item.strip()]
+    if admin_ids:
+        for admin_id in admin_ids:
+            await application.bot.send_message(
+                chat_id=int(admin_id),
+                text="Hallo! Ich bin wieder online und bereit. 📅"
+            )
+
 
 def main():
     if not TOKEN:
