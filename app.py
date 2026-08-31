@@ -1359,39 +1359,39 @@ def create_app(test_config=None):
             if entry["status"] and entry["status"] != ""
         ]
 
-        def get_admin_signup_entries():
-            """Orga-Mitglieder, die aktuell in Slots eingetragen sind, mit Spiel-Datum + Uhrzeit.
+    def get_admin_signup_entries():
+        """Orga-Mitglieder, die aktuell in Slots eingetragen sind, mit Spiel-Datum + Uhrzeit.
 
-            Liefert pro eingetragenem Orga-Mitglied: name, name_normalized,
-            date_label (z. B. "Donnerstag 12.06.2025") und slots (Zeit-Labels).
-            """
-            event_date = next_thursday()
-            date_label = (
-                WEEKDAY_NAMES[event_date.weekday()] + " " + event_date.strftime("%d.%m.%Y")
+        Liefert pro eingetragenem Orga-Mitglied: name, name_normalized,
+        date_label (z. B. "Donnerstag 12.06.2025") und slots (Zeit-Labels).
+        """
+        event_date = next_thursday()
+        date_label = (
+            WEEKDAY_NAMES[event_date.weekday()] + " " + event_date.strftime("%d.%m.%Y")
+        )
+        slots = get_slots_with_counts()
+        signup_map = {}
+        for slot in slots:
+            for status in ("confirmed", "waitlist"):
+                for s in get_signups_for_slot(slot["id"], status):
+                    norm = s["name_normalized"]
+                    if norm in ORGA_TEAM_NORMALIZED:
+                        entry = signup_map.setdefault(
+                            norm, {"name": s["name"], "labels": []}
+                        )
+                        entry["labels"].append(slot["label"])
+        entries = []
+        for norm, info in signup_map.items():
+            entries.append(
+                {
+                    "name": info["name"],
+                    "name_normalized": norm,
+                    "date_label": date_label,
+                    "slots": info["labels"],
+                }
             )
-            slots = get_slots_with_counts()
-            signup_map = {}
-            for slot in slots:
-                for status in ("confirmed", "waitlist"):
-                    for s in get_signups_for_slot(slot["id"], status):
-                        norm = s["name_normalized"]
-                        if norm in ORGA_TEAM_NORMALIZED:
-                            entry = signup_map.setdefault(
-                                norm, {"name": s["name"], "labels": []}
-                            )
-                            entry["labels"].append(slot["label"])
-            entries = []
-            for norm, info in signup_map.items():
-                entries.append(
-                    {
-                        "name": info["name"],
-                        "name_normalized": norm,
-                        "date_label": date_label,
-                        "slots": info["labels"],
-                    }
-                )
-            entries.sort(key=lambda e: e["name"].lower())
-            return entries
+        entries.sort(key=lambda e: e["name"].lower())
+        return entries
 
     def get_current_theme_key():
         db = get_db()
