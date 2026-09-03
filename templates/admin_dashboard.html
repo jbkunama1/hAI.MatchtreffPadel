@@ -1,16 +1,17 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}Admin-Dashboard{% endblock %}
+{% block admin_title %}Admin-Dashboard{% endblock %}
 
 {% block content %}
 <style>
     .admin-tabs {
-        margin: 0.85rem 0 1.1rem;
+        margin: 0 0 1.5rem;
         padding: 0.5rem;
         border: 1px solid rgba(255, 255, 255, 0.18);
         border-radius: 1.1rem;
         background: rgba(15, 23, 42, 0.42);
-        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25); /* Stronger shadow */
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.25);
     }
 
     .admin-tablist {
@@ -287,8 +288,53 @@
         >
             ⚙️ Automatik
         </button>
-    </div>
-</div>
+
+                    <button
+                        class="admin-tab"
+                        type="button"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="tab-whatsapp"
+                        id="btn-whatsapp"
+                        data-tab="whatsapp"
+                    >
+                        📱 WA Template
+                    </button>
+
+                    <button
+                        class="admin-tab"
+                        type="button"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="tab-tpcg
+                <h3>Americana Werbung</h3>
+                <form method="post" action="{{ url_for('admin_update_americana_ad') }}">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="show_americana_ad" value="1" id="show_americana_ad" {% if settings.show_americana_ad %}checked{% endif %}>
+                        <label class="form-check-label" for="show_americana_ad">Americana Werbung anzeigen (Startseite + Spieleliste)</label>
+                    </div>
+                    <button type="submit" class="btn-accent mt-2">Speichern</button>
+                </form>
+"
+                        id="btn-tpcg"
+                        data-tab="tpcg"
+                    >
+                        📱 TPCG Gruppe
+                    </button>
+
+                    <button
+                        class="admin-tab"
+                        type="button"
+                        role="tab"
+                        aria-selected="false"
+                        aria-controls="tab-bio"
+                        id="btn-bio"
+                        data-tab="bio"
+                    >
+                        📝 Meine Bio
+                    </button>
+                </div>
+            </div>
 
 
     <dialog id="admin-guide-dialog" class="admin-dialog">
@@ -1406,6 +1452,124 @@
     </div>
 </section>
 
+<section
+    class="admin-tabpanel"
+    id="tab-whatsapp"
+    role="tabpanel"
+    aria-labelledby="btn-whatsapp"
+    hidden
+>
+    <div class="admin-stack">
+        <div class="admin-card">
+            <h2>📱 WhatsApp Text-Template</h2>
+            <p style="opacity: 0.8; margin-bottom: 1rem;">
+                Dieser Text wird als Vorlage angezeigt, die Admins kopieren und in WhatsApp einfügen können.
+            </p>
+
+            <form method="post" action="{{ url_for('admin_update_whatsapp_template') }}">
+                <div class="form-group">
+                    <label for="whatsapp_template">Template-Text</label>
+                    <textarea
+                        class="form-control"
+                        id="whatsapp_template"
+                        name="whatsapp_template"
+                        rows="18"
+                        style="font-family: inherit; white-space: pre-wrap;"
+                    >{{ whatsapp_template }}</textarea>
+                </div>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-top: 0.5rem;">
+                    <button type="submit" class="btn-accent">💾 Speichern</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+
+                <section
+                    class="admin-tabpanel"
+                    id="tab-tpcg
+                <h3>Americana Werbung</h3>
+                <form method="post" action="{{ url_for('admin_update_americana_ad') }}">
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="show_americana_ad" value="1" id="show_americana_ad" {% if settings.show_americana_ad %}checked{% endif %}>
+                        <label class="form-check-label" for="show_americana_ad">Americana Werbung anzeigen (Startseite + Spieleliste)</label>
+                    </div>
+                    <button type="submit" class="btn-accent mt-2">Speichern</button>
+                </form>
+"
+                    role="tabpanel"
+                    aria-labelledby="btn-tpcg"
+                    hidden
+                >
+                    <div class="admin-stack">
+                        <div class="admin-card">
+                            <h2>📱 TPCG Info-Gruppe (WhatsApp)</h2>
+                            <p class="meta-text">
+                                Hier kann die URL zur TPCG Info-Gruppe (WhatsApp) hinterlegt werden.
+                                Diese wird auf der Startseite als Button mit QR-Code-Popup angezeigt.
+                            </p>
+
+                            <form method="post" action="{{ url_for('admin_update_tpcg_whatsapp') }}">
+                                <div class="form-group">
+                                    <label for="tpcg_whatsapp_url">Gruppen-URL</label>
+                                    <input
+                                        class="form-control"
+                                        type="url"
+                                        id="tpcg_whatsapp_url"
+                                        name="tpcg_whatsapp_url"
+                                        placeholder="https://chat.whatsapp.com/..."
+                                        value="{{ tpcg_whatsapp_url }}"
+                                    >
+                                </div>
+                                <div class="form-group">
+                                    <label for="tpcg_whatsapp_label">Anzeige-Text</label>
+                                    <input
+                                        class="form-control"
+                                        type="text"
+                                        id="tpcg_whatsapp_label"
+                                        name="tpcg_whatsapp_label"
+                                        placeholder="TPCG Info-Gruppe (WhatsApp)"
+                                        value="{{ tpcg_whatsapp_label }}"
+                                    >
+                                </div>
+                                <button type="submit" class="btn-accent">Speichern</button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
+                <section
+                    class="admin-tabpanel"
+                    id="tab-bio"
+                    role="tabpanel"
+                    aria-labelledby="btn-bio"
+                    hidden
+                >
+                    <div class="admin-stack">
+                        <div class="admin-card">
+                            <h2>📝 Mein Profiltext</h2>
+                            <p class="meta-text">
+                                Dieser Text wird auf der Seite "Über uns" unter dem Orga-Team angezeigt.
+                                Jeder Admin kann seinen eigenen Text hier pflegen.
+                            </p>
+
+                            <form method="post" action="{{ url_for('admin_update_admin_bio') }}">
+                                <div class="form-group">
+                                    <label for="admin_bio">Dein Profiltext</label>
+                                    <textarea
+                                        class="form-control"
+                                        id="admin_bio"
+                                        name="admin_bio"
+                                        rows="8"
+                                        style="font-family: inherit; white-space: pre-wrap;"
+                                    >{{ admin_bios[admin_username] if admin_username in admin_bios else '' }}</textarea>
+                                </div>
+                                <button type="submit" class="btn-accent">Speichern</button>
+                            </form>
+                        </div>
+                    </div>
+                </section>
+
 <script>
 document.addEventListener("DOMContentLoaded", function () {
     const tabs = document.querySelectorAll(".admin-tab[data-tab]");
@@ -1436,3 +1600,7 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 </script>
 {% endblock %}
+
+
+
+

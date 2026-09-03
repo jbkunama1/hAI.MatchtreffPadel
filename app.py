@@ -24,6 +24,7 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 from logic_auth import admin_required, authenticate_admin
+from logic_settings import DEFAULT_WHATSAPP_TEMPLATE
 try:
     import qrcode
 except ImportError:
@@ -1060,8 +1061,32 @@ def create_app(test_config=None):
             ),
         )
 
-    def set_setting_value(key, value):
-        db = get_db()
+        def get_whatsapp_template():
+            return get_setting_value("whatsapp_template", DEFAULT_WHATSAPP_TEMPLATE)
+
+        def get_tpcg_whatsapp_url():
+            return get_setting_value("tpcg_whatsapp_url", "")
+
+        def get_tpcg_whatsapp_label():
+            return get_setting_value(
+                "tpcg_whatsapp_label",
+                "TPCG Info-Gruppe (WhatsApp)",
+            )
+
+        def get_admin_bios():
+            raw = get_setting_value("admin_bios", "{}")
+            try:
+                import json
+                return json.loads(raw)
+            except Exception:
+                return {}
+
+        def set_admin_bios(bios_dict):
+            import json
+            set_setting_value("admin_bios", json.dumps(bios_dict, ensure_ascii=False))
+
+        def set_setting_value(key, value):
+                    db = get_db()
         db.execute(
             """
             INSERT INTO settings (key, value)
@@ -1530,13 +1555,16 @@ def create_app(test_config=None):
             is_admin=bool(session.get("is_admin")),
             signup_open=is_signup_open(),
             signup_lock_cfg=signup_lock_settings(),
-                        slot_close=slot_close_info(),
+            tpcg_whatsapp_url=get_tpcg_whatsapp_url(),
+            tpcg_whatsapp_label=get_tpcg_whatsapp_label(),
+            slot_close=slot_close_info(),
                         admin_status_visible=get_admin_status_visible(),
                         admin_status_options=ADMIN_STATUS_OPTIONS,
                                                 admin_signup_entries=get_admin_signup_entries(),
                                                 guest_delay_active=guest_delay_active(),
                                                 guest_allowed_at=guest_allowed_at(),
-                                            )
+                                                            show_americana_ad=get_setting_value("show_americana_ad", type=bool),
+                                                        )
 
     @app.route("/info")
     def info_page():
@@ -1590,12 +1618,12 @@ def create_app(test_config=None):
                     is_admin=bool(session.get("is_admin")),
                     admin_status_visible=get_admin_status_visible(),
                     admin_status_options=ADMIN_STATUS_OPTIONS,
-                                admin_signup_entries=get_admin_signup_entries(),
-                            )
+                                                    admin_signup_entries=get_admin_signup_entries(),
+                                                    show_americana_ad=get_setting_value("show_americana_ad", type=bool),
+                                                )
 
     @app.route("/downloads", methods=["GET", "POST"])
     def downloads():
-        """Download-Bereich: Liste aller Dateien im static/downloads-Ordner."""
         download_dir = os.path.join(app.static_folder, "downloads")
         os.makedirs(download_dir, exist_ok=True)
 
@@ -1614,47 +1642,128 @@ def create_app(test_config=None):
                 flash("Ungueltiger Dateiname.", "danger")
                 return redirect(url_for("downloads"))
 
-            # Nur bestimmte Endungen erlauben
             allowed = {".zip", ".apk", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".pdf", ".mp4", ".txt"}
             ext = os.path.splitext(filename)[1].lower()
             if ext not in allowed:
-                flash("Dateityp nicht erlaubt (erlaubt: " + ", ".join(sorted(allowed)) + ").", "danger")
+                flash("Dateityp nicht erlaubt.", "danger")
                 return redirect(url_for("downloads"))
 
-            uploaded.save(os.path.join(download_dir, filename))
-            flash("Datei hochgeladen: " + filename, "success")
+            admin_only = request.form.get("admin_only") == "1"
+            safe_name = filename
+            final_path = os.path.join(download_dir, safe_name)
+            i = 1
+            while os.path.exists(final_path):
+                name2, ext2 = os.path.splitext(safe_name)
+                safe_name = name2 + "_" + str(i) + ext2
+                final_path = os.path.join(download_dir, safe_name)
+                i += 1
+
+            uploaded.save(final_path)
+            if admin_only:
+                open(os.path.join(download_dir, safe_name + ".admin_only"), "w").close()
+            flash("Datei hochgeladen: " + safe_name, "success")
             return redirect(url_for("downloads"))
 
         files = []
+        preview_exts = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".mp4"}
         for entry in os.scandir(download_dir):
-            if entry.is_file():
-                files.append(
-                    {
-                        "name": entry.name,
-                        "size": entry.stat().st_size,
-                        "mtime": entry.stat().st_mtime,
-                    }
-                )
+            if entry.is_file() and not entry.name.endswith(".admin_only"):
+                fname = entry.name
+                files.append({
+                    "name": fname,
+                    "size": entry.stat().st_size,
+                    "mtime": entry.stat().st_mtime,
+                    "admin_only": os.path.exists(os.path.join(download_dir, fname + ".admin_only")),
+                    "preview_url": url_for("static", filename="downloads/" + fname) if os.path.splitext(fname)[1].lower() in preview_exts else None,
+                })
 
         files.sort(key=lambda f: f["mtime"], reverse=True)
 
         def _fmt_size(size):
             if size >= 1024 * 1024:
-                return f"{size / (1024 * 1024):.1f} MB"
+                return str(round(size / (1024 * 1024), 1)) + " MB"
             if size >= 1024:
-                return f"{size / 1024:.0f} KB"
-            return f"{size} B"
+                return str(round(size / 1024)) + " KB"
+            return str(size) + " B"
 
-        return render_template(
-            "downloads.html",
-            files=files,
-            fmt_size=_fmt_size,
-        )
+        return render_template("downloads.html", files=files, fmt_size=_fmt_size)
+
+    @app.route("/downloads/<path:filename>/rename", methods=["GET", "POST"])
+    @admin_required
+    def downloads_rename_page(filename):
+        download_dir = os.path.join(app.static_folder, "downloads")
+        safe_name = os.path.basename(filename)
+        path = os.path.join(download_dir, safe_name)
+
+        if not os.path.exists(path):
+            flash("Datei nicht gefunden.", "danger")
+            return redirect(url_for("downloads"))
+
+        if request.method == "POST":
+            new_name = request.form.get("new_name", "").strip()
+            if not new_name or re.search(r'[/\\]', new_name):
+                flash("Ungueltiger neuer Dateiname.", "danger")
+                return redirect(url_for("downloads_rename_page", filename=safe_name))
+
+            new_path = os.path.join(download_dir, new_name)
+            if os.path.exists(new_path) and new_path != path:
+                flash("Eine Datei mit diesem Namen gibt es bereits.", "danger")
+                return redirect(url_for("downloads_rename_page", filename=safe_name))
+
+            os.rename(path, new_path)
+            marker_old = path + ".admin_only"
+            marker_new = new_path + ".admin_only"
+            if os.path.exists(marker_old):
+                os.rename(marker_old, marker_new)
+            flash("Datei umbenannt.", "success")
+            return redirect(url_for("downloads"))
+
+        return render_template("downloads_rename.html", filename=safe_name)
+
+    @app.route("/downloads/<path:filename>/visibility", methods=["POST"])
+    @admin_required
+    def downloads_visibility(filename):
+        download_dir = os.path.join(app.static_folder, "downloads")
+        safe_name = os.path.basename(filename)
+        path = os.path.join(download_dir, safe_name)
+        marker = path + ".admin_only"
+
+        if not os.path.exists(path):
+            flash("Datei nicht gefunden.", "danger")
+            return redirect(url_for("downloads"))
+
+        admin_only = request.form.get("admin_only") == "1"
+        if admin_only:
+            open(marker, "w").close()
+        elif os.path.exists(marker):
+            os.remove(marker)
+        flash("Sichtbarkeit aktualisiert.", "success")
+        return redirect(url_for("downloads"))
+
+    @app.route("/downloads/<path:filename>/preview")
+    def downloads_preview(filename):
+        download_dir = os.path.join(app.static_folder, "downloads")
+        safe_name = os.path.basename(filename)
+        path = os.path.join(download_dir, safe_name)
+
+        if not os.path.exists(path) or not path.startswith(os.path.abspath(download_dir)):
+            abort(404)
+
+        ext = os.path.splitext(safe_name)[1].lower()
+        image_exts = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+        video_exts = {".mp4", ".webm", ".mov"}
+        url = url_for("static", filename="downloads/" + safe_name)
+
+        if ext in image_exts:
+            return ('<div style="text-align:center;padding:1rem;"><img src="' + url + '" style="max-width:100%;max-height:80vh;border-radius:1rem;"></div>')
+        elif ext in video_exts:
+            return ('<div style="text-align:center;padding:1rem;"><video controls style="max-width:100%;max-height:80vh;border-radius:1rem;"><source src="' + url + '">Dein Browser unterstuetzt das Video-Format nicht.</video></div>')
+        else:
+            abort(404)
 
     @app.route("/downloads/<path:filename>/delete", methods=["POST"])
     @admin_required
     def downloads_delete(filename):
-        """Loescht eine Datei aus dem Download-Bereich (nur Admin)."""
         download_dir = os.path.join(app.static_folder, "downloads")
         safe_name = os.path.basename(filename)
         path = os.path.join(download_dir, safe_name)
@@ -1665,12 +1774,55 @@ def create_app(test_config=None):
 
         try:
             os.remove(path)
+            marker = path + ".admin_only"
+            if os.path.exists(marker):
+                os.remove(marker)
             flash("Datei geloescht: " + safe_name, "info")
         except OSError:
             flash("Datei konnte nicht geloescht werden.", "danger")
         return redirect(url_for("downloads"))
 
-    @app.route("/ueber-uns", methods=["GET", "POST"])
+
+        safe_name = os.path.basename(filename)
+        path = os.path.join(download_dir, safe_name)
+
+        if not os.path.exists(path) or not path.startswith(os.path.abspath(download_dir)):
+            abort(404)
+
+        ext = os.path.splitext(safe_name)[1].lower()
+        image_exts = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+        video_exts = {".mp4", ".webm", ".mov"}
+        url = url_for("static", filename="downloads/" + safe_name)
+
+        if ext in image_exts:
+                    return ('<div style="text-align:center;padding:1rem;"><img src="' + url + '" style="max-width:100%;max-height:80vh;border-radius:1rem;"></div>')
+        elif ext in video_exts:
+                    return ('<div style="text-align:center;padding:1rem;"><video controls style="max-width:100%;max-height:80vh;border-radius:1rem;"><source src="' + url + '">Dein Browser unterstuetzt das Video-Format nicht.</video></div>')
+        else:
+            abort(404)
+
+    @app.route("/downloads/<path:filename>/delete", methods=["POST"])
+    @admin_required
+    def downloads_delete(filename):
+        download_dir = os.path.join(app.static_folder, "downloads")
+        safe_name = os.path.basename(filename)
+        path = os.path.join(download_dir, safe_name)
+
+        if not os.path.exists(path) or not path.startswith(os.path.abspath(download_dir)):
+            flash("Datei nicht gefunden.", "danger")
+            return redirect(url_for("downloads"))
+
+        try:
+            os.remove(path)
+            marker = path + ".admin_only"
+            if os.path.exists(marker):
+                os.remove(marker)
+            flash("Datei geloescht: " + safe_name, "info")
+        except OSError:
+            flash("Datei konnte nicht geloescht werden.", "danger")
+        return redirect(url_for("downloads"))
+
+
     def ueber_uns():
         if request.method == "POST":
             name = request.form.get("name", "").strip()
@@ -1716,7 +1868,43 @@ def create_app(test_config=None):
         return render_template(
             "ueber_uns.html",
             orga_team=ORGA_TEAM,
-        )
+                    admin_bios=get_admin_bios(),
+                )
+
+    @app.route("/nachricht-an-admin", methods=["GET", "POST"])
+    def nachricht_an_admin():
+        """Einfache Seite zum Senden einer Nachricht an die Admins."""
+        if request.method == "POST":
+            name = request.form.get("name", "").strip()
+            contact_channel = request.form.get("contact_channel", "").strip()
+            contact_value = request.form.get("contact_value", "").strip()
+            nachricht = request.form.get("nachricht", "").strip()
+
+            if not nachricht:
+                flash("Bitte gib eine Nachricht ein.", "danger")
+                return redirect(url_for("nachricht_an_admin"))
+
+            if not contact_channel or not contact_value:
+                flash("Bitte gib an, wie wir dir antworten können (Telegram, WhatsApp oder E-Mail).", "danger")
+                return redirect(url_for("nachricht_an_admin"))
+
+            db = get_db()
+            db.execute(
+                """
+                INSERT INTO contact_messages (name, contact_channel, contact_value, message)
+                VALUES (?, ?, ?, ?)
+                """,
+                (name, contact_channel, contact_value, nachricht),
+            )
+            db.commit()
+
+            # An Admin per Telegram weiterleiten
+            forward_contact_message_to_admin(name, "", "", contact_channel, contact_value, nachricht)
+
+            flash("Deine Nachricht wurde erfolgreich gesendet. Die Admins melden sich bei dir!", "success")
+            return redirect(url_for("nachricht_an_admin"))
+
+        return render_template("nachricht_an_admin.html")
 
     @app.route("/chat", methods=["GET", "POST"])
     def chat():
@@ -1804,6 +1992,37 @@ def create_app(test_config=None):
             mimetype="image/png",
             as_attachment=False,
             download_name="telegram_qr.png",
+        )
+
+    @app.route("/tpcg/qr.png")
+    def tpcg_qr_png():
+        """Serve QR code for the TPCG Info-Gruppe (WhatsApp)."""
+        if qrcode is None:
+            abort(404)
+
+        tpcg_url = get_tpcg_whatsapp_url()
+        if not tpcg_url:
+            abort(404)
+
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=8,
+            border=2,
+        )
+        qr.add_data(tpcg_url)
+        qr.make(fit=True)
+        img = qr.make_image(fill_color="black", back_color="white")
+
+        img_io = BytesIO()
+        img.save(img_io, format="PNG")
+        img_io.seek(0)
+
+        return send_file(
+            img_io,
+            mimetype="image/png",
+            as_attachment=False,
+            download_name="tpcg_qr.png",
         )
 
     @app.route("/eintragen", methods=["POST"])
@@ -2310,9 +2529,14 @@ def create_app(test_config=None):
             paypal_image=get_paypal_image(),
             americana_url=get_americana_url(),
             americana_text=get_americana_text(),
-            contact_messages=contact_messages,
+            whatsapp_template=get_whatsapp_template(),
+            tpcg_whatsapp_url=get_tpcg_whatsapp_url(),
+            tpcg_whatsapp_label=get_tpcg_whatsapp_label(),
+                        admin_bios=get_admin_bios(),
+                        contact_messages=contact_messages,
             unread_messages_count=unread_messages_count,
             faq_entries=faq_entries,
+            show_americana_ad=get_setting_value("show_americana_ad", type=bool),
             slot_close=slot_close_info(),
             admin_status_list=get_admin_status_list(),
             admin_status_options=ADMIN_STATUS_OPTIONS,
@@ -2368,6 +2592,47 @@ def create_app(test_config=None):
         set_setting_value("americana_url", request.form.get("americana_url", "").strip())
         set_setting_value("americana_text", request.form.get("americana_text", "").strip())
         flash("Links aktualisiert.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/whatsapp-template/update", methods=["POST"])
+    @admin_required
+    def admin_update_whatsapp_template():
+        template = request.form.get("whatsapp_template", "").strip()
+        set_setting_value("whatsapp_template", template)
+        flash("WhatsApp Text-Template aktualisiert.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/settings/americana", methods=["POST"])
+    @admin_required
+    def admin_update_americana_ad():
+        show = request.form.get("show_americana_ad") == "1"
+        set_setting_value("show_americana_ad", show)
+        flash("Americana Werbung Einstellung aktualisiert.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/tpcg-whatsapp/update", methods=["POST"])
+    @admin_required
+    def admin_update_tpcg_whatsapp():
+        url = request.form.get("tpcg_whatsapp_url", "").strip()
+        label = request.form.get("tpcg_whatsapp_label", "").strip()
+        set_setting_value("tpcg_whatsapp_url", url)
+        set_setting_value("tpcg_whatsapp_label", label or "TPCG Info-Gruppe (WhatsApp)")
+        flash("TPCG WhatsApp-Gruppe aktualisiert.", "success")
+        return redirect(url_for("admin_dashboard"))
+
+    @app.route("/admin/admin-bio/update", methods=["POST"])
+    @admin_required
+    def admin_update_admin_bio():
+        bio = request.form.get("admin_bio", "").strip()
+        admin_name = session.get("admin_username", "")
+        if not admin_name:
+            flash("Admin nicht erkannt.", "danger")
+            return redirect(url_for("admin_dashboard"))
+
+        bios = get_admin_bios()
+        bios[admin_name] = bio
+        set_admin_bios(bios)
+        flash("Dein Profiltext wurde gespeichert.", "success")
         return redirect(url_for("admin_dashboard"))
 
     @app.route("/admin/messages/<int:message_id>/read", methods=["POST"])
