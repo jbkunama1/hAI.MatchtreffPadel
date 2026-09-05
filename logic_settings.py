@@ -55,33 +55,33 @@ SIGNUP_DEFAULT_OPEN_MINUTE = 0
 APP_TZ = ZoneInfo("Europe/Berlin")
 
 DEFAULT_INTRO_TEXT = (
-    "Anmeldung fÃ¼r Donnerstag, {next_thursday}. Trag einfach deinen Namen ein "
-    "und wÃ¤hle einen oder beide Slots. Pro GerÃ¤t kann man sich pro Slot nur "
+    "Anmeldung für Donnerstag, {next_thursday}. Trag einfach deinen Namen ein "
+    "und wähle einen oder beide Slots. Pro Gerät kann man sich pro Slot nur "
     "einmal eintragen."
 )
 
-DEFAULT_WHATSAPP_TEMPLATE = """Matchtreff Silber ðŸ¥ˆ (Beschreibung des Levels in der Gruppenbeschreibung beachten!)
+DEFAULT_WHATSAPP_TEMPLATE = """Matchtreff Silber 🥈 (Beschreibung des Levels in der Gruppenbeschreibung beachten!)
 
-Du trainierst regelmÃ¤ÃŸig, hast Turniererfahrung oder spielst in einer Mannschaft (DPV oder BaWÃ¼-Liga)
+Du trainierst regelmäßig, hast Turniererfahrung oder spielst in einer Mannschaft (DPV oder BaWü-Liga)
 Dann bist du hier richtig!
 
-ðŸ•’ Zeiten:
-18â€“20 Uhr oder 20â€“22 Uhr
+🕒 Zeiten:
+18–20 Uhr oder 20–22 Uhr
 
-ðŸ‘‰ Jetzt anmelden und mitspielen!
+👉 Jetzt anmelden und mitspielen!
 Matchtreff.padeln.de
 
 Solltest Du bzgl. deines Levels unsicher sein, frag gerne bei uns nach.
 
 Kosten:
-2â‚¬ Mitglieder
-15â‚¬ GÃ¤ste
+2€ Mitglieder
+15€ Gäste
 
-FÃ¼r GÃ¤ste wird die Anmeldung mit 24 Stunden VerzÃ¶gerung geÃ¶ffnet, da Mitglieder Vorrang genieÃŸen.
+Für Gäste wird die Anmeldung mit 24 Stunden Verzögerung geöffnet, da Mitglieder Vorrang genießen.
 
-Bis Donnerstag! VAMOS! ðŸ¥ŽðŸ¥Ž
+Bis Donnerstag! VAMOS! 🎾🎾
 
-ðŸŒ§ï¸INFO - Bei schlechtem Wetter kann es zu einer Absage kommen! ðŸŒ§ï¸"""
+⛈️ INFO - Bei schlechtem Wetter kann es zu einer Absage kommen! ⛈️"""
 
 INFO_PAGE_TEXT = """Hallo Padel-Spieler,
 

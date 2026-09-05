@@ -1801,6 +1801,7 @@ def create_app(test_config=None):
         else:
             abort(404)
 
+    @app.route("/ueber-uns", methods=["GET", "POST"])
     def ueber_uns():
         if request.method == "POST":
             name = request.form.get("name", "").strip()
