@@ -1801,28 +1801,6 @@ def create_app(test_config=None):
         else:
             abort(404)
 
-    @app.route("/downloads/<path:filename>/delete", methods=["POST"])
-    @admin_required
-    def downloads_delete(filename):
-        download_dir = os.path.join(app.static_folder, "downloads")
-        safe_name = os.path.basename(filename)
-        path = os.path.join(download_dir, safe_name)
-
-        if not os.path.exists(path) or not path.startswith(os.path.abspath(download_dir)):
-            flash("Datei nicht gefunden.", "danger")
-            return redirect(url_for("downloads"))
-
-        try:
-            os.remove(path)
-            marker = path + ".admin_only"
-            if os.path.exists(marker):
-                os.remove(marker)
-            flash("Datei geloescht: " + safe_name, "info")
-        except OSError:
-            flash("Datei konnte nicht geloescht werden.", "danger")
-        return redirect(url_for("downloads"))
-
-
     def ueber_uns():
         if request.method == "POST":
             name = request.form.get("name", "").strip()
