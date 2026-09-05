@@ -1,7 +1,7 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 {% block title %}Statistiken - Matchtreff Padel{% endblock %}
+{% block admin_title %}Statistiken{% endblock %}
 {% block content %}
-<h1>Statistiken</h1>
 <p><a href="{{ url_for('admin_dashboard') }}" class="btn-soft">Zurueck zum Admin-Dashboard</a></p>
 
 {% if event %}

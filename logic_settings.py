@@ -60,6 +60,29 @@ DEFAULT_INTRO_TEXT = (
     "einmal eintragen."
 )
 
+DEFAULT_WHATSAPP_TEMPLATE = """Matchtreff Silber 🥈 (Beschreibung des Levels in der Gruppenbeschreibung beachten!)
+
+Du trainierst regelmäßig, hast Turniererfahrung oder spielst in einer Mannschaft (DPV oder BaWü-Liga)
+Dann bist du hier richtig!
+
+🕒 Zeiten:
+18–20 Uhr oder 20–22 Uhr
+
+👉 Jetzt anmelden und mitspielen!
+Matchtreff.padeln.de
+
+Solltest Du bzgl. deines Levels unsicher sein, frag gerne bei uns nach.
+
+Kosten:
+2€ Mitglieder
+15€ Gäste
+
+Für Gäste wird die Anmeldung mit 24 Stunden Verzögerung geöffnet, da Mitglieder Vorrang genießen.
+
+Bis Donnerstag! VAMOS! 🎾🎾
+
+⛈️ INFO - Bei schlechtem Wetter kann es zu einer Absage kommen! ⛈️"""
+
 INFO_PAGE_TEXT = """Hallo Padel-Spieler,
 
 hier findet Ihr die Abfrage, wer so alles beim MATCHTREFF SILBER dabei ist.
@@ -114,26 +137,31 @@ THEMES = {
         "label": "Standard (Blau)",
         "gradient": "radial-gradient(circle at top left, #e0ecff 0, #f5f5fb 40%, #fdfdfd 100%)",
         "background_image": None, "accent": "#2563eb", "accent2": "#0ea5e9",
+    "show_americana_ad": True,
     },
     "sunset": {
         "label": "Sunset (Orange)",
         "gradient": "radial-gradient(circle at top left, #ffe4d6 0, #fff5f0 40%, #fffaf7 100%)",
         "background_image": None, "accent": "#ea580c", "accent2": "#f59e0b",
+    "show_americana_ad": True,
     },
     "court": {
         "label": "Court (Gruen)",
         "gradient": "radial-gradient(circle at top left, #dcfce7 0, #f0fdf4 40%, #fbfffc 100%)",
         "background_image": None, "accent": "#16a34a", "accent2": "#22c55e",
+    "show_americana_ad": True,
     },
     "night": {
         "label": "Night (Dunkel)",
         "gradient": "radial-gradient(circle at top left, #1e293b 0, #0f172a 60%, #020617 100%)",
         "background_image": None, "accent": "#38bdf8", "accent2": "#818cf8",
+    "show_americana_ad": True,
     },
     "custom_image": {
         "label": "Eigenes Bild (Galerie)",
         "gradient": "linear-gradient(rgba(15,23,42,0.55), rgba(15,23,42,0.55))",
         "background_image": "__CUSTOM__", "accent": "#f97316", "accent2": "#facc15",
+    "show_americana_ad": True,
     },
 }
 
@@ -172,4 +200,6 @@ def get_setting_defaults():
                 "slot_close_time_slot_a": "",
                 "slot_close_time_slot_b": "",
                 "show_banner": DEFAULT_SHOW_BANNER,
+                "whatsapp_template": DEFAULT_WHATSAPP_TEMPLATE,
+    "show_americana_ad": True,
     }

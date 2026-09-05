@@ -3,8 +3,16 @@
 {% block title %}Matchtreff Padel - Anmeldung{% endblock %}
 
 {% block content %}
+{% if show_americana_ad and americana_url and americana_text %}
+<div class="americana-banner">
+    <a href="{{ americana_url }}" target="_blank" rel="noopener">
+        <span class="usa-text">{{ americana_text }}</span>
+    </a>
+</div>
+{% endif %}
+
 <style>
-    .page-heading {
+.page-heading {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -896,3 +904,4 @@
     });
 </script>
 {% endblock %}
+

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <title>{% block title %}Admin - Matchtreff Padel{% endblock %}</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        :root {
+            --app-bg: {{ current_theme.gradient }}{% if current_theme.background_image %}, url("{{ url_for('static', filename='pictures/' + current_theme.background_image) }}") center/cover no-repeat fixed{% endif %};
+            --bubble-color: {{ current_theme.accent }}2E;
+            --bg-icon-image: url("{{ url_for('static', filename='padel_ball.png') }}");
+        }
+        .badge-pill {
+            background: {{ current_theme.accent }}14;
+            color: {{ current_theme.accent }};
+        }
+        .btn-accent {
+            background: linear-gradient(135deg, {{ current_theme.accent }}, {{ current_theme.accent2 }});
+        }
+        /* Admin-specific layout */
+        .admin-shell {
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: 260px 1fr;
+            grid-template-rows: auto 1fr;
+        }
+        @media (max-width: 991.98px) {
+            .admin-shell {
+                grid-template-columns: 1fr;
+            }
+        }
+        .admin-sidebar {
+            background: rgba(15, 23, 42, 0.92);
+            color: #f8fafc;
+            padding: 1.5rem 1rem;
+            border-right: 1px solid rgba(255, 255, 255, 0.1);
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            overflow-y: auto;
+            z-index: 10;
+        }
+        .admin-sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        .admin-sidebar-logo {
+            height: 48px;
+            width: auto;
+        }
+        .admin-sidebar-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .admin-nav {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+        .admin-nav-link {
+            display: flex;
+            align-items: center;
+            gap: 0.6rem;
+            padding: 0.6rem 0.85rem;
+            border-radius: 0.7rem;
+            color: rgba(248, 250, 252, 0.85);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: background 0.15s, color 0.15s;
+        }
+        .admin-nav-link:hover,
+        .admin-nav-link.active {
+            background: rgba(255, 255, 255, 0.12);
+            color: #f8fafc;
+        }
+        .admin-nav-link.active {
+            background: linear-gradient(135deg, var(--accent, #38bdf8), var(--accent2, #818cf8));
+            color: #06111f;
+        }
+        .admin-main {
+            padding: 2rem 2.5rem;
+            background: transparent;
+            min-height: 100vh;
+        }
+        .admin-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            flex-wrap: wrap;
+        }
+        .admin-header h1 {
+            margin: 0;
+            font-size: 1.75rem;
+        }
+        .admin-content {
+            background: rgba(255, 255, 255, 0.04);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 1rem;
+            padding: 2rem;
+        }
+        .flash-list { list-style: none; padding: 0; margin: 0 0 1.5rem 0; }
+        .flash-list li { padding: 0.75rem 1rem; border-radius: 0.6rem; margin-bottom: 0.5rem; font-size: 0.9rem; }
+        .flash-success { background: rgba(34, 197, 94, 0.15); color: #15803d; border: 1px solid rgba(34, 197, 94, 0.25); }
+        .flash-danger { background: rgba(220, 38, 38, 0.15); color: #b91c1c; border: 1px solid rgba(220, 38, 38, 0.25); }
+        .flash-warning { background: rgba(234, 179, 8, 0.15); color: #92400e; border: 1px solid rgba(234, 179, 8, 0.25); }
+        .flash-info { background: rgba(37, 99, 235, 0.15); color: #1d4ed8; border: 1px solid rgba(37, 99, 235, 0.25); }
+        
+        @media (max-width: 767.98px) {
+            .admin-main { padding: 1.25rem; }
+            .admin-content { padding: 1.25rem; }
+            .admin-header h1 { font-size: 1.4rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="bg-bubbles {% if current_bg_style == 'logo' %}bg-style-logo{% endif %}{% if current_theme.background_image %} on-image{% endif %}" aria-hidden="true">
+        <span></span><span></span><span></span><span></span>
+        <span></span><span></span><span></span><span></span>
+    </div>
+
+    <div class="admin-shell">
+        <aside class="admin-sidebar" aria-label="Admin Navigation">
+            <div class="admin-sidebar-header">
+                <img src="{{ url_for('static', filename='Logo_I_Matchtreff.png') }}" alt="Logo" class="admin-sidebar-logo">
+                <span class="admin-sidebar-title">Admin-Bereich</span>
+            </div>
+            <nav class="admin-nav" aria-label="Admin Menü">
+                <a href="{{ url_for('admin_dashboard') }}" class="admin-nav-link {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+                    <span>📊</span> Dashboard
+                </a>
+                <a href="{{ url_for('admin_events') }}" class="admin-nav-link {% if request.endpoint == 'admin_events' %}active{% endif %}">
+                    <span>📅</span> Events
+                </a>
+                <a href="{{ url_for('admin_users') }}" class="admin-nav-link {% if request.endpoint == 'admin_users' %}active{% endif %}">
+                    <span>👥</span> Nutzer
+                </a>
+                <a href="{{ url_for('admin_stats') }}" class="admin-nav-link {% if request.endpoint == 'admin_stats' %}active{% endif %}">
+                    <span>📈</span> Statistiken
+                </a>
+                <a href="{{ url_for('admin_qrcode') }}" class="admin-nav-link {% if request.endpoint == 'admin_qrcode' %}active{% endif %}">
+                    <span>📱</span> QR-Code
+                </a>
+                <a href="{{ url_for('admin_settings') }}" class="admin-nav-link {% if request.endpoint == 'admin_settings' %}active{% endif %}">
+                    <span>⚙️</span> Einstellungen
+                </a>
+                <hr style="border-color: rgba(255,255,255,0.1); margin: 1rem 0;">
+                <a href="{{ url_for('admin_logout') }}" class="admin-nav-link" style="color: #f87171;">
+                    <span>🚪</span> Logout
+                </a>
+            </nav>
+        </aside>
+        <main class="admin-main" role="main">
+            <header class="admin-header">
+                <h1>{% block admin_title %}{% endblock %}</h1>
+                <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                    <a href="{{ url_for('index') }}" class="btn-soft" style="padding: 0.5rem 1rem;">Zur Startseite</a>
+                </div>
+            </header>
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    <ul class="flash-list">
+                        {% for category, message in messages %}
+                            <li class="flash-{{ category }}">{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            {% endwith %}
+            <div class="admin-content">
+                {% block content %}{% endblock %}
+            </div>
+        </main>
+    </div>
+</body>
+</html>
