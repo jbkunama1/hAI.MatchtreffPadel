@@ -1563,7 +1563,7 @@ def create_app(test_config=None):
                                                 admin_signup_entries=get_admin_signup_entries(),
                                                 guest_delay_active=guest_delay_active(),
                                                 guest_allowed_at=guest_allowed_at(),
-                                                            show_americana_ad=get_setting_value("show_americana_ad", type=bool),
+                                                            show_americana_ad=bool(get_setting_value("show_americana_ad")),
                                                         )
 
     @app.route("/info")
@@ -1619,7 +1619,7 @@ def create_app(test_config=None):
                     admin_status_visible=get_admin_status_visible(),
                     admin_status_options=ADMIN_STATUS_OPTIONS,
                                                     admin_signup_entries=get_admin_signup_entries(),
-                                                    show_americana_ad=get_setting_value("show_americana_ad", type=bool),
+                                                    show_americana_ad=bool(get_setting_value("show_americana_ad")),
                                                 )
 
     @app.route("/downloads", methods=["GET", "POST"])
@@ -2536,7 +2536,7 @@ def create_app(test_config=None):
                         contact_messages=contact_messages,
             unread_messages_count=unread_messages_count,
             faq_entries=faq_entries,
-            show_americana_ad=get_setting_value("show_americana_ad", type=bool),
+                                    show_americana_ad=bool(get_setting_value("show_americana_ad")),
             slot_close=slot_close_info(),
             admin_status_list=get_admin_status_list(),
             admin_status_options=ADMIN_STATUS_OPTIONS,
