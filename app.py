@@ -1061,32 +1061,32 @@ def create_app(test_config=None):
             ),
         )
 
-        def get_whatsapp_template():
-            return get_setting_value("whatsapp_template", DEFAULT_WHATSAPP_TEMPLATE)
+    def get_whatsapp_template():
+        return get_setting_value("whatsapp_template", DEFAULT_WHATSAPP_TEMPLATE)
 
-        def get_tpcg_whatsapp_url():
-            return get_setting_value("tpcg_whatsapp_url", "")
+    def get_tpcg_whatsapp_url():
+        return get_setting_value("tpcg_whatsapp_url", "")
 
-        def get_tpcg_whatsapp_label():
-            return get_setting_value(
-                "tpcg_whatsapp_label",
-                "TPCG Info-Gruppe (WhatsApp)",
-            )
+    def get_tpcg_whatsapp_label():
+        return get_setting_value(
+            "tpcg_whatsapp_label",
+            "TPCG Info-Gruppe (WhatsApp)",
+        )
 
-        def get_admin_bios():
-            raw = get_setting_value("admin_bios", "{}")
-            try:
-                import json
-                return json.loads(raw)
-            except Exception:
-                return {}
-
-        def set_admin_bios(bios_dict):
+    def get_admin_bios():
+        raw = get_setting_value("admin_bios", "{}")
+        try:
             import json
-            set_setting_value("admin_bios", json.dumps(bios_dict, ensure_ascii=False))
+            return json.loads(raw)
+        except Exception:
+            return {}
 
-        def set_setting_value(key, value):
-                    db = get_db()
+    def set_admin_bios(bios_dict):
+        import json
+        set_setting_value("admin_bios", json.dumps(bios_dict, ensure_ascii=False))
+
+    def set_setting_value(key, value):
+        db = get_db()
         db.execute(
             """
             INSERT INTO settings (key, value)
