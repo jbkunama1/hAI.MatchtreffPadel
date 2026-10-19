@@ -95,15 +95,20 @@
     <ul class="about-team">
         {% for name in orga_team %}
         <li>
-            <span class="avatar">⭐</span>
+                <span class="avatar">{{ name[0] }}</span>
             {{ name }}
-        </li>
-        {% endfor %}
-    </ul>
-</div>
+                {% if admin_bios and name in admin_bios and admin_bios[name] %}
+                <div style="margin-top: 0.4rem; padding: 0.5rem; background: rgba(255,255,255,0.05); border-radius: 0.5rem; font-size: 0.9rem; line-height: 1.5;">
+                    {{ admin_bios[name] }}
+                </div>
+                {% endif %}
+            </li>
+            {% endfor %}
+        </ul>
+    </div>
 
-<div class="about-card">
-    <h2>🌐 Unsere Seiten</h2>
+    <div class="about-card">
+        <h2>🌐 Unsere Seiten</h2>
 
     <p class="about-text">
         Der Matchtreff ist ueber mehrere Adressen erreichbar. Unsere Hauptseite

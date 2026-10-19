@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Nachricht an Admins{% endblock %}
+{% block content %}
+<h2>Nachricht an das Orga-Team</h2>
+<p>Hast du eine Frage oder ein Anliegen? Schreib uns hier direkt eine Nachricht.</p>
+
+<form method="post" action="{{ url_for('nachricht_an_admin') }}">
+    <div class="form-group">
+        <label for="name">Dein Name</label>
+        <input type="text" class="form-control" id="name" name="name" required placeholder="Vorname">
+    </div>
+    <div class="form-group">
+        <label for="contact_channel">Wie sollen wir antworten?</label>
+        <select class="form-control" id="contact_channel" name="contact_channel">
+            <option value="WhatsApp">WhatsApp</option>
+            <option value="Telegram">Telegram</option>
+            <option value="E-Mail">E-Mail</option>
+        </select>
+    </div>
+    <div class="form-group">
+        <label for="contact_value">Deine Nummer / E-Mail</label>
+        <input type="text" class="form-control" id="contact_value" name="contact_value" required placeholder="+49 171 1234567 oder name@mail.de">
+    </div>
+    <div class="form-group">
+        <label for="nachricht">Deine Nachricht</label>
+        <textarea class="form-control" id="nachricht" name="nachricht" rows="5" required></textarea>
+    </div>
+    <div class="form-group">
+        <button type="submit" class="btn-accent">Nachricht senden</button>
+    </div>
+</form>
+{% endblock %}
