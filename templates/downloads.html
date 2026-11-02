@@ -1,107 +1,103 @@
-{% extends "base.html" %}
+﻿{% extends "base.html" %}
 
 {% block title %}Downloads - Matchtreff Padel{% endblock %}
 
 {% block content %}
 <style>
-    .dl-head {
-        text-align: center;
-        margin-bottom: 1.1rem;
-    }
-
+    .dl-head { text-align: center; margin-bottom: 1.1rem; }
     .dl-card {
-        margin: 1.1rem 0;
-        padding: 1.1rem;
-        border: 1px solid rgba(255, 255, 255, 0.14);
-        border-radius: 1rem;
+        margin: 1.1rem 0; padding: 1.1rem;
+        border: 1px solid rgba(255, 255, 255, 0.14); border-radius: 1rem;
         background: rgba(255, 255, 255, 0.06);
     }
-
-    .dl-list {
-        list-style: none;
-        margin: 0;
-        padding: 0;
-    }
-
+    .dl-list { list-style: none; margin: 0; padding: 0; }
     .dl-item {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 0.7rem;
-        margin: 0.5rem 0;
-        padding: 0.65rem 0.8rem;
-        border: 1px solid rgba(255, 255, 255, 0.12);
-        border-radius: 0.8rem;
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 0.7rem; margin: 0.5rem 0; padding: 0.65rem 0.8rem;
+        border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 0.8rem;
         background: rgba(255, 255, 255, 0.05);
     }
-
-    .dl-item .dl-name {
-        font-weight: 700;
-        word-break: break-all;
-    }
-
-    .dl-item .dl-meta {
-        font-size: 0.82rem;
-        opacity: 0.75;
-    }
+    .dl-item .dl-name { font-weight: 700; word-break: break-all; }
+    .dl-item .dl-meta { font-size: 0.82rem; opacity: 0.75; }
+    .dl-item.admin-only { border-color: #ffd70066; background: rgba(255, 215, 0, 0.05); }
+    .dl-visibility { font-size: 0.7rem; padding: 2px 8px; border-radius: 999px; }
+    .vis-all { background: #22c55e33; color: #86efac; }
+    .vis-admin { background: #f9731633; color: #fdba74; }
+    .dl-preview-img { max-width: 120px; max-height: 80px; border-radius: 0.5rem; object-fit: cover; cursor: pointer; }
 </style>
 
 <div class="dl-head">
-    <h1>⬇️ Downloads</h1>
-    <p style="opacity: 0.85;">
-        Hier findest du Bilder, Dokumente und Apps rund um den Matchtreff.
-    </p>
+    <h1>Downloads</h1>
+    <p style="opacity: 0.85;">Hier findest du Bilder, Dokumente und Apps rund um den Matchtreff.</p>
 </div>
 
 <div class="dl-card">
     {% if files %}
     <ul class="dl-list">
         {% for f in files %}
-        <li class="dl-item">
-            <div>
-                <div class="dl-name">
-                    <a
-                        href="{{ url_for('static', filename='downloads/' + f.name) }}"
-                        target="_blank"
-                        rel="noopener"
-                        download
-                    >
-                        📄 {{ f.name }}
-                    </a>
+        {% if is_admin or not f.admin_only %}
+        <li class="dl-item {% if f.admin_only %}admin-only{% endif %}">
+            <div style="display:flex; align-items:center; gap:0.8rem; flex:1; min-width:0;">
+                {% if f.preview_url %}
+                <img src="{{ f.preview_url }}" class="dl-preview-img" onclick="showPreview('{{ f.preview_url }}', '{{ f.name|e }}')" title="Vorschau">
+                {% endif %}
+                <div style="min-width:0;">
+                    <div class="dl-name">
+                        <a href="{{ url_for('static', filename='downloads/' + f.name) }}" target="_blank" rel="noopener" download>
+                            {{ f.name }}
+                        </a>
+                    </div>
+                    <div class="dl-meta">{{ fmt_size(f.size) }}{% if f.admin_only %} <span class="dl-visibility vis-admin">Admin</span>{% else %} <span class="dl-visibility vis-all">Alle</span>{% endif %}</div>
                 </div>
-                <div class="dl-meta">{{ fmt_size(f.size) }}</div>
             </div>
-
             {% if is_admin %}
-            <form
-                method="post"
-                action="{{ url_for('downloads_delete', filename=f.name) }}"
-                onsubmit="return confirm('Datei wirklich loeschen?');"
-            >
-                <button type="submit" class="btn-danger">Löschen</button>
-            </form>
+            <div style="display:flex; gap:0.4rem; align-items:center; flex-shrink:0;">
+                <form method="post" action="{{ url_for('downloads_visibility', filename=f.name) }}" style="display:inline;">
+                    <input type="hidden" name="admin_only" value="{{ '0' if f.admin_only else '1' }}">
+                    <button type="submit" class="btn-sm" style="background:{{ '#f97316' if not f.admin_only else '#22c55e' }};">{{ 'Alle' if f.admin_only else 'Admin' }}</button>
+                </form>
+                <form method="get" action="{{ url_for('downloads_rename_page', filename=f.name) }}" style="display:inline;">
+                    <button type="submit" class="btn-sm">Umbenennen</button>
+                </form>
+                <form method="post" action="{{ url_for('downloads_delete', filename=f.name) }}" onsubmit="return confirm('Datei wirklich loeschen?');" style="display:inline;">
+                    <button type="submit" class="btn-danger btn-sm">Loeschen</button>
+                </form>
+            </div>
             {% endif %}
         </li>
+        {% endif %}
         {% endfor %}
     </ul>
     {% else %}
-    <div class="liste-empty">📭 Noch keine Dateien vorhanden.</div>
+    <div class="liste-empty">Noch keine Dateien vorhanden.</div>
     {% endif %}
 </div>
 
 {% if is_admin %}
 <div class="dl-card">
-    <h2>⬆️ Datei hochladen</h2>
+    <h2>Datei hochladen</h2>
     <p style="opacity: 0.85; font-size: 0.9rem;">
         Erlaubte Dateitypen: .zip, .apk, .jpg, .jpeg, .png, .webp, .gif, .pdf, .mp4, .txt
     </p>
-
     <form method="post" action="{{ url_for('downloads') }}" enctype="multipart/form-data">
-        <p>
-            <input class="form-control" type="file" name="file" required>
-        </p>
-        <button type="submit" class="btn-accent">⬆️ Hochladen</button>
+        <p><input class="form-control" type="file" name="file" required></p>
+        <p><label><input type="checkbox" name="admin_only" value="1"> Nur fuer Admins sichtbar</label></p>
+        <button type="submit" class="btn-accent">Hochladen</button>
     </form>
 </div>
 {% endif %}
+
+<div id="previewModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:9999; align-items:center; justify-content:center;" onclick="closePreview(event)">
+    <span style="position:absolute;top:1rem;right:1.5rem;color:#fff;font-size:2rem;cursor:pointer;" onclick="closePreview(event)">&times;</span>
+    <div id="previewContent" style="max-width:90vw; max-height:90vh; text-align:center;" onclick="event.stopPropagation()"></div>
+</div>
+<script>
+function showPreview(url, name) {
+    document.getElementById('previewContent').innerHTML = name.endsWith('.mp4')
+        ? '<video src="'+url+'" controls style="max-width:90vw; max-height:85vh;"></video>'
+        : '<img src="'+url+'" style="max-width:90vw; max-height:85vh; border-radius:0.5rem;">';
+    document.getElementById('previewModal').style.display = 'flex';
+}
+function closePreview(e) { document.getElementById('previewModal').style.display = 'none'; }
+</script>
 {% endblock %}
